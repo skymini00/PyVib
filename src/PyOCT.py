@@ -10,17 +10,16 @@ import datetime
 import traceback
 import os
 import copy
-
+import platform  # for differentiating platforms
 
 from PyQt4 import QtCore, QtGui, uic
 import pyqtgraph as pg
-import pyqtgraph.opengl as gl
+
 
 import OCTFPGAProcessingInterface as octfpga
 import AudioHardware 
 import MirrorDriver
 from ROIImageGraphicsView import *
-from OCTGLViewWidget import OCTGLViewWidget
 from OCTCommon import *
 from OCTProtocolParams import *
 from DebugLog import DebugLog
@@ -73,8 +72,16 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.saveProcessed = False
         self.saveOpts = SaveOpts()
         self.isCollecting = False
+        self.enableVolViewer = False
         
-        basePath = "C:\\PyOCT\\"
+        sysName = platform.system()
+        if sysName == 'Windows':
+            basePath = "C:\\PyOCT\\"
+        elif sysname == 'Darwin':
+            basePath = "\\Applications\\PyOCT\\"
+        else:
+            basePath = ".."
+            
         self.basePath = basePath
         configBasePath = os.path.join(basePath, 'config\\')
         self.configPath = configBasePath
@@ -323,10 +330,18 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
     def _initGraphVars(self):
         layout = QtGui.QHBoxLayout()
-        self.graphicsView = OCTGLViewWidget()
-        layout.addWidget(self.graphicsView)
-        self.frame.setLayout(layout)
-                
+        if self.enableVolViewer:
+            import pyqtgraph.opengl as gl
+            self.graphicsView = OCTGLViewWidget()
+            layout.addWidget(self.graphicsView)
+            self.frame.setLayout(layout)
+            
+            w = gl.GLViewWidget()
+            self.glview = w
+            
+            self.glvolitem = None
+            self.glaxitem = None
+            
         r = np.linspace(0, 255, 256)
         g = np.zeros(256)
         g[128:] = np.linspace(0, 255, 128)
@@ -337,12 +352,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         lut[:, 1] = g
         lut[:, 2] = b
         self.HOT_LUT = lut
-        
-        w = gl.GLViewWidget()
-        self.glview = w
-        
-        self.glvolitem = None
-        self.glaxitem = None
+            
+            
         self.volumeImg = None
         # self.vol_bscan_graphics_scene = QtGui.QGraphicsScene(0, 0, 300, 500)
         
@@ -552,7 +563,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 self.nextProtocol = 'MScan'
                 self.stopCollection()
             else:
-                multiProc = self.multiProcess_checkbox.isChecked()
+                multiProc = self.multiProcess
                 MScan.runMScan(self, multiProc)
         else:
             self.nextProtocol = None
@@ -1013,6 +1024,9 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
     # display volume inage as 3D in OpenGL context
     def displayVolumeImg3D(self, volImg):
+        if not self.enableVolViewer:
+            return
+            
         view = self.graphicsView
         
         nL = 65535*self.vol_3dnormlow_slider.value() / 100

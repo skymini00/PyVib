@@ -229,9 +229,10 @@ def makeLM1972AttenSig(attenLvl):
         
     return sig
 
-from DAQHardware import DAQHardware
     
 if __name__ == "__main__":
+    from DAQHardware import DAQHardware
+    
     sig = makeLM1972AttenSig(30)
     for n in range(0, len(sig)):
         print("%8x" % sig[n])    
