@@ -1424,11 +1424,11 @@ def runMScan(appObj, multiProcess=False):
         if (scanParams.lengthSteps == 1 and scanParams.widthSteps == 1) or len(scanParams.ptsList) > 0:
             regionMscan = False
             appObj.tabWidget.setCurrentIndex(3)
-            testDataDir = os.path.join(appObj.basePath, 'exampledata\\MScan single pt')
+            testDataDir = os.path.join(appObj.basePath, 'exampledata', 'MScan single pt')
         else:   # region mscan
             regionMscan = True
             appObj.tabWidget.setCurrentIndex(4)
-            testDataDir = os.path.join(appObj.basePath, 'exampledata\\MScan B-Mscan')
+            testDataDir = os.path.join(appObj.basePath, 'exampledata', 'MScan B-Mscan')
 
         # if in testing mode, load proper paramaeters instead of getting them from GUI
         if oct_hw.IsOCTTestingMode():

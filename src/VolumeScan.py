@@ -793,7 +793,7 @@ def runVolScan(appObj):
 
     # if in testing mode, load proper paramaeters instead of getting them from GUI
     if appObj.oct_hw.IsOCTTestingMode():
-        testDataDir = os.path.join(appObj.basePath, 'exampledata\\VolumeScan')
+        testDataDir = os.path.join(appObj.basePath, 'exampledata', 'VolumeScan')
         filePath = os.path.join(testDataDir, 'ScanParams.pickle')
         f = open(filePath, 'rb')
         scanParams = pickle.load(f)

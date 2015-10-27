@@ -519,7 +519,7 @@ def runBScan(appObj):
     appObj.tabWidget.setCurrentIndex(0)
     appObj.doneFlag = False
     appObj.isCollecting = True
-    testDataDir = os.path.join(appObj.basePath, 'exampledata\\Bscan')
+    testDataDir = os.path.join(appObj.basePath, 'exampledata', 'Bscan')
     
     if(appObj.multiProcess):
         runBScanMultiProcess(appObj, testDataDir)

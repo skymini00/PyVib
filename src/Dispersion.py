@@ -204,7 +204,7 @@ def runDispersion(appObj):
     try:
         frameNum = 0
         saveDirInit = False
-        testDataDir = os.path.join(appObj.basePath, 'exampledata\\Dispersion')
+        testDataDir = os.path.join(appObj.basePath, 'exampledata', 'Dispersion')
         while not appObj.doneFlag: 
             # setup and grab the OCT data - this will also fire the mirror output
             numTrigs = appObj.disp_numTrigs_spinBox.value()

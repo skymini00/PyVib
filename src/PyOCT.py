@@ -41,7 +41,7 @@ import SpeakerCalibration
 #from PIL import ImageFont
 #from PIL import ImageDraw
 
-form_class = uic.loadUiType("..\\ui\\PyOCT.ui")[0]                 # Load the UI
+form_class = uic.loadUiType(os.path.join("..", "ui", "PyOCT.ui"))[0]                 # Load the UI
 print('form_class',form_class)
 class OCTWindowClass(QtGui.QMainWindow, form_class):
     def __init__(self, parent=None):
@@ -77,15 +77,15 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.enableVolViewer = False
         
         sysName = platform.system()
-        if sysName == 'Windows':
-            basePath = "C:\\PyOCT\\"
-        elif sysname == 'Darwin':
-            basePath = "\\Applications\\PyOCT\\"
-        else:
-            basePath = ".."
+#        if sysName == 'Windows':
+#            basePath = "C:\\PyOCT\\"
+#        elif sysname == 'Darwin':
+#            basePath = "/Applications\PyOCT\\"
+#        else:
+        basePath = os.path.abspath("..")
             
         self.basePath = basePath
-        configBasePath = os.path.join(basePath, 'config\\')
+        configBasePath = os.path.join(basePath, 'config')
         self.configPath = configBasePath
         self.settingsPath = configBasePath
         

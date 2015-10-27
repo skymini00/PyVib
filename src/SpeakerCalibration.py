@@ -133,7 +133,7 @@ def runSpeakerCal(appObj, testMode=False):
     inputRate = audioHW.DAQInputRate
     
     if testMode:
-        testDataDir = os.path.join(appObj.basePath, 'exampledata\\Speaker Calibration')
+        testDataDir = os.path.join(appObj.basePath, 'exampledata', 'Speaker Calibration')
         filePath = os.path.join(testDataDir, 'AudioParams.pickle')
         f = open(filePath, 'rb')
         audioParams = pickle.load(f)
