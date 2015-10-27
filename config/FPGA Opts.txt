@@ -1,0 +1,24 @@
+
+Ch0Shift= 31
+numKlinPts= 2800
+PDScaling= 0
+BGSubtract= False
+Disp Corr= True
+Interp= True
+FFT= True
+procROIBegin= 0
+procROIEnd= 2047
+Interp Filter= True
+Interp Downsample= True
+klinRoiBegin= 10	
+klinRoiEnd= 2039
+sampleOffset= 6
+MZIScaleFactor= 0
+MZIHPFilter=True
+DownsampleFactor= 0
+SamplesPerTrig= 1024
+ProcessMZI= True
+FFTReImgScale= -5
+FFT16b= True
+Polar= True
+MagOnly= True

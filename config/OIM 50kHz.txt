@@ -1,0 +1,12 @@
+Type= 0
+Volts per millimeter= 2.550000
+Volt Range= -10.000000 10.000000
+Settle Time= 0.001000
+Flyback Time= 0.010000
+Reverse Time= 0.002000
+X DAQ Chan= PXI1Slot2/ao0
+Y DAQ Chan= PXI1Slot2/ao1
+OCT Trigger DAQ Chan= /Dev1/PXI_Trig2
+Output rate= 250000.000000
+DAQ Device= PXI1Slot2
+Fast Scan Max Freq= 200

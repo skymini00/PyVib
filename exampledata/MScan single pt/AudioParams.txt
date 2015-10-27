@@ -1,0 +1,8 @@
+freq=  4.000 5.000 6.000 7.000 8.000 9.000 10.000 11.000 12.000 13.000 14.000 15.000 16.000 17.000 18.000 19.000 20.000
+amp=  40.000 50.000 60.000 70.000
+stimDuration= 20.000 trialDuration= 20.000 
+speakerSel= <Speaker.LEFT: 1> stimType= <AudioStimType.PURE_TONE: 1> 
+stimOffset= 0.000 stimEnvelope = 1.000
+useAmpDepTrialDuration= False 
+ampDepTrialDurationArray= [] 
+numTrials= 1 downsample= 0
