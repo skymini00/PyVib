@@ -21,6 +21,7 @@ import sys
 import os
 import tifffile
 import pickle
+import time
 
 def correctImageAspectRatio(imgData, xRes, zRes, interpMode=PIL.Image.BILINEAR):
     if not np.isfinite(xRes) or not np.isfinite(zRes):
@@ -347,8 +348,9 @@ def BscanCollectFunction(oct_hw, frameNum, extraArgs)    :
     mirrorDriver = extraArgs[1]
     zROI = extraArgs[2]
     dispCorr = extraArgs[3]
+    testDataDir = extraArgs[4]
     
-    testDataDir = os.path.join(appObj.basePath, 'exampledata\\Bscan')
+    # testDataDir = os.path.join(basePath, 'exampledata\\Bscan')
     daq = DAQHardware()
     
     # generate the mirrrour output function
@@ -447,8 +449,14 @@ def runBScanMultiProcess(appObj, testDataDir):
         oct_hw.SetAcqFunction(BscanCollectFunction)
         startAcq = True
         
+        # clear the status message queue
+        statusMsg = oct_hw.GetStatus()
+        while statusMsg is not None:
+            err = handleStatusMessage(statusMsg)
+            statusMsg = oct_hw.GetStatus()
+        
         while not appObj.doneFlag:
-            DebugLog.log("acquiring")
+            DebugLog.log("runBScanMultiProcess: acquiring")
             # get parameters from GUI
             if not oct_hw.IsOCTTestingMode():
                 # get the scan paramters tht user has entred 
@@ -457,7 +465,7 @@ def runBScanMultiProcess(appObj, testDataDir):
             dispCorr = appObj.dispCorr_pushButton.isChecked()  # whehter or not to do dispersion correction
             
             # update parameters in background process
-            extraArgs = [scanParams, mirrorDriver, zROI, dispCorr]
+            extraArgs = [scanParams, mirrorDriver, zROI, dispCorr, testDataDir]
             oct_hw.SetAcqFunctionArgs(extraArgs)
 
             # start the acquisitio on first loop iteration
@@ -466,23 +474,30 @@ def runBScanMultiProcess(appObj, testDataDir):
                 oct_hw.StartAcquisition() 
                 startAcq = False
                 
+            
             rawData = oct_hw.GetData()
             if rawData is not None:
+                DebugLog.log("runBScanMultiProcess: got data dict= " + rawData.__dict__())
                 oct_data = rawData.oct_data
                 frameNum = rawData.frameNum
                 img16b = processAndDisplayBscanData(appObj, oct_data, scanParams, rset, zROI)
                 isSaveDirInit = saveBScanData(appObj, oct_data, img16b, frameNum, scanParams, saveOpts, isSaveDirInit)
                 rset = False
+            else:
+                DebugLog.log("runBScanMultiProcess: data is None")
                 
-            status = oct_hw.GetStatus()
-            while status is not None:
-                err = handleStatusMessage(status)
+            statusMsg = oct_hw.GetStatus()
+            while statusMsg is not None:
+                DebugLog.log("runBScanMultiProcess: got status message type=" + repr(statusMsg.msgType))
+                err = handleStatusMessage(statusMsg)
                 if err:
-                    appObj.doneFlag = True  # if error occured, sto pcollecting
-                status = oct_hw.GetStatus()
+                    appObj.doneFlag = True  # if error occured, stop pcollecting
+                statusMsg = oct_hw.GetStatus()
             
             # check for GUI events, particularly the "done" flag
             QtGui.QApplication.processEvents() 
+            
+            time.sleep(0.005)  # sleep fr 5 ms to free up CPU
     except Exception as ex:
         # raise ex
         traceback.print_exc(file=sys.stdout)

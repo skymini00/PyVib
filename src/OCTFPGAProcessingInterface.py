@@ -559,13 +559,14 @@ class LV_DLLInterface_BGProcess:
     def handleMessage(self, msg):
         msgType = msg[0]
         param = msg[1]
+        DebugLog.log('LV_DLLInterface_BGProcess: got message ' + repr(msgType) + " param= " + repr(param))
         if msgType == 'shutdown':
             self.shutdown = True
         elif msgType == 'initFPGA':
             err, klin = self.oct_hw.InitFPGA(param[0], param[1], param[2], param[3], param[4], param[5])
             statusMsg = OCTCommon.StatusMsg(OCTCommon.StatusMsgSource.COLLECTION, OCTCommon.StatusMsgType.KLIN)
             statusMsg.param = [err, klin]
-            self.statusQ.put(self.statusMsg)
+            self.statusQ.put(statusMsg)
         elif msgType == 'closeFPGA':
             self.collectData = True
         elif msgType == 'acquire':
@@ -586,7 +587,7 @@ class LV_DLLInterface_BGProcess:
         elif msgType == 'getFPGAOpts':
             self.statusQ.put(self.oct_hw.fpgaOpts)
         elif msgType == 'setFPGAOpts':
-            fpgaOpts = param[1]
+            fpgaOpts = param
             self.oct_hw.fpgaOpts = fpgaOpts
         elif msgType == 'setSendExtraInfo':
             self.sendExtraInfo = param
@@ -606,7 +607,7 @@ class LV_DLLInterface_BGProcess:
         while not self.shutdown:
             if self.acquireData and self.acqFunction is not None:
                 try:
-                    DebugLog.log("LV_DLLInterface_BGProcess.loop(): acquiring frame " + repr(frameNum))
+                    DebugLog.log("LV_DLLInterface_BGProcess.loop(): acquiring frame " + repr(self.frameNum))
                     # call the acquire function to get OCT data - this function is set by the user
                     data, extraOutput = self.acqFunction(self.oct_hw, self.frameNum, self.acqFunctionArgs) 
                     if data is not None:
@@ -637,6 +638,9 @@ class LV_DLLInterface_BGProcess:
                     statusMsg.param = ex
                     traceback.print_exc(file=sys.stdout)
                     self.statusQ.put(statusMsg)
+                    
+            time.sleep(0.005)  # sleep for 5 ms, to avoid saturing CPU
+            sys.stdout.flush()
             
 # LV_DLLInterface_BGProcess_Adaptor: wraps most methods in LV_DLLInterface, but uses BG process interface through queues
 # this can be sued on the GUI/controller/consumer side so that we can interact with the LV_DLLInterface as if it were running in same memory space
@@ -678,8 +682,9 @@ class LV_DLLInterface_BGProcess_Adaptor:
         
     @fpgaOpts.setter
     def fpgaOpts(self, fpgaOpts):
-        msg = ['setFPGAOpts', fpgaOpts]
-        self.collMsgQ.put(msg)
+        if fpgaOpts is not None and isinstance(fpgaOpts, FPGAOpts_t):
+            msg = ['setFPGAOpts', fpgaOpts]
+            self.collMsgQ.put(msg)
         
     def IsOCTTestingMode(self):
         return self.setupNum < 0
