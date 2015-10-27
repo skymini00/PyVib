@@ -43,7 +43,7 @@ import SpeakerCalibration
 #from PIL import ImageDraw
 
 form_class = uic.loadUiType("..\\ui\\PyOCT.ui")[0]                 # Load the UI
-
+print('form_class',form_class)
 class OCTWindowClass(QtGui.QMainWindow, form_class):
     def __init__(self, parent=None):
         print("clrmap length = %d " % (len(ROIImageGraphicsView.COLORMAP_HOT)))
