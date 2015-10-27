@@ -250,6 +250,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             except Exception as ex:
                 DebugLog.log("OCTMultiProcInterface.readHardwareConfig(): Could not read FPGA Opts")
                 traceback.print_exc(file=sys.stdout)
+                fpgaOpts = octfpga.FPGAOpts_t()
                 
             return fpgaOpts
         
@@ -261,7 +262,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             oct_hw = octfpga.StartOCTInterfaceBGProcess(self.basePath)  
         else:
             oct_hw = octfpga.LV_DLLInterface()
-            
+        
         samplesPerTrig = fpgaOpts.SamplesPerTrig
         sampleOffset = fpgaOpts.SampleOffset
         Ch0Shift = fpgaOpts.Ch0Shift

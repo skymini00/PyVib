@@ -211,6 +211,7 @@ def runDispersion(appObj):
             
             if appObj.oct_hw.IsOCTTestingMode():
                 pd_data = OCTCommon.loadRawData(testDataDir, frameNum % 19, dataType=1)
+                numklinpts =  1400
             else:
                 err, pd_data = appObj.oct_hw.AcquireOCTDataInterpPD(numTrigs)
                 DebugLog.log("runBScan(): AcquireOCTDataInterpPD() err = %d" % err)
