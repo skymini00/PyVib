@@ -5,6 +5,7 @@ Software for special experiments
 Requirements: 
   pyqt5
   pyqtgraph
+  pillow 
   
 Optional:
   pydaqmx (if actually acquiring data)
