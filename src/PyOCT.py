@@ -18,7 +18,6 @@ import platform  # for differentiating platforms
 from PyQt4 import QtCore, QtGui, uic
 import pyqtgraph as pg
 
-
 import OCTFPGAProcessingInterface as octfpga
 import AudioHardware 
 import MirrorDriver

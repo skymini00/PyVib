@@ -1096,7 +1096,7 @@ def MscanGetStepFromFrameNum(frameNum, scanParams, audioParams):
 
     posWidthStep = frameNum // (numSoundSteps * numLenSteps)
     posLenStep = (frameNum // numSoundSteps) % numLenSteps
-    freqStep = (frameNum // numpAmpSteps) % numFreqSteps 
+    freqStep = (frameNum // numAmpSteps) % numFreqSteps 
     ampStep = frameNum % numAmpSteps
     
     if posWidthStep >= numWidthSteps:
@@ -1112,6 +1112,7 @@ def MscanCollectFcn(oct_hw, frameNum, extraArgs):
     mirrorDriver = extraArgs[2]
     audioHW = extraArgs[3]
     zROI = extraArgs[4]
+    testDataDir =  extraArgs[5]
     
     trigRate = oct_hw.GetTriggerRate()
 
@@ -1131,7 +1132,9 @@ def MscanCollectFcn(oct_hw, frameNum, extraArgs):
     inputRate = audioHW.DAQInputRate
     trigChan = mirrorDriver.trig_daqChan
     numSpk = audioParams.getNumSpeakers()
-    daq = DAQHardware()
+    if not oct_hw.IsOCTTestingMode():
+        from DAQHardware import DAQHardware
+        daq = DAQHardware()
     chanNamesIn= [ audioHW.mic_daqChan]
     
     chanNamesOut = [audioHW.speakerL_daqChan]
@@ -1180,8 +1183,8 @@ def MscanCollectFcn(oct_hw, frameNum, extraArgs):
         DebugLog.log("Mscan CollectionProcess(): attenLvL= %s " %  repr(attenLvl))
 
         numOutputSamples = len(audioOutput)
-        t = np.linspace(0, numOutputSamples/outputRate, numOutputSamples)
-        pl.plot(t[0:endIdx], audioOutput[0:endIdx], pen='b')
+#        t = np.linspace(0, numOutputSamples/outputRate, numOutputSamples)
+#        pl.plot(t[0:endIdx], audioOutput[0:endIdx], pen='b')
         if not oct_hw.IsDAQTestingMode():
             attenSig = AudioHardware.makeLM1972AttenSig(attenLvl)
             daq.sendDigOutCmd(attenLines, attenSig)
@@ -1246,9 +1249,7 @@ def MscanCollectFcn(oct_hw, frameNum, extraArgs):
     rawData.mic_data = mic_data
     rawData.mscanPosAndStim = mscanPosAndStim
 
-        
     return rawData, audioOutput
-                
         
 def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts, rawDataQ, procDataQ, msgQ):
     shutdown = False
@@ -1283,77 +1284,85 @@ def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts,
             if msg == 'shutdown':
                 shutdown = True
 
-def runMscanMultiProcess(appObj):
-    appObj.doneFlag = False
-    appObj.isCollecting = True    
-    oct_hw = appObj.oct_hw
+def handleStatusMessage(statusMsg):
+    err = False
+    if statusMsg.msgSrc == OCTCommon.StatusMsgSource.COLLECTION:
+        if statusMsg.msgType == OCTCommon.StatusMsgType.ERROR:
+            err = True
+        elif statusMsg.msgType == OCTCommon.StatusMsgType.DAQ_OUTPUT:
+            pass
+        
+    return err
     
+def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataDir):
     mirrorDriver = appObj.mirrorDriver
     saveOpts = appObj.getSaveOpts()
     audioParams = appObj.getAudioParams()
-    scanParams, roiBegin, roiEnd, zROIIndices, zROIspread = makeMscanScanParamsAndZROI(appObj)
-    audioParams = appObj.getAudioParams()
     rset = True
     isSaveDirInit = False
-    if (scanParams.lengthSteps == 1 and scanParams.widthSteps == 1) or len(scanParams.ptsList) > 0:
-        regionMscan = False
-        appObj.tabWidget.setCurrentIndex(3)
-        testDataDir = os.path.join(appObj.basePath, 'exampledata\\MScan single pt')
-    else:   # region mscan
-        regionMscan = True
-        appObj.tabWidget.setCurrentIndex(4)
-        testDataDir = os.path.join(appObj.basePath, 'exampledata\\MScan B-Mscan')
-
-    # if in testing mode, load proper paramaeters instead of getting them from GUI
-    if oct_hw.IsOCTTestingMode():
-        filePath = os.path.join(testDataDir, 'ScanParams.pickle')
-        f = open(filePath, 'rb')
-        scanParams = pickle.load(f)
-        f.close()
-        filePath = os.path.join(testDataDir, 'AudioParams.pickle')
-        f = open(filePath, 'rb')
-        audioParams = pickle.load(f)
-        f.close()
-        trigRate = 49.9598e3
-        zROIIndices = [85]
-        
-    procOpts = MscanProcOpts()
-    procOpts.bscanNormLow = appObj.normLow_spinBox.value()
-    procOpts.bscanNormHigh = appObj.normHigh_spinBox.value()
-    procOpts.zRes = appObj.octSetupInfo.zRes
-    procOpts.singlePt_zROI_indices = zROIIndices
-    procOpts.singlePt_zROI_spread = zROIspread
-    zROI = [roiBegin, roiEnd]
     audioHW = appObj.audioHW
+    oct_hw = appObj.oct_hw
     
-    rawDataQ = mproc.Queue(4)        
-    collMsgQ = mproc.Queue(4)        
-    procDataQ = mproc.Queue(4)        
-    procMsgQ = mproc.Queue(4)        
-
+    #procDataQ = mproc.Queue(4)        
+#    procMsgQ = mproc.Queue(4)        
+ #   dataQ = oct_hw.
     # start up the processing process
-    procProc = mproc.Process(target=MscanProcessingProcess, args=(audioParams, scanParams, zROI, regionMscan, procOpts, rawDataQ, procDataQ, procMsgQ), daemon=True)
-    procProc.start()
+  #  procProc = mproc.Process(target=MscanProcessingProcess, args=(audioParams, scanParams, zROI, regionMscan, procOpts, dataQ, procDataQ, procMsgQ), daemon=True)
+   # procProc.start()
     
-    # start up the data collection
-    collProc = mproc.Process(target=MscanCollectionProcess, args=(oct_hw, audioParams, scanParams, zROI, mirrorDriver, audioHW, rawDataQ, collMsgQ), daemon=True)
-    collProc.start()
+    DebugLog.log("runBScanMultiProcess: new acquisiiton")
+    oct_hw.NewAcquisition()
+    oct_hw.SetSendExtraInfo(False)   # do not send audio output
+    DebugLog.log("runBScanMultiProcess: setting acquire function")
+    oct_hw.SetAcqFunction(MscanCollectFcn)
+    extraArgs = [scanParams, audioParams, mirrorDriver, audioHW, zROI, testDataDir]
+    DebugLog.log("runBScanMultiProcess: setting acquire functiona args")
+    oct_hw.SetAcqFunctionArgs(extraArgs)
+    DebugLog.log("runBScanMultiProcess: SetAcqFunctionArgs() exit")
     
+    mscanTuningCurveList = None
+    mscanRegionData = None
+    volData = None
+    startAcq = True
+        
+    DebugLog.log("runBScanMultiProcess: cleaning status message log")
+    statusMsg = oct_hw.GetStatus()
+    while statusMsg is not None:
+        DebugLog.log("runBScanMultiProcess: got status message type=" + repr(statusMsg.msgType))
+        err = handleStatusMessage(statusMsg)
+        statusMsg = oct_hw.GetStatus()        
         
     while not appObj.doneFlag:
-        if not procDataQ.empty():
-            data = procData.get()
-            
+        # update parameters in background process
+        # start the acquisitio on first loop iteration
+        # we don't just do this outside the loop because we haven't loaded function args yet
+        if startAcq:  
+            DebugLog.log("runBScanMultiProcess: starting acquisition")
+            oct_hw.StartAcquisition() 
+            startAcq = False
+        
+        DebugLog.log("runBScanMultiProcess: acquiring data")
+        rawData = oct_hw.GetData()
+        if rawData is not None:
             # convet to cocorret type
-            if isinstance(data, MScanData):
-                mscanData = data
-            
+            #if isinstance(data, MScanData):
+            #    mscanData = data
+            #rawData.frameNum
+            #rawData.mic_data
+            DebugLog.log("runMscanMultiProcess(): got raw data")
+            # process the data
+            mscanData, mscanTuningCurveList, mscanRegionData, volData = processMscanData(rawData.oct_data, rawData.mscanPosAndStim, scanParams, audioParams, procOpts, trigRate, mscanTuningCurveList, mscanRegionData, volData)
+            if regionMscan:
+                displayMscanRegionData(mscanRegionData, volData, appObj, useLastFreqAmpIdx=True)          
+            else:
+                tuningCurve = mscanTuningCurveList[posLenStep]
+                displayMscanDataSinglePt(appObj, mscanData, tuningCurve)
+
             # save the mscan tuning curve
             if appObj.getSaveState():
                 if not isSaveDirInit:
                     saveDir = OCTCommon.initSaveDir(saveOpts, 'MScan', scanParams=scanParams, audioParams=audioParams)
                     isSaveDirInit = True
-                    # TODO add save code here
                 if regionMscan:
                     saveMscanRegionData(mscanRegionData, volData, saveDir)
                 else:
@@ -1365,11 +1374,22 @@ def runMscanMultiProcess(appObj):
                 if saveOpts.saveRaw:
                     OCTCommon.saveRawData(oct_data, saveDir, frameNum-1, dataType=0)
                     OCTCommon.saveRawData(mic_data, saveDir, frameNum-1, dataType=3)
+                    
+            statusMsg = oct_hw.GetStatus()
+            while statusMsg is not None:
+                DebugLog.log("runBScanMultiProcess: got status message type=" + repr(statusMsg.msgType))
+                err = handleStatusMessage(statusMsg)
+                if err:
+                    appObj.doneFlag = True  # if error occured, stop pcollecting
+                statusMsg = oct_hw.GetStatus()
 
                         
         # check for GUI events, particularly the "done" flag
         QtGui.QApplication.processEvents() 
-        
+        time.sleep(0.005)
+    
+    DebugLog.log("runBScanMultiProcess: finishd acquiring data")        
+    oct_hw.PauseAcquisition()        
     appObj.isCollecting = False
     QtGui.QApplication.processEvents() # check for GUI events
     appObj.finishCollection()    
@@ -1379,9 +1399,6 @@ def runMScan(appObj, multiProcess=False):
     DebugLog.log("runMscan")
     oct_hw = appObj.oct_hw
     
-    if multiProcess:
-        runMscanMultiProcess(appObj)
-        return
     try: 
         appObj.doneFlag = False
         appObj.isCollecting = True    
@@ -1390,12 +1407,6 @@ def runMScan(appObj, multiProcess=False):
             from DAQHardware import DAQHardware
             daq = DAQHardware()
             
-        trigRate = oct_hw.GetTriggerRate()
-        mirrorDriver = appObj.mirrorDriver
-        saveOpts = appObj.getSaveOpts()
-        isSaveDirInit = False
-        
-        audioParams = appObj.getAudioParams()
         scanParams, roiBegin, roiEnd, zROIIndices, zROIspread = makeMscanScanParamsAndZROI(appObj)
         if scanParams is None:
             QtGui.QMessageBox.critical (appObj, "Error", "No point or region has been set for the Mscan.  Please select a point or region.")
@@ -1404,8 +1415,11 @@ def runMScan(appObj, multiProcess=False):
             appObj.isCollecting = False
             return
 
+        trigRate = oct_hw.GetTriggerRate()
+        mirrorDriver = appObj.mirrorDriver
+        saveOpts = appObj.getSaveOpts()
+        isSaveDirInit = False
         audioParams = appObj.getAudioParams()
-        rset = True
         
         if (scanParams.lengthSteps == 1 and scanParams.widthSteps == 1) or len(scanParams.ptsList) > 0:
             regionMscan = False
@@ -1436,6 +1450,12 @@ def runMScan(appObj, multiProcess=False):
         procOpts.singlePt_zROI_indices = zROIIndices
         procOpts.singlePt_zROI_spread = zROIspread
         zROI = [roiBegin, roiEnd]
+        
+        if multiProcess:
+            runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataDir)
+            return
+            
+        rset = True
         
         frameNum = 0
         posLenStep = 0
@@ -1597,7 +1617,6 @@ def runMScan(appObj, multiProcess=False):
             if not oct_hw.IsDAQTestingMode():
                 daq.clearAnalogOutput()
                 daq.clearAnalogInput()
-
 
             # increment the frameNum and step            
             frameNum += 1

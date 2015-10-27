@@ -339,7 +339,7 @@ def saveImage(bscanImg, saveDir, saveOpts, frameNum):
     tifffile.imsave(filePath, bscanImg)    
     
 class BScanRawData():
-    def __init__(oct_data=None, frameNum=-1):
+    def __init__(self, oct_data=None, frameNum=-1):
         self.oct_data = oct_data
         self.frameNum = frameNum
         
@@ -349,9 +349,8 @@ def BscanCollectFunction(oct_hw, frameNum, extraArgs)    :
     zROI = extraArgs[2]
     dispCorr = extraArgs[3]
     testDataDir = extraArgs[4]
-    
+    trigRate = oct_hw.GetTriggerRate()
     # testDataDir = os.path.join(basePath, 'exampledata\\Bscan')
-    daq = DAQHardware()
     
     # generate the mirrrour output function
     (mirrorOutput, numTrigs) = makeBscanMirrorOutput(scanParams, mirrorDriver, trigRate)
@@ -363,6 +362,8 @@ def BscanCollectFunction(oct_hw, frameNum, extraArgs)    :
     outputRate = mirrorDriver.DAQoutputRate
     
     if not oct_hw.IsDAQTestingMode():
+        from DAQHardware import DAQHardware
+        daq = DAQHardware()
         daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOutput.transpose())        
         daq.startAnalogOutput()
     
@@ -380,7 +381,7 @@ def BscanCollectFunction(oct_hw, frameNum, extraArgs)    :
         daq.stopAnalogOutput()
         daq.clearAnalogOutput()
         
-    rawData = BscanRawData(oct_data, frameNum)
+    rawData = BScanRawData(oct_data, frameNum)
     return rawData, mirrorOutput
 
 def processAndDisplayBscanData(appObj, oct_data, scanParams, rset, zROI):
@@ -473,11 +474,10 @@ def runBScanMultiProcess(appObj, testDataDir):
             if startAcq:  
                 oct_hw.StartAcquisition() 
                 startAcq = False
-                
             
             rawData = oct_hw.GetData()
             if rawData is not None:
-                DebugLog.log("runBScanMultiProcess: got data dict= " + rawData.__dict__())
+                # DebugLog.log("runBScanMultiProcess: got data dict= " + rawData.__dict__)
                 oct_data = rawData.oct_data
                 frameNum = rawData.frameNum
                 img16b = processAndDisplayBscanData(appObj, oct_data, scanParams, rset, zROI)

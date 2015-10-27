@@ -528,9 +528,9 @@ def StartOCTInterfaceBGProcess(basePath):
             DebugLog.log("StartOCTInterfaceBGProcess():  Exception attempting to kill collection process")
             traceback.print_exc(file=sys.stdout)
 
-    rawDataQ = mproc.Queue(4)
-    msgQ = mproc.Queue(4)
-    statusQ = mproc.Queue(4)
+    rawDataQ = mproc.Queue(10)
+    msgQ = mproc.Queue(10)
+    statusQ = mproc.Queue(10)
     collectorProcess = mproc.Process(target=_OCTBGLoop, args=[rawDataQ, msgQ, statusQ], daemon=True)
     DebugLog.log("StartOCTInterfaceBGProcess(): starting collector process")
     collectorProcess.start()
@@ -573,7 +573,7 @@ class LV_DLLInterface_BGProcess:
             self.acquireData = True
         elif msgType == 'pause':
             self.acquireData = False
-        elif msgType == 'neqAcquisition':
+        elif msgType == 'newAcquisition':
             self.frameNum = 0
         elif msgType == 'setAcqFunction':
             self.acqFunction = param
@@ -604,19 +604,31 @@ class LV_DLLInterface_BGProcess:
         self.acqFunctionArgs = None
         self.sendExtraInfo = False
         self.frameNum = 0
+        putTimeout = False
         while not self.shutdown:
             if self.acquireData and self.acqFunction is not None:
                 try:
                     DebugLog.log("LV_DLLInterface_BGProcess.loop(): acquiring frame " + repr(self.frameNum))
                     # call the acquire function to get OCT data - this function is set by the user
-                    data, extraOutput = self.acqFunction(self.oct_hw, self.frameNum, self.acqFunctionArgs) 
+                    if not putTimeout:
+                        data, extraOutput = self.acqFunction(self.oct_hw, self.frameNum, self.acqFunctionArgs) 
                     if data is not None:
-                        rawDataQ.put(data)   # send raw data to consumer
+                        try:
+                            # try send raw data to consumer - a queue.Full exception may be thrown 
+                            # in which case we will try to send it again next loop iteration
+                            self.dataQ.put(data, True, 0.25)   
+                            putTimeout = False
+                        except queue.Full as ex:
+                            putTimeout = True
+                            
                         self.frameNum += 1   # increment frame number
-                        if extraOutput is not None:
+                        if extraOutput is not None and self.sendExtraInfo:
                             statusMsg = OCTCommon.StatusMsg(OCTCommon.StatusMsgSource.COLLECTION, OCTCommon.StatusMsgType.DAQ_OUTPUT)
                             statusMsg.param = extraOutput
-                            statusQ.put(statusMsg)   # send extraOutput to consumer
+                            try:
+                                self.statusQ.put(statusMsg, False)   # send extraOutput to consumer
+                            except queue.Full as ex:
+                                pass
                     else:
                         self.acquireData = False
                     time.sleep(0.005)  # sleep for 5 ms to reduce CPU load
@@ -624,7 +636,10 @@ class LV_DLLInterface_BGProcess:
                     traceback.print_exc(file=sys.stdout)
                     statusMsg = OCTCommon.StatusMsg(OCTCommon.StatusMsgSource.COLLECTION, OCTCommon.StatusMsgType.ERROR)
                     statusMsg.param = ex
-                    self.statusQ.put(statusMsg)
+                    try:
+                        self.statusQ.put(statusMsg, False)
+                    except queue.Full as ex:
+                        pass
                     self.acquireData = False
             else:
                 time.sleep(0.05)  # sleep for 50 ms, to reduce CPU load when not acquiring
@@ -716,14 +731,17 @@ class LV_DLLInterface_BGProcess_Adaptor:
     def StartAcquisition(self):
         msg = ['acquire', 0]            
         self.collMsgQ.put(msg)
-        
+         
     def PauseAcquisition(self):
         msg = ['pause', 0]
         self.collMsgQ.put(msg)
         
     def NewAcquisition(self):
-        msg = ['neqAcquisition', 0]
+        msg = ['newAcquisition', 0]
         self.collMsgQ.put(msg)
+        while not self.rawDataQ.empty():   # empty the data queue
+            self.rawDataQ.get()
+
         
     # sets the acquisition function, that will be called when collecting data
     # the acquisition function should have the form acqFunction(oct_hw, frameNum, extraArgs)
