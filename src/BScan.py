@@ -512,7 +512,7 @@ def runBScanMultiProcess(appObj, testDataDir):
 """
     starts running a Bscan
     
-    appObj is of OCTWindowClass defied in OCTnew.py
+    appObj is of OCTWindowClass defined in PyOCT.py
 """
 def runBScan(appObj):
     DebugLog.log("runBScan")

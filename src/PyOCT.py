@@ -294,6 +294,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.Dispersion_pushButton.clicked.connect(self.Dispersion_clicked) 
         self.SpeakerCalTest_pushButton.clicked.connect(self.SpeakerCalTest_clicked)
         self.specialScan_pushButton.clicked.connect(self.SpecialScan_clicked)  
+        self.JSOraw_pushButton.clicked.connect(self.JSOraw_clicked)  
         
         self.focalPlaneAdj_spinbox.valueChanged.connect(self.focalPlaneChanged)
         self.rotZ_dial.valueChanged.connect(self.rotationZDialChanged)
@@ -329,6 +330,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.saveDir_pushButton.clicked.connect(self.saveDir_clicked)
         
         self.audio_loadFlatSpkCal_pushButton.clicked.connect(self.loadFlatSpeakerCal)
+        self.JSOsaveDispersion_pushButton.clicked.connect(self.JSOsaveDispersion_pushButton_clicked)         
         
         
     def _initGraphVars(self):
@@ -520,6 +522,12 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 # TODO include speaial scan code here
             elif nextProtocol == 'SpeakerCalTest':
                 pass # TODO include speaial scan code here
+            elif nextProtocol == 'JSOraw':
+                self.JSOraw_pushButton.setChecked(True)
+                self.setProtocolButtonSignalsBlocked(False)
+                self.protocol = self.JSOrawPrtcl
+                self.tabWidget.setCurrentIndex(7)
+                JSOraw.runJSOraw(self)
             
         else:
             self.setProtocolButtonSignalsBlocked(False)
@@ -616,6 +624,21 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         else:
             self.nextProtocol = None
             self.stopCollection()   
+
+    def JSOraw_clicked(self):  # CtoF button event handler
+        if self.JSOraw_pushButton.isChecked():
+            if self.isCollecting:
+                self.nextProtocol = 'JSOraw'
+                self.stopCollection()
+            else:
+                JSOraw.runJSOraw(self)
+        else:
+            self.nextProtocol = None
+            self.stopCollection()
+ 
+    def JSOsaveDispersion_pushButton_clicked(self):  # CtoF button event handler
+        pass
+
             
     def rotationZDialChanged(self):
         self.rotation_spinBox.setValue(self.rotZ_dial.value())
