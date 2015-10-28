@@ -628,6 +628,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
 
     def JSOraw_clicked(self):  # CtoF button event handler
         if self.JSOraw_pushButton.isChecked():
+#            self.JSOrawWindowFunctionmag=np.array([0])
+#            self.JSOrawWindowFunctionphase=np.array([0])
             if self.isCollecting:
                 self.nextProtocol = 'JSOraw'
                 self.stopCollection()
@@ -638,7 +640,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             self.stopCollection()
  
     def JSOsaveDispersion_pushButton_clicked(self):  # CtoF button event handler
-        pass
+        JSOraw.saveDispersion_pushButton_clicked(self)
 
             
     def rotationZDialChanged(self):

@@ -147,35 +147,28 @@ def processUniqueDispersion_old(pd_data, PD_HPfilterCutoff=0.05, magWin_LPfilter
     magWin = (magWin - minWin)/(maxWin - minWin)    
     phaseCorr = np.mean(phaseCorr, 0)       
     return magWin, phaseCorr
-
-
-
-
-
-
-
-
-       
+    
   
-def getSavedRawData(self,numTrigs,requestedSamplesPerTrig):
+def getSavedRawData(numTrigs,requestedSamplesPerTrig,JSOrawSavedData):
     # oct_data is a 2D arary of complex numbers
     # When used to carry raw data:
     # Photodiode data (interferogram from the sample) is encoded as imaginary part 
     # MZI data (interferogram from MZI) is encoded as imaginary part        print(self.count,self.oct_data_all.shape[0])
 #        print('size/numTrigs',self.oct_data_file.shape[0],numTrigs)        
-    ch0_data=np.zeros([numTrigs,self.ch1_data_file.shape[1]])        
-    ch1_data=np.zeros([numTrigs,self.ch1_data_file.shape[1]])        
-    self.requestedSamplesPerTrig.setValue(self.ch1_data_file.shape[1])
+    print('getting saved raw data',JSOrawSavedData.count)
+    ch0_data=np.zeros([numTrigs,JSOrawSavedData.ch1_data_file.shape[1]])        
+    ch1_data=np.zeros([numTrigs,JSOrawSavedData.ch1_data_file.shape[1]])        
    
     for i in range(numTrigs):
-        if self.count==self.ch0_data_file.shape[0]:
-            self.count=0           
-        ch0_data[i,:]=self.ch0_data_file[self.count,:] 
-        ch1_data[i,:]=self.ch1_data_file[self.count,:] 
-        self.count=self.count+1             
+        if JSOrawSavedData.count==JSOrawSavedData.ch0_data_file.shape[0]:
+            JSOrawSavedData.count=0           
+        ch0_data[i,:]=JSOrawSavedData.ch0_data_file[JSOrawSavedData.count,:] 
+        ch1_data[i,:]=JSOrawSavedData.ch1_data_file[JSOrawSavedData.count,:] 
+        JSOrawSavedData.count=JSOrawSavedData.count+1             
     return ch0_data, ch1_data
     
-def getNewRawData(self,numTrigs,requestedSamplesPerTrig):                                 
+    
+def getNewRawData(numTrigs,requestedSamplesPerTrig,appObj):                                 
     try:
         err = OCTRaw.ConfigAcq(numTrigs, requestedSamplesPerTrig)
         if err>0:
@@ -192,31 +185,71 @@ def getNewRawData(self,numTrigs,requestedSamplesPerTrig):
         if err>0:
             print("Close FPGA: err = %d" % err)
     
-    if self.saveData_checkBox.isChecked()==True:      # get new data and save to disk for later use
+    if appObj.saveData_checkBox.isChecked()==True:      # get new data and save to disk for later use
         outfile='testData.npz'
         np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)
         print('saved data in :',outfile)
-        self.saveData_checkBox.setChecked(False)                     
+        appObj.saveData_checkBox.setChecked(False)                     
     return ch0_data, ch1_data
     
-def rawDataTest_pushButton_on(self):                        
-    self.doneFlag = False
+    
+def saveDispersion_pushButton_clicked(appObj):                
+    outfile=datetime.datetime.now().strftime("dispComp-%Y_%m_%d-%H_%M_%S.npz")
+    windowFunctionMag=appObj.JSOrawWindowFunction.mag
+    windowFunctionPh=appObj.JSOrawWindowFunction.phase
+    np.savez_compressed(outfile, windowFunctionMag=windowFunctionMag, windowFunctionPh=windowFunctionPh)
+    print('saved data in :',outfile)       
+    appObj.dispCompFilename_label.setText(outfile)
+          
+          
+def runJSOraw(appObj):
+    DebugLog.log("runJSOraw")
+    appObj.tabWidget.setCurrentIndex(7)
+    appObj.doneFlag = False
+    appObj.isCollecting = True
+    testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
+    print('test data dir',testDataDir)
+    
+    JSOrawSavedData=blankClass()
+    getDataMethod='saved raw data'
+#        getDataMethod='new raw data'
+    
+    laserSweepFreq=appObj.oct_hw.GetTriggerRate()
+    mirrorDriver = appObj.mirrorDriver
+    rset = True
+    
+    if getDataMethod=='new raw data':      # get new data            
+        err = OCTRaw.InitFPGA(0)
+        if err>0:
+            print("Init FPGA: err = %d" % err)
+
+    elif getDataMethod=='saved raw data':    #load in the saved data and use it instead
+#            outfile='testData2.npz'
+        outfile=os.path.join(testDataDir,'testData3.npz')
+        print('outfile',outfile)
+        x=np.load(outfile)             
+        JSOrawSavedData.ch0_data_file=x['ch0_data']
+        JSOrawSavedData.ch1_data_file=x['ch1_data']
+        JSOrawSavedData.count=0
+        JSOrawSavedData.saveRawData=0
+        appObj.requestedSamplesPerTrig.setValue(JSOrawSavedData.ch1_data_file.shape[1])
+        print('loaded data from :',outfile)
            
     peakXPos=np.array([0],dtype=int)       
     peakYPos=np.array([0],dtype=float)       
     print('peak-init',peakXPos,peakYPos)            
                
-    while self.doneFlag == False:
+    while appObj.doneFlag == False:
         # read data analysis settings from the GUI
-        numTrigs=self.numTrig.value()
-        requestedSamplesPerTrig=self.requestedSamplesPerTrig.value()
-        startSample=self.startSample.value()
-        endSample=self.endSample.value()
+        numTrigs=appObj.numTrig.value()
+        requestedSamplesPerTrig=appObj.requestedSamplesPerTrig.value()
+        startSample=appObj.startSample.value()
+        endSample=appObj.endSample.value()
         klin_idx = [startSample, endSample]
-        numKlinPts=self.numKlinPts.value()
-        numShiftPts=self.numShiftPts.value()
-        numTrigs=self.numTrig.value()
-        dispCode=self.dispersionCompAlgorithm_comboBox.currentIndex()            
+        numKlinPts=appObj.numKlinPts.value()
+        numShiftPts=appObj.numShiftPts.value()
+        numTrigs=appObj.numTrig.value()
+        dispCode=appObj.dispersionCompAlgorithm_comboBox.currentIndex()            
         if dispCode==0:
             dispMode='None'
         elif dispCode==1:
@@ -229,25 +262,31 @@ def rawDataTest_pushButton_on(self):
             dispMode='None'
                  
         # Get data using one of several methods
-        if self.getDataMethod=='saved raw data':
-            ch0_data,ch1_data=self.getSavedRawData(numTrigs,requestedSamplesPerTrig)
-        elif self.getDataMethod=='new raw data':
-            ch0_data,ch1_data=self.getNewRawData(numTrigs,requestedSamplesPerTrig)
+        if getDataMethod=='saved raw data':
+            ch0_data,ch1_data=getSavedRawData(numTrigs,requestedSamplesPerTrig,JSOrawSavedData)
+        elif getDataMethod=='new raw data':
+            ch0_data,ch1_data=getNewRawData(numTrigs,requestedSamplesPerTrig,appObj)
         
         # delay the MZI to account for it having a shorter optical path than the sample/reference arm path
         pdData,mziData,actualSamplesPerTrig=channelShift(ch0_data,ch1_data,numShiftPts)    
         textString='Actual samples per trigger: {actualSamplesPerTrig}'.format(actualSamplesPerTrig=actualSamplesPerTrig)            
-        self.actualSamplesPerTrig_label.setText(textString)         
+        appObj.actualSamplesPerTrig_label.setText(textString)         
+        
+        print('delayed the MZI')
         
         # Process the data        
         mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData) 
+        print('processed the MZIdata')
         pd_interpRaw, klin = processPD(pdData, k0, klin_idx, numKlinPts)   
+        print('processed the PDdata')
         pd_interpDispComp,windowFunctionMag,windowFunctionPh = dispersionCorrection(pd_interpRaw,dispMode)
-        self.windowFunctionMag=windowFunctionMag       
-        self.windowFunctionPh=windowFunctionPh       
+        print('corrected the dispersion')
+        appObj.JSOrawWindowFunctionmag=windowFunctionMag       
+        appObj.JSOrawWindowFunctionphase=windowFunctionPh       
         pd_fftNoInterp, alineMagNoInterp, alinePhaseNoInterp = calculateAline(pdData[:,startSample:endSample])
         pd_fftRaw, alineMagRaw, alinePhaseRaw = calculateAline(pd_interpRaw)
         pd_fftDispComp, alineMagDispComp, alinePhaseDispComp = calculateAline(pd_interpDispComp)
+        print('calculated the A lines')
        
         #scale k0 and the MZI to the same range to plot them so they overlap
         k0Ripple= scipy.signal.detrend(k0[0,500:700],axis=-1)
@@ -265,62 +304,63 @@ def rawDataTest_pushButton_on(self):
         phaseNoiseTD=phaseNoiseTD-phaseNoiseTD[0]
         phaseNoiseFFT = np.fft.fft(phaseNoiseTD, n=2048)
         phaseNoiseFD = 20*np.log10(np.abs(phaseNoiseFFT) + 1)        
-                    
+        
+        print('getting ready to start plotting')            
         # Clear all of the plots
-        self.mzi_plot.clear() 
-        self.pd_plot.clear()
-        self.mzi_mag_plot.clear()
-        self.mzi_phase_plot.clear()
-        self.k0_plot.clear()
-        self.interp_pdRaw_plot.clear()
-        self.interp_pdDispComp_plot.clear()
-        self.alineNoInterp_plot.clear()
-        self.alineRaw_plot.clear()
-        self.alineDispComp_plot.clear()
-        self.phaseNoiseTD_plot.clear()
-        self.phaseNoiseFD_plot.clear()
-        self.dispWnfcMag_plot.clear()
-        self.dispWnfcPh_plot.clear()
+        appObj.mzi_plot.clear() 
+        appObj.pd_plot.clear()
+        appObj.mzi_mag_plot.clear()
+        appObj.mzi_phase_plot.clear()
+        appObj.k0_plot.clear()
+        appObj.interp_pdRaw_plot.clear()
+        appObj.interp_pdDispComp_plot.clear()
+        appObj.alineNoInterp_plot.clear()
+        appObj.alineRaw_plot.clear()
+        appObj.alineDispComp_plot.clear()
+        appObj.phaseNoiseTD_plot.clear()
+        appObj.phaseNoiseFD_plot.clear()
+        appObj.dispWnfcMag_plot.clear()
+        appObj.dispWnfcPh_plot.clear()
         
         # Plot all the data
-        if self.plotFirstOnly_checkBox.isChecked()==True:
+        if appObj.plotFirstOnly_checkBox.isChecked()==True:
             i=0
-            self.pd_plot.plot(pdData[i,:], pen='r')            
-            self.mzi_plot.plot(mziData[i,:], pen='r')            
-            self.mzi_mag_plot.plot(mzi_mag[i,:], pen='r')            
-            self.k0_plot.plot(k0[i,:], pen='r')
+            appObj.pd_plot.plot(pdData[i,:], pen='r')            
+            appObj.mzi_plot.plot(mziData[i,:], pen='r')            
+            appObj.mzi_mag_plot.plot(mzi_mag[i,:], pen='r')            
+            appObj.k0_plot.plot(k0[i,:], pen='r')
             sampleNum=np.linspace(startSample,endSample,numKlinPts)
-            self.k0_plot.plot(sampleNum,klin, pen='b')                      
-            self.interp_pdRaw_plot.plot(pd_interpRaw[i,:], pen='r')           
-            self.interp_pdDispComp_plot.plot(pd_interpDispComp[i,:], pen='r')           
-            self.alineNoInterp_plot.plot(alineMagNoInterp[i,:], pen='r')
-            self.alineRaw_plot.plot(alineMagRaw[i,:], pen='r')
-            self.alineDispComp_plot.plot(alineMagDispComp[i,:], pen='r')
+            appObj.k0_plot.plot(sampleNum,klin, pen='b')                      
+            appObj.interp_pdRaw_plot.plot(pd_interpRaw[i,:], pen='r')           
+            appObj.interp_pdDispComp_plot.plot(pd_interpDispComp[i,:], pen='r')           
+            appObj.alineNoInterp_plot.plot(alineMagNoInterp[i,:], pen='r')
+            appObj.alineRaw_plot.plot(alineMagRaw[i,:], pen='r')
+            appObj.alineDispComp_plot.plot(alineMagDispComp[i,:], pen='r')
         else:                   
             for i in range(numTrigs):
-                self.pd_plot.plot(pdData[i,:], pen=(i,numTrigs))            
-                self.mzi_plot.plot(mziData[i,:], pen=(i,numTrigs))            
-                self.mzi_mag_plot.plot(mzi_mag[i,:], pen=(i,numTrigs))            
-                self.mzi_phase_plot.plot(mzi_ph[i,:], pen=(i,numTrigs))            
-                self.k0_plot.plot(k0[i,:], pen=(i,numTrigs))                      
-                self.interp_pdRaw_plot.plot(pd_interpRaw[i,:], pen=(i,numTrigs))           
-                self.interp_pdDispComp_plot.plot(pd_interpDispComp[i,:], pen=(i,numTrigs))           
-                self.alineNoInterp_plot.plot(alineMagNoInterp[i,:], pen=(i,numTrigs))
-                self.alineRaw_plot.plot(alineMagRaw[i,:], pen=(i,numTrigs))
-                self.alineDispComp_plot.plot(alineMagDispComp[i,:], pen=(i,numTrigs))
+                appObj.pd_plot.plot(pdData[i,:], pen=(i,numTrigs))            
+                appObj.mzi_plot.plot(mziData[i,:], pen=(i,numTrigs))            
+                appObj.mzi_mag_plot.plot(mzi_mag[i,:], pen=(i,numTrigs))            
+                appObj.mzi_phase_plot.plot(mzi_ph[i,:], pen=(i,numTrigs))            
+                appObj.k0_plot.plot(k0[i,:], pen=(i,numTrigs))                      
+                appObj.interp_pdRaw_plot.plot(pd_interpRaw[i,:], pen=(i,numTrigs))           
+                appObj.interp_pdDispComp_plot.plot(pd_interpDispComp[i,:], pen=(i,numTrigs))           
+                appObj.alineNoInterp_plot.plot(alineMagNoInterp[i,:], pen=(i,numTrigs))
+                appObj.alineRaw_plot.plot(alineMagRaw[i,:], pen=(i,numTrigs))
+                appObj.alineDispComp_plot.plot(alineMagDispComp[i,:], pen=(i,numTrigs))
             
-        self.alineDispComp_plot.plot(peakXPos,peakYPos, pen=None, symbolBrush='k', symbolPen='b')
-        self.phaseNoiseTD_plot.plot(phaseNoiseTD, pen='r')
-        self.phaseNoiseFD_plot.plot(phaseNoiseFD, pen='r')
-        self.mzi_phase_plot.plot(mziDataNorm, pen='b')            
-        self.mzi_phase_plot.plot(k0RippleNorm, pen='r')            
+        appObj.alineDispComp_plot.plot(peakXPos,peakYPos, pen=None, symbolBrush='k', symbolPen='b')
+        appObj.phaseNoiseTD_plot.plot(phaseNoiseTD, pen='r')
+        appObj.phaseNoiseFD_plot.plot(phaseNoiseFD, pen='r')
+        appObj.mzi_phase_plot.plot(mziDataNorm, pen='b')            
+        appObj.mzi_phase_plot.plot(k0RippleNorm, pen='r')            
         
         # if you want to align the pd and the Mzi data
 #            plotPDPhase.plot(pdData[0,:], pen='r')
 #            plotPDPhase.plot(mziData[0,:], pen='b')
 
-        self.dispWnfcMag_plot.plot(windowFunctionMag, pen='b')
-        self.dispWnfcPh_plot.plot(windowFunctionPh, pen='b')
+        appObj.dispWnfcMag_plot.plot(windowFunctionMag, pen='b')
+        appObj.dispWnfcPh_plot.plot(windowFunctionPh, pen='b')
         
         
 #            # Now create a bscan image from the 1 aline, but sweep the shift value between the mzi and pd to see what works best
@@ -348,54 +388,6 @@ def rawDataTest_pushButton_on(self):
 #            pl.setImage(bscan)            
         
 #            print('alineMagDispComp ',alineMagDispComp.shape)
-        self.bscan_plot.setImage(alineMagDispComp)
-        QtGui.QApplication.processEvents() # check for GUI events                       print('finished loop')
+        appObj.bscan_plot.setImage(alineMagDispComp)
+#        QtGui.QApplication.processEvents() # check for GUI events                       print('finished loop')
                    
-def rawDataTest_pushButton_clicked(self):  # CtoF button event handler
-    if self.rawDataTest_pushButton.isChecked():          
-        self.rawDataTest_pushButton_on() # start collecting if button is turned on
-    else:
-        self.doneFlag = True  # stop collecting if button is turned off
-
-def saveDispersion_pushButton_clicked(self):                
-    outfile=datetime.datetime.now().strftime("dispComp-%Y_%m_%d-%H_%M_%S.npz")
-    windowFunctionMag=self.windowFunctionMag
-    windowFunctionPh=self.windowFunctionPh
-    np.savez_compressed(outfile, windowFunctionMag=windowFunctionMag, windowFunctionPh=windowFunctionPh)
-    print('saved data in :',outfile)       
-    self.dispCompFilename_label.setText(outfile)
-          
-def runJSOraw(appObj):
-    DebugLog.log("runJSOraw")
-    appObj.tabWidget.setCurrentIndex(7)
-    appObj.doneFlag = False
-    appObj.isCollecting = True
-    testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
-    print('test data dir',testDataDir)
-    
-    JSOrawInfo=blankClass()
-#        self.getDataMethod='new raw data'
-    JSOrawInfo.doneFlag=False
-    JSOrawInfo.getDataMethod='saved raw data'
-#        self.getDataMethod='new raw data'
-    JSOrawInfo.singleProcess=True
-    JSOrawInfo.laserSweepFreq=50000
-    
-    if JSOrawInfo.getDataMethod=='new raw data':      # get new data            
-        err = OCTRaw.InitFPGA(0)
-        if err>0:
-            print("Init FPGA: err = %d" % err)
-
-    elif JSOrawInfo.getDataMethod=='saved raw data':    #load in the saved data and use it instead
-#            outfile='testData2.npz'
-        outfile=os.path.join(testDataDir,'testData3.npz')
-        print('outfile',outfile)
-        x=np.load(outfile)             
-        JSOrawInfo.ch0_data_file=x['ch0_data']
-        JSOrawInfo.ch1_data_file=x['ch1_data']
-        JSOrawInfo.count=0
-        JSOrawInfo.saveRawData=0
-        appObj.requestedSamplesPerTrig.setValue(JSOrawInfo.ch1_data_file.shape[1])
-        print('loaded data from :',outfile)
-
- 
