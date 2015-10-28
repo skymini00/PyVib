@@ -18,6 +18,7 @@ import traceback
 import os
 import sys
 import psutil
+import queue # for Queue.ull exception
 
 class FPGAOpts_t(Structure):
     _fields_ = [("Ch0Shift", c_uint16), 
@@ -612,16 +613,21 @@ class LV_DLLInterface_BGProcess:
                     # call the acquire function to get OCT data - this function is set by the user
                     if not putTimeout:
                         data, extraOutput = self.acqFunction(self.oct_hw, self.frameNum, self.acqFunctionArgs) 
+                        numTimeouts = 0
                     if data is not None:
                         try:
                             # try send raw data to consumer - a queue.Full exception may be thrown 
                             # in which case we will try to send it again next loop iteration
                             self.dataQ.put(data, True, 0.25)   
                             putTimeout = False
+                            self.frameNum += 1   # increment frame number
                         except queue.Full as ex:
                             putTimeout = True
-                            
-                        self.frameNum += 1   # increment frame number
+                            numTimeouts += 1 
+                            if numTimeouts == 10:   # if too many timeouts, abandon collection
+                                self.acquireData = False
+                                putTimeout = False
+                        
                         if extraOutput is not None and self.sendExtraInfo:
                             statusMsg = OCTCommon.StatusMsg(OCTCommon.StatusMsgSource.COLLECTION, OCTCommon.StatusMsgType.DAQ_OUTPUT)
                             statusMsg.param = extraOutput
@@ -739,8 +745,7 @@ class LV_DLLInterface_BGProcess_Adaptor:
     def NewAcquisition(self):
         msg = ['newAcquisition', 0]
         self.collMsgQ.put(msg)
-        while not self.rawDataQ.empty():   # empty the data queue
-            self.rawDataQ.get()
+        self.ClearDataQ()
 
         
     # sets the acquisition function, that will be called when collecting data
@@ -774,8 +779,12 @@ class LV_DLLInterface_BGProcess_Adaptor:
             status = self.statusQ.get()
         return status
         
+    def ClearDataQ(self):
+        while not self.rawDataQ.empty():
+            data = self.rawDataQ.get()
+        
     def Shutdown(self):
-        msg = ['shutdown', sendInfo]
+        msg = ['shutdown', 0]
         self.collMsgQ.put(msg)
     
 def readFPGAOptsConfig(filepath):    

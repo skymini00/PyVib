@@ -243,7 +243,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             fpgaOpts = octfpga.FPGAOpts_t()
             try:
                 fpgaOptsFile = self.octSetupInfo.FPGAOptsFile
-                filepath = configBasePath + fpgaOptsFile
+                filepath = os.path.join(configBasePath, fpgaOptsFile)
                 fpgaOpts = octfpga.readFPGAOptsConfig(filepath)
 #                octfpga.LV_DLLInterface.fpgaOpts = fpgaOpts
             except Exception as ex:
@@ -1099,6 +1099,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
     def shutdown(self):
         self.oct_hw.CloseFPGA()
         self.oct_hw.Shutdown()
+        self.isShutdown = True
             
     def __del__(self):
         if not self.isShutdown:

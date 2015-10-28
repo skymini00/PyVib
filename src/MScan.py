@@ -1079,7 +1079,7 @@ def GetTestData(frameNum):
     return oct_data
 
 # this class is used to define raw data for a given frame
-class MscanRawaData:
+class MscanRawData:
     def __init__(self):
         self.frameNum = None
         self.oct_data = None
@@ -1242,7 +1242,7 @@ def MscanCollectFcn(oct_hw, frameNum, extraArgs):
     mscanPosAndStim.stimFreq = freq*1000
     mscanPosAndStim.numAmp = numAmpSteps
     mscanPosAndStim.numFreq = numFreqSteps    
-    rawData = MscanRawaData()
+    rawData = MscanRawData()
     
     rawData.frameNum = frameNum
     rawData.oct_data = oct_data
@@ -1294,7 +1294,7 @@ def handleStatusMessage(statusMsg):
         
     return err
     
-def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataDir):
+def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataDir, regionMscan):
     mirrorDriver = appObj.mirrorDriver
     saveOpts = appObj.getSaveOpts()
     audioParams = appObj.getAudioParams()
@@ -1331,7 +1331,7 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
         DebugLog.log("runBScanMultiProcess: got status message type=" + repr(statusMsg.msgType))
         err = handleStatusMessage(statusMsg)
         statusMsg = oct_hw.GetStatus()        
-        
+    
     while not appObj.doneFlag:
         # update parameters in background process
         # start the acquisitio on first loop iteration
@@ -1343,7 +1343,7 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
         
         DebugLog.log("runBScanMultiProcess: acquiring data")
         rawData = oct_hw.GetData()
-        if rawData is not None:
+        if rawData is not None and isinstance(rawData, MscanRawData):
             # convet to cocorret type
             #if isinstance(data, MScanData):
             #    mscanData = data
@@ -1351,6 +1351,8 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
             #rawData.mic_data
             DebugLog.log("runMscanMultiProcess(): got raw data")
             # process the data
+            frameNum = rawData.frameNum
+            posLenStep, posWidthStep, freqStep, ampStep = MscanGetStepFromFrameNum(frameNum, scanParams, audioParams)
             mscanData, mscanTuningCurveList, mscanRegionData, volData = processMscanData(rawData.oct_data, rawData.mscanPosAndStim, scanParams, audioParams, procOpts, trigRate, mscanTuningCurveList, mscanRegionData, volData)
             if regionMscan:
                 displayMscanRegionData(mscanRegionData, volData, appObj, useLastFreqAmpIdx=True)          
@@ -1372,8 +1374,8 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
                         saveMscanTuningCurve(tuningCurve, audioParams, posLenStep, saveDir)                        
                         
                 if saveOpts.saveRaw:
-                    OCTCommon.saveRawData(oct_data, saveDir, frameNum-1, dataType=0)
-                    OCTCommon.saveRawData(mic_data, saveDir, frameNum-1, dataType=3)
+                    OCTCommon.saveRawData(oct_data, saveDir, frameNum, dataType=0)
+                    OCTCommon.saveRawData(mic_data, saveDir, frameNum, dataType=3)
                     
             statusMsg = oct_hw.GetStatus()
             while statusMsg is not None:
@@ -1452,7 +1454,7 @@ def runMScan(appObj, multiProcess=False):
         zROI = [roiBegin, roiEnd]
         
         if multiProcess:
-            runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataDir)
+            runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataDir, regionMscan)
             return
             
         rset = True

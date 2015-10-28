@@ -374,7 +374,7 @@ def BscanCollectFunction(oct_hw, frameNum, extraArgs)    :
         oct_data = OCTCommon.loadRawData(testDataDir, frameNum % 15, dataType=0)
         DebugLog.log('BscanCollectFunction floading test data frameNum= ' + repr(frameNum))
     else:
-        err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, dispCorr)
+        err, oct_data = oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, dispCorr)
         DebugLog.log('BscanCollectFunction AcquireOCTDataFFT() err= ' + repr(err))
     if not oct_hw.IsDAQTestingMode():
         daq.waitDoneOutput()
