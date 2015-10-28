@@ -14,10 +14,6 @@ import datetime
 import matplotlib.pyplot as plt
 from DebugLog import DebugLog
 
-import OCT_testimport1 as OCTRaw                   # to import test data
-#import OCTRawDataHardwareInterface as OCTRaw       # to import real data
-
-
 class blankClass:
     def __init__(self):
         pass
@@ -193,10 +189,16 @@ def getNewRawData(numTrigs,requestedSamplesPerTrig,appObj):
     return ch0_data, ch1_data
     
     
+    err, pd_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs)
+    DebugLog.log("runBScan(): AcquireOCTDataRaw() err = %d" % err)
+
+
+    
+    
 def saveDispersion_pushButton_clicked(appObj):                
     outfile=datetime.datetime.now().strftime("dispComp-%Y_%m_%d-%H_%M_%S.npz")
-    windowFunctionMag=appObj.JSOrawWindowFunction.mag
-    windowFunctionPh=appObj.JSOrawWindowFunction.phase
+    windowFunctionMag=appObj.JSOrawWindowFunctionmag
+    windowFunctionPh=appObj.JSOrawWindowFunctionphase
     np.savez_compressed(outfile, windowFunctionMag=windowFunctionMag, windowFunctionPh=windowFunctionPh)
     print('saved data in :',outfile)       
     appObj.dispCompFilename_label.setText(outfile)
@@ -210,20 +212,19 @@ def runJSOraw(appObj):
     testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
     
     JSOrawSavedData=blankClass()
-    getDataMethod='saved raw data'
-#        getDataMethod='new raw data'
     
     laserSweepFreq=appObj.oct_hw.GetTriggerRate()
     mirrorDriver = appObj.mirrorDriver
     rset = True
     
-    if getDataMethod=='new raw data':      # get new data            
-        err = OCTRaw.InitFPGA(0)
-        if err>0:
-            print("Init FPGA: err = %d" % err)
-
-    elif getDataMethod=='saved raw data':    #load in the saved data and use it instead
-#            outfile='testData2.npz'
+    if not appObj.oct_hw.IsOCTTestingMode():      # prepare to get new data            
+        # set the mirror position to (0,0)
+        chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
+        data = np.zeros(2)
+        from DAQHardware import DAQHardware
+        daq = DAQHardware()
+        daq.writeValues(chanNames, data)
+    else:    # load in the saved data and use it instead
         outfile=os.path.join(testDataDir,'testData3.npz')
         x=np.load(outfile)             
         JSOrawSavedData.ch0_data_file=x['ch0_data']
@@ -259,17 +260,16 @@ def runJSOraw(appObj):
             dispMode='None'
                  
         # Get data using one of several methods
-        if getDataMethod=='saved raw data':
+        if appObj.oct_hw.IsOCTTestingMode():
             ch0_data,ch1_data=getSavedRawData(numTrigs,requestedSamplesPerTrig,JSOrawSavedData)
-        elif getDataMethod=='new raw data':
+        else:
             ch0_data,ch1_data=getNewRawData(numTrigs,requestedSamplesPerTrig,appObj)
         
         # delay the MZI to account for it having a shorter optical path than the sample/reference arm path
         pdData,mziData,actualSamplesPerTrig=channelShift(ch0_data,ch1_data,numShiftPts)    
         textString='Actual samples per trigger: {actualSamplesPerTrig}'.format(actualSamplesPerTrig=actualSamplesPerTrig)            
         appObj.actualSamplesPerTrig_label.setText(textString)         
-        
-        
+              
         # Process the data        
         mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData) 
         pd_interpRaw, klin = processPD(pdData, k0, klin_idx, numKlinPts)   
