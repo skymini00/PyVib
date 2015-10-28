@@ -1123,9 +1123,13 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.audioHW.speakerCal = np.array([[60, 60], [60, 60]]) 
         
     def shutdown(self):
+        DebugLog.log("OCTWindowClass.shutdown(): closing FPGA")
         self.oct_hw.CloseFPGA()
+        DebugLog.log("OCTWindowClass.shutdown(): shutting down")
         self.oct_hw.Shutdown()
         self.isShutdown = True
+        DebugLog.log("OCTWindowClass.shutdown(): done")
+
             
     def __del__(self):
         if not self.isShutdown:
