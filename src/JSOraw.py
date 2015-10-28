@@ -18,9 +18,9 @@ class blankClass:
     def __init__(self):
         pass
 
-def processMZI(mzi_data, MZIHPfilter=1):
+def processMZI(mzi_data, MZIHPfilter=True):
     # MZIHPfilter=0    
-    if MZIHPfilter==1:       # filtering seems to reduce sidebands caused by interpolation
+    if MZIHPfilter:       # filtering seems to reduce sidebands caused by interpolation
         (b, a) = scipy.signal.butter(2, 0.005, 'highpass')
         mzi_data=scipy.signal.lfilter(b, a, mzi_data,axis=-1)    
     
@@ -187,14 +187,15 @@ def getSavedRawData(numTrigs,requestedSamplesPerTrig,JSOrawSavedData):
     
 def getNewRawData(numTrigs,requestedSamplesPerTrig,appObj):                                 
     try:
-        err = OCTRaw.ConfigAcq(numTrigs, requestedSamplesPerTrig)
-        if err>0:
-            print("Config Acq: err = %d" % err)
-        (err, ch0_data, ch1_data, samplesRemaining, timeElapsed) = OCTRaw.GrabData(numTrigs, requestedSamplesPerTrig)
-        if err>0:
-            print("Grab Data: err = %d" % err)
-            print("Grab Data: ch0_data.shape = %s ch1_data.shape= %s" % (repr(ch0_data.shape), repr(ch1_data.shape)))
-            print("Grab Data: Samples Remaing= %d TimeElapsed= %d" % (samplesRemaining, timeElapsed))
+#        err = OCTRaw.ConfigAcq(numTrigs, requestedSamplesPerTrig)
+#        if err>0:
+#            print("Config Acq: err = %d" % err)
+#        (err, ch0_data, ch1_data, samplesRemaining, timeElapsed) = OCTRaw.GrabData(numTrigs, requestedSamplesPerTrig)
+#        if err>0:
+#            print("Grab Data: err = %d" % err)
+#            print("Grab Data: ch0_data.shape = %s ch1_data.shape= %s" % (repr(ch0_data.shape), repr(ch1_data.shape)))
+#            print("Grab Data: Samples Remaing= %d TimeElapsed= %d" % (samplesRemaining, timeElapsed))
+        err, ch0_data, ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, requestedSamplesPerTrig)
     except Exception as ex:
         print('Error collecting data')
         raise ex
@@ -292,7 +293,8 @@ def runJSOraw(appObj):
         appObj.actualSamplesPerTrig_label.setText(textString)         
               
         # Process the data        
-        mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData) 
+        MZI_HPfilter = appObj.JSORaw_MZI_HPfilter_checkBox.isChecked()
+        mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData, MZI_HPfilter) 
         pd_interpRaw, klin = processPD(pdData, k0, klin_idx, numKlinPts)   
         pd_interpDispComp,windowFunctionMag,windowFunctionPh = dispersionCorrection(pd_interpRaw,dispMode)
         appObj.JSOrawWindowFunctionmag=windowFunctionMag       

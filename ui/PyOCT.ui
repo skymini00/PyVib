@@ -4037,6 +4037,22 @@
        </brush>
       </property>
      </widget>
+     <widget class="QCheckBox" name="JSORaw_MZI_HPfilter_checkBox">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>441</y>
+        <width>271</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>MZI high pass filter (k0 generation)</string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
+      </property>
+     </widget>
     </widget>
    </widget>
    <widget class="QPushButton" name="Mscan_pushButton">
