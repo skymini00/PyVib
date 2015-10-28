@@ -194,6 +194,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             traceback.print_exc(file=sys.stdout)
             DebugLog.log("OCTWindowClass: __init__() failed to load speaekr calibration '%s'" % filepath)
             
+        self.klin = None
         DebugLog.log("OCTWindowClass: __init__() done")
         
         

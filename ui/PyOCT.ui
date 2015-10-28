@@ -5883,7 +5883,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>1</number>
+     <number>2</number>
     </property>
     <widget class="QWidget" name="tab_2">
      <attribute name="title">
@@ -6435,23 +6435,42 @@
        <bool>true</bool>
       </property>
      </widget>
-     <widget class="QPushButton" name="softwareProcessing_pushButton">
+     <widget class="QComboBox" name="processMode_comboBox">
       <property name="geometry">
        <rect>
-        <x>10</x>
+        <x>100</x>
         <y>90</y>
-        <width>131</width>
-        <height>31</height>
+        <width>69</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <item>
+       <property name="text">
+        <string>FPGA</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Software</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>GPU</string>
+       </property>
+      </item>
+     </widget>
+     <widget class="QLabel" name="label_141">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>90</y>
+        <width>71</width>
+        <height>16</height>
        </rect>
       </property>
       <property name="text">
-       <string>Software Processing</string>
-      </property>
-      <property name="checkable">
-       <bool>true</bool>
-      </property>
-      <property name="checked">
-       <bool>false</bool>
+       <string>Process Mode:</string>
       </property>
      </widget>
     </widget>

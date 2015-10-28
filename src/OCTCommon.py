@@ -27,6 +27,11 @@ class StatusMsgSource(Enum):
     COLLECTION = 1
     PROCESSING = 2
     LOGGING = 3
+
+class ProcessMode(Enum):
+    FPGA = 0
+    SOFTWARE = 1
+    GPU = 2
     
 class StatusMsg:
     def __init__(self, msgSrc=StatusMsgSource.UNKNOWN, msgType=StatusMsgType.BLANK, param=None):

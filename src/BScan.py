@@ -22,6 +22,7 @@ import os
 import tifffile
 import pickle
 import time
+import JSOraw
 
 def correctImageAspectRatio(imgData, xRes, zRes, interpMode=PIL.Image.BILINEAR):
     if not np.isfinite(xRes) or not np.isfinite(zRes):
@@ -535,12 +536,16 @@ def runBScan(appObj):
     saveOpts = appObj.getSaveOpts()
     isSaveDirInit = False
     frameNum = 0
+    # softwareProcess = softwareProcessing_pushButton.isChecked()
     
     try: 
         if appObj.oct_hw.IsOCTTestingMode():
             scanParams = loadScanParams(testDataDir)
                     
         while not appObj.doneFlag:
+            startTime = time.time()
+            processMode = OCTCommon.ProcessMode(appObj.processMode_comboBox.currentIndex())
+
             if not appObj.oct_hw.IsOCTTestingMode():
                 # get the scan paramters tht user has entred 
                 scanParams = appObj.getScanParams()
@@ -565,7 +570,17 @@ def runBScan(appObj):
             if appObj.oct_hw.IsOCTTestingMode():
                 oct_data = OCTCommon.loadRawData(testDataDir, frameNum % 15, dataType=0)
             else:
-                err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, dispCorr)
+                if processMode == OCTCommon.ProcessMode.FPGA:
+                    err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, dispCorr)
+                elif processMode == OCTCommon.ProcessMode.SOFTWARE:
+                    fpgaOpts = appObj.oct_hw.fpgaOpts
+                    err, pd_data, mzi_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, startTrigOffset=startTrigOffset)
+                    # calcOCTDataFFT(pdData, mziData, MZI_PD_shift, klinROI_idx, numklinpts, klin, dispCorr_mag, dispCorr_ph):
+                    
+                    klinROI = [fpgaOpts.klinRoiBegin, fpgaOpts.klinRoiEnd]
+                    oct_data, appObj.klin = JSOraw.calcOCTDataFFT(pd_data, mzi_data, fpgaOpts.Ch0Shift*2, klinROI, fpgaOpts.numKlinPts, appObj.klin, appObj.dispCorr.magWin, appObj.dispCorr.phaseCorr, zROI)
+                else:
+                    QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
             
             img16b = processAndDisplayBscanData(appObj, oct_data, scanParams, rset, zROI)
             rset = False  # turn off reset after first loop
@@ -580,6 +595,8 @@ def runBScan(appObj):
             frameNum += 1
             # check for GUI events, particularly the "done" flag
             QtGui.QApplication.processEvents() 
+            updateTime = (time.time() - startTime)*1000
+            appObj.updateRate_label.setText("%0.1f ms" % updateTime)
     except Exception as ex:
         # raise ex
         traceback.print_exc(file=sys.stdout)

@@ -19,6 +19,7 @@ import os
 import sys
 import psutil
 import queue # for Queue.ull exception
+import copy
 
 class FPGAOpts_t(Structure):
     _fields_ = [("Ch0Shift", c_uint16), 
@@ -372,7 +373,6 @@ class LV_DLLInterface:
         fpgaOpts.FFT = c_uint8(55)  # True
         samplesPerTrig = fpgaOpts.SamplesPerTrig
         
-        
         fpgaOptsOut =  FPGAOpts_t()
         numTrigsOut = c_int32(numTriggers)
         roiSize = zROI[1]-zROI[0]+1
@@ -469,15 +469,76 @@ class LV_DLLInterface:
         pass
     
     # grabb the output of the FFT 
-    def AcquireOCTDataRaw(self, numTriggers):
+    def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
         setupNum = c_uint16(self.setupNum)
         
-        fpgaOpts.StartTriggerOfffset = c_uint16(0)
-        fpgaOpts.ProcessMZI = c_uint16(55) # True
-        fpgaOpts.InterpData = c_uint16(55) # True
-        fpgaOpts.DispCorr = c_uint16(55) # True
-        fpgaOpts.FFT = c_uint16(55)  # True
-    
+        fpgaOpts = copy.copy(self.fpgaOpts)
+        fpgaOpts.StartTriggerOfffset = c_uint16(startTrigOffset)
+        fpgaOpts.ProcessMZI = c_uint8(0) # False
+        fpgaOpts.InterpData = c_uint8(0) # False
+        fpgaOpts.DispCorr = c_uint8(0) # False
+        fpgaOpts.FFT = c_uint8(0)  # False
+        fpgaOpts.klinRoiBegin = c_uint16(0) 
+     
+        if Ch0Shift < 0:
+            Ch0Shift = fpgaOpts.Ch0Shift
+        else:
+            Ch0Shift = Ch0Shift // 2
+        
+        fpgaOpts.Ch0Shift = c_uint16(0) 
+        
+        if samplesPerTrig < 0:
+            samplesPerTrig = fpgaOpts.SamplesPerTrig
+        else:
+            samplesPerTrig = samplesPerTrig // 2
+        
+        samplesPerTrig += Ch0Shift 
+        fpgaOpts.SamplesPerTrig = samplesPerTrig
+        DebugLog.log("AcquireOCTDataRaw  samplesPerTrig= %d Ch0Shift=  %d" % (samplesPerTrig, Ch0Shift))
+        fpgaOpts.klinRoiEnd = c_uint16(samplesPerTrig * 2) 
+        
+        fpgaOptsOut =  FPGAOpts_t()
+        numTrigsOut = c_int32(numTriggers)
+        roiSize = samplesPerTrig * 2
+        roiSizeOut = c_int32(roiSize)
+        err = self.config_fpga_acq(setupNum, c_uint32(numTriggers), byref(fpgaOpts), byref(roiSizeOut), byref(numTrigsOut), byref(fpgaOptsOut))
+        DebugLog.log("AcquireOCTDataRaw  roiSizeout= %d numTrigsOut=  %d" % (roiSizeOut.value,  numTrigsOut.value))
+        if err < 0:
+            return err, None, None
+        
+        numSamples = roiSizeOut.value * numTrigsOut.value
+        numDataPts = numSamples
+        numPackedDataPts = 0
+                
+        len_data = c_int32(numDataPts)
+        len_packed_data = c_int32(numPackedDataPts)
+        
+        d_re = np.zeros((numDataPts), np.float32)
+        d_im = np.zeros((numDataPts), np.float32)        
+        d_re = np.require(d_re, np.float32, ['C', 'W'])
+        d_im = np.require(d_im, np.float32, ['C', 'W'])
+        
+        packedData = np.zeros((numPackedDataPts), np.uint64)
+        packedData = np.require(packedData, np.uint64, ['C', 'W'])
+        
+        #trigOffset = fpgaOpts.StartTriggerOfffset
+        timeElapsed = c_uint32(0)
+        transferTime = c_uint32(0)
+        unpackTime = c_uint32(0)
+        trigOffset = c_uint32(0)
+        unpackData = True
+        
+        # DebugLog.log("OCTDataCollector.startFrameGetData(): isSynchOCT = " + repr(self.protocol.isSynchOCT()))
+        err = self.acq_fpga_data(setupNum, c_uint32(numTrigsOut.value), c_uint32(numSamples), trigOffset, unpackData, d_re, d_im, byref(len_data), packedData, byref(len_packed_data), byref(timeElapsed), byref(transferTime), byref(unpackTime))
+        DebugLog.log("AcquireOCTDataRaw len_data= " + repr(len_data.value))
+        pd_data = np.zeros(len_data.value, np.float32)
+        mzi_data = np.zeros(len_data.value, np.float32)
+        pd_data[:] = d_re
+        pd_data = pd_data.reshape((numTrigsOut.value, roiSizeOut.value))
+        mzi_data[:] = d_im
+        mzi_data = mzi_data.reshape((numTrigsOut.value, roiSizeOut.value))
+        
+        return err, pd_data, mzi_data
     
     def LoadOCTDispersion(self, magWin, phaseCorr):
         err = 0
@@ -808,13 +869,13 @@ def readFPGAOptsConfig(filepath):
     return opts
     
 import time
-# import msvcrt
 
 if __name__ == "__main__":
+    import msvcrt
     # 50 kHz
     setup = 4
-    samplesPerTrig = 2048
-    klinROI = [15, 2035]
+    samplesPerTrig = 1024
+    klinROI = [15, 1600]
 
     # 200 kHz
     #setup = 3
@@ -832,7 +893,8 @@ if __name__ == "__main__":
     print("InitFPGA() err=", err)
     
     # dataToGet = 'interpPD'
-    dataToGet = 'complexFFT'
+    # dataToGet = 'complexFFT'
+    dataToGet = 'raw'
     
     try:
         plt.figure(1)
@@ -842,7 +904,7 @@ if __name__ == "__main__":
         phaseCorr = np.zeros(2048)
         err = oct_hw.LoadOCTDispersion(magWin, phaseCorr)
         print("LoadOCTDispersion err=", err)
-        for n in range(0, 5):
+        for n in range(0, 1):
             if dataToGet == 'interpPD': # interpolated PD
                 err, interpPD = oct_hw.AcquireOCTDataInterpPD(10)
                 print("AcquireOCTDataInterpPD err=", err)
@@ -851,6 +913,22 @@ if __name__ == "__main__":
                     plt.figure(2)
                     plt.cla()
                     plt.plot(interpPDavg)
+                    plt.show()
+                    
+            elif dataToGet == 'raw': # interpolated PD
+                err, pd_data, mzi_data = oct_hw.AcquireOCTDataRaw(10)
+                print("AcquireOCTDataRaw err=", err)
+                
+                if pd_data is not None:
+                    #pd_data = np.mean(pd_data, 0)
+                    #mzi_data = np.mean(mzi_data, 0)
+                    #mzi_dataavg = np.mean(interpPD, 0)
+                    plt.figure(2)
+                    plt.clf()
+                    plt.subplot(2, 1, 1)
+                    plt.plot(pd_data[5, :])
+                    plt.subplot(2, 1, 2)
+                    plt.plot(mzi_data[1, :])
                     plt.show()
             else:
                 err, oct_data = oct_hw.AcquireOCTDataFFT(10, [0, 1023])

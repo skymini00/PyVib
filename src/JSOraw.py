@@ -18,9 +18,9 @@ class blankClass:
     def __init__(self):
         pass
 
-def processMZI(mzi_data):
-    filter=0    
-    if filter==1:       # filtering seems to reduce sidebands caused by interpolation
+def processMZI(mzi_data, MZIHPfilter=1):
+    # MZIHPfilter=0    
+    if MZIHPfilter==1:       # filtering seems to reduce sidebands caused by interpolation
         (b, a) = scipy.signal.butter(2, 0.005, 'highpass')
         mzi_data=scipy.signal.lfilter(b, a, mzi_data,axis=-1)    
     
@@ -69,6 +69,27 @@ def channelShift(ch0_data,ch1_data,numShiftPts):
     mziData=ch1_data[:,0:actualSamplesPerTrig]
     return pdData,mziData,actualSamplesPerTrig
 
+def calcOCTDataFFT(pdData, mziData, MZI_PD_shift, klinROI_idx, numklinpts, klin, dispCorr_mag, dispCorr_ph, zROI):
+    DebugLog.log('calcOCTDataFFT: pdData.shape= ' + repr(pdData.shape))
+    pdData,mziData,actualSamplesPerTrig=channelShift(pdData, mziData, MZI_PD_shift)    
+    DebugLog.log('calcOCTDataFFT: after channel Shift pdData.shape= ' + repr(pdData.shape))
+    mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData) 
+    DebugLog.log('calcOCTDataFFT: processed the MZI data pdData.shape= ' + repr(pdData.shape))
+    pd_interpRaw, klin = processPD(pdData, k0, klinROI_idx, numklinpts)   
+    if numklinpts > 2048:  # downsample if over 2048 pts
+        idx = range(0, numklinpts, 2)
+        pd_interpRaw = pd_interpRaw[:, idx]
+    print('processed the PDdata')
+    pd_interpDisp = np.abs(dispCorr_mag * pd_interpRaw * (np.cos(-1*dispCorr_ph) + 1j * np.sin(-1*dispCorr_ph)))
+
+    oct_data = np.fft.fft(pd_interpDisp, 2048)
+    oct_data = oct_data[:, zROI[0]:zROI[1]]
+    oct_data = oct_data / numklinpts
+    
+    return oct_data, klin
+    
+    
+    
 def processUniqueDispersion(pd_data):
     numTrigs = pd_data.shape[0]
     numklinpts = pd_data.shape[1]
