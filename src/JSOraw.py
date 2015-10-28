@@ -208,7 +208,6 @@ def runJSOraw(appObj):
     appObj.doneFlag = False
     appObj.isCollecting = True
     testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
-    print('test data dir',testDataDir)
     
     JSOrawSavedData=blankClass()
     getDataMethod='saved raw data'
@@ -226,7 +225,6 @@ def runJSOraw(appObj):
     elif getDataMethod=='saved raw data':    #load in the saved data and use it instead
 #            outfile='testData2.npz'
         outfile=os.path.join(testDataDir,'testData3.npz')
-        print('outfile',outfile)
         x=np.load(outfile)             
         JSOrawSavedData.ch0_data_file=x['ch0_data']
         JSOrawSavedData.ch1_data_file=x['ch1_data']
@@ -237,7 +235,6 @@ def runJSOraw(appObj):
            
     peakXPos=np.array([0],dtype=int)       
     peakYPos=np.array([0],dtype=float)       
-    print('peak-init',peakXPos,peakYPos)            
                
     while appObj.doneFlag == False:
         # read data analysis settings from the GUI
@@ -272,21 +269,16 @@ def runJSOraw(appObj):
         textString='Actual samples per trigger: {actualSamplesPerTrig}'.format(actualSamplesPerTrig=actualSamplesPerTrig)            
         appObj.actualSamplesPerTrig_label.setText(textString)         
         
-        print('delayed the MZI')
         
         # Process the data        
         mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData) 
-        print('processed the MZIdata')
         pd_interpRaw, klin = processPD(pdData, k0, klin_idx, numKlinPts)   
-        print('processed the PDdata')
         pd_interpDispComp,windowFunctionMag,windowFunctionPh = dispersionCorrection(pd_interpRaw,dispMode)
-        print('corrected the dispersion')
         appObj.JSOrawWindowFunctionmag=windowFunctionMag       
         appObj.JSOrawWindowFunctionphase=windowFunctionPh       
         pd_fftNoInterp, alineMagNoInterp, alinePhaseNoInterp = calculateAline(pdData[:,startSample:endSample])
         pd_fftRaw, alineMagRaw, alinePhaseRaw = calculateAline(pd_interpRaw)
         pd_fftDispComp, alineMagDispComp, alinePhaseDispComp = calculateAline(pd_interpDispComp)
-        print('calculated the A lines')
        
         #scale k0 and the MZI to the same range to plot them so they overlap
         k0Ripple= scipy.signal.detrend(k0[0,500:700],axis=-1)
@@ -305,13 +297,12 @@ def runJSOraw(appObj):
         phaseNoiseFFT = np.fft.fft(phaseNoiseTD, n=2048)
         phaseNoiseFD = 20*np.log10(np.abs(phaseNoiseFFT) + 1)        
         
-        print('getting ready to start plotting')            
         # Clear all of the plots
-        appObj.mzi_plot.clear() 
-        appObj.pd_plot.clear()
-        appObj.mzi_mag_plot.clear()
-        appObj.mzi_phase_plot.clear()
-        appObj.k0_plot.clear()
+        appObj.mzi_plot_2.clear() 
+        appObj.pd_plot_2.clear()
+        appObj.mzi_mag_plot_2.clear()
+        appObj.mzi_phase_plot_2.clear()
+        appObj.k0_plot_2.clear()
         appObj.interp_pdRaw_plot.clear()
         appObj.interp_pdDispComp_plot.clear()
         appObj.alineNoInterp_plot.clear()
@@ -325,12 +316,12 @@ def runJSOraw(appObj):
         # Plot all the data
         if appObj.plotFirstOnly_checkBox.isChecked()==True:
             i=0
-            appObj.pd_plot.plot(pdData[i,:], pen='r')            
-            appObj.mzi_plot.plot(mziData[i,:], pen='r')            
-            appObj.mzi_mag_plot.plot(mzi_mag[i,:], pen='r')            
-            appObj.k0_plot.plot(k0[i,:], pen='r')
+            appObj.pd_plot_2.plot(pdData[i,:], pen='r')            
+            appObj.mzi_plot_2.plot(mziData[i,:], pen='r')            
+            appObj.mzi_mag_plot_2.plot(mzi_mag[i,:], pen='r')            
+            appObj.k0_plot_2.plot(k0[i,:], pen='r')
             sampleNum=np.linspace(startSample,endSample,numKlinPts)
-            appObj.k0_plot.plot(sampleNum,klin, pen='b')                      
+            appObj.k0_plot_2.plot(sampleNum,klin, pen='b')                      
             appObj.interp_pdRaw_plot.plot(pd_interpRaw[i,:], pen='r')           
             appObj.interp_pdDispComp_plot.plot(pd_interpDispComp[i,:], pen='r')           
             appObj.alineNoInterp_plot.plot(alineMagNoInterp[i,:], pen='r')
@@ -338,11 +329,11 @@ def runJSOraw(appObj):
             appObj.alineDispComp_plot.plot(alineMagDispComp[i,:], pen='r')
         else:                   
             for i in range(numTrigs):
-                appObj.pd_plot.plot(pdData[i,:], pen=(i,numTrigs))            
-                appObj.mzi_plot.plot(mziData[i,:], pen=(i,numTrigs))            
-                appObj.mzi_mag_plot.plot(mzi_mag[i,:], pen=(i,numTrigs))            
-                appObj.mzi_phase_plot.plot(mzi_ph[i,:], pen=(i,numTrigs))            
-                appObj.k0_plot.plot(k0[i,:], pen=(i,numTrigs))                      
+                appObj.pd_plot_2.plot(pdData[i,:], pen=(i,numTrigs))            
+                appObj.mzi_plot_2.plot(mziData[i,:], pen=(i,numTrigs))            
+                appObj.mzi_mag_plot_2.plot(mzi_mag[i,:], pen=(i,numTrigs))            
+                appObj.mzi_phase_plot_2.plot(mzi_ph[i,:], pen=(i,numTrigs))            
+                appObj.k0_plot_2.plot(k0[i,:], pen=(i,numTrigs))                      
                 appObj.interp_pdRaw_plot.plot(pd_interpRaw[i,:], pen=(i,numTrigs))           
                 appObj.interp_pdDispComp_plot.plot(pd_interpDispComp[i,:], pen=(i,numTrigs))           
                 appObj.alineNoInterp_plot.plot(alineMagNoInterp[i,:], pen=(i,numTrigs))
@@ -352,8 +343,8 @@ def runJSOraw(appObj):
         appObj.alineDispComp_plot.plot(peakXPos,peakYPos, pen=None, symbolBrush='k', symbolPen='b')
         appObj.phaseNoiseTD_plot.plot(phaseNoiseTD, pen='r')
         appObj.phaseNoiseFD_plot.plot(phaseNoiseFD, pen='r')
-        appObj.mzi_phase_plot.plot(mziDataNorm, pen='b')            
-        appObj.mzi_phase_plot.plot(k0RippleNorm, pen='r')            
+        appObj.mzi_phase_plot_2.plot(mziDataNorm, pen='b')            
+        appObj.mzi_phase_plot_2.plot(k0RippleNorm, pen='r')            
         
         # if you want to align the pd and the Mzi data
 #            plotPDPhase.plot(pdData[0,:], pen='r')
@@ -389,5 +380,8 @@ def runJSOraw(appObj):
         
 #            print('alineMagDispComp ',alineMagDispComp.shape)
         appObj.bscan_plot.setImage(alineMagDispComp)
-#        QtGui.QApplication.processEvents() # check for GUI events                       print('finished loop')
-                   
+        QtGui.QApplication.processEvents() # check for GUI events  
+        
+    appObj.isCollecting = False
+    QtGui.QApplication.processEvents() # check for GUI events
+    appObj.finishCollection()
