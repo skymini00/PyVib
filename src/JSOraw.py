@@ -5,16 +5,23 @@ Created on Fri Sep  4 10:15:58 2015
 @author: OHNS
 """
 import sys
+import os
 from PyQt4 import QtCore, QtGui, uic
 import pyqtgraph as pg
 import scipy.signal 
 import numpy as np
 import datetime
 import matplotlib.pyplot as plt
+from DebugLog import DebugLog
 
-import OCT_testimport1 as OCTRaw
-#import OCTRawDataHardwareInterface as OCTRaw
-       
+import OCT_testimport1 as OCTRaw                   # to import test data
+#import OCTRawDataHardwareInterface as OCTRaw       # to import real data
+
+
+class blankClass:
+    def __init__(self):
+        pass
+
 def processMZI(mzi_data):
     filter=0    
     if filter==1:       # filtering seems to reduce sidebands caused by interpolation
@@ -364,28 +371,31 @@ def runJSOraw(appObj):
     appObj.doneFlag = False
     appObj.isCollecting = True
     testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
-
-#        self.getDataMethod='new raw data'
-    self.doneFlag=False
-    self.getDataMethod='saved raw data'
-#        self.getDataMethod='new raw data'
-    self.singleProcess=True
-    self.laserSweepFreq=50000
+    print('test data dir',testDataDir)
     
-    if self.getDataMethod=='new raw data':      # get new data            
+    JSOrawInfo=blankClass()
+#        self.getDataMethod='new raw data'
+    JSOrawInfo.doneFlag=False
+    JSOrawInfo.getDataMethod='saved raw data'
+#        self.getDataMethod='new raw data'
+    JSOrawInfo.singleProcess=True
+    JSOrawInfo.laserSweepFreq=50000
+    
+    if JSOrawInfo.getDataMethod=='new raw data':      # get new data            
         err = OCTRaw.InitFPGA(0)
         if err>0:
             print("Init FPGA: err = %d" % err)
 
-    elif self.getDataMethod=='saved raw data':    #load in the saved data and use it instead
+    elif JSOrawInfo.getDataMethod=='saved raw data':    #load in the saved data and use it instead
 #            outfile='testData2.npz'
-        outfile='testData3.npz'
+        outfile=os.path.join(testDataDir,'testData3.npz')
+        print('outfile',outfile)
         x=np.load(outfile)             
-        self.ch0_data_file=x['ch0_data']
-        self.ch1_data_file=x['ch1_data']
-        self.count=0
-        self.saveRawData=0
-        self.requestedSamplesPerTrig.setValue(self.ch1_data_file.shape[1])
+        JSOrawInfo.ch0_data_file=x['ch0_data']
+        JSOrawInfo.ch1_data_file=x['ch1_data']
+        JSOrawInfo.count=0
+        JSOrawInfo.saveRawData=0
+        appObj.requestedSamplesPerTrig.setValue(JSOrawInfo.ch1_data_file.shape[1])
         print('loaded data from :',outfile)
 
  
