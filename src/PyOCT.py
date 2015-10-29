@@ -334,7 +334,9 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.audio_loadFlatSpkCal_pushButton.clicked.connect(self.loadFlatSpeakerCal)
         self.JSOsaveDispersion_pushButton.clicked.connect(self.JSOsaveDispersion_pushButton_clicked)         
         
-        
+        self.roiBeginSlider.valueChanged.connect(self.ZROIChanged)
+        self.roiEndSlider.valueChanged.connect(self.ZROIChanged)
+
     def _initGraphVars(self):
         layout = QtGui.QHBoxLayout()
         if self.enableVolViewer:
@@ -1123,6 +1125,18 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.audioHW.speakerCalFreq = np.array([[20, 100e3], [20, 100e3]]) 
         self.audioHW.speakerCal = np.array([[60, 60], [60, 60]]) 
         
+    def ZROIChanged(self):
+        roiBegin = self.roiBeginSlider.value()
+        roiEnd = self.roiEndSlider.value()
+        if(roiEnd <= roiBegin):
+            roiEnd = roiBegin + 1
+        zroi = (roiBegin, roiEnd)            
+        self.zROILast = zroi
+        self.ZROI_size_spinBox.setValue(roiEnd - roiBegin + 1)
+        
+#        if not self.singleProcess:
+#            self.collMsgQ.put(CollProcMsg(CollProcMsgType.CHANGE_ZROI, zroi))        
+            
     def shutdown(self):
         DebugLog.log("OCTWindowClass.shutdown(): closing FPGA")
         self.oct_hw.CloseFPGA()

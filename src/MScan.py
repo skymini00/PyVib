@@ -71,6 +71,7 @@ class MScanData:
         self.FDnoiseAboveStimFreqSD = None    #   Mean= mean noise, SD = standard deviation
         self.FDnoiseBelowStimFreqMean = None  #   num pts is deermined by noise bandiwth in mscan processing opts
         self.FDnoiseBelowStimFreqSD = None  
+        self.frameNum = -1
 
 # aggregate tuning curve at single point
 class MscanTuningCurve:
@@ -1253,48 +1254,65 @@ def MscanCollectFcn(oct_hw, frameNum, extraArgs):
     return rawData, audioOutput
         
 class MScanRegionVolData():
-    def __init__(mscanRegionnData, volData):
+    def __init__(self, mscanRegionnData, volData):
         self.mscanRegionnData = mscanRegionnData
         self.volData = volData
         
-def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts, framesPerScan, rawDataQ, procDataQ, msgQ):
+def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts, trigRate, framesPerScan, rawDataQ, procDataQ, procRawDataQ, msgQ):
     shutdown = False
-    mscanTuningCurveList = []
+    mscanTuningCurveList = None
     numZPts = zROI[1] - zROI[0] + 1
     mscanRegionData = MscanRegionData(audioParams, scanParams, procOpts, numZPts)
+    volData = VolumeScan.VolumeData()
     
     frameNum = 0
-    putTimeout = False
+    putTimeout = False  # indicates there was a timeout attempting to send data to 
     while not shutdown and frameNum < framesPerScan:
-        if not putTimeout:
-            if not rawDataQ.empty():
-                rawData = rawDataQ.get(timeout=0.25)
-            
-                if rawData is not None and isinstance(rawData, MscanRawData) and not putTimeout:
-                    # convet to cocorret type
-                    #if isinstance(data, MScanData):
-                    #    mscanData = data
-                    #rawData.frameNum
-                    #rawData.mic_data
-                    DebugLog.log("MscanProcessingProcess(): got raw data")
-                    # process the data
-                    frameNum = rawData.frameNum
-                    posLenStep, posWidthStep, freqStep, ampStep = MscanGetStepFromFrameNum(frameNum, scanParams, audioParams)
-                    mscanData, mscanTuningCurveList, mscanRegionData, volData = processMscanData(rawData.oct_data, rawData.mscanPosAndStim, scanParams, audioParams, procOpts, trigRate, mscanTuningCurveList, mscanRegionData, volData)
-                    mscanRgnVolData = MScanRegionVolData(mscanRegionData, volData)
-                    
+        try:
+            if not putTimeout:
+                if not rawDataQ.empty():
+                    mscanData = None
+                    rawData = rawDataQ.get(timeout=0.25)
+                
+                    if rawData is not None and isinstance(rawData, MscanRawData) and not putTimeout:
+                        # convet to cocorret type
+                        #if isinstance(data, MScanData):
+                        #    mscanData = data
+                        #rawData.frameNum
+                        #rawData.mic_data
+                        DebugLog.log("MscanProcessingProcess(): got raw data")
+                        # process the data
+                        frameNum = rawData.frameNum
+                        posLenStep, posWidthStep, freqStep, ampStep = MscanGetStepFromFrameNum(frameNum, scanParams, audioParams)
+                        mscanData, mscanTuningCurveList, mscanRegionData, volData = processMscanData(rawData.oct_data, rawData.mscanPosAndStim, scanParams, audioParams, procOpts, trigRate, mscanTuningCurveList, mscanRegionData, volData)
+                        mscanRgnVolData = MScanRegionVolData(mscanRegionData, volData)
+                        mscanData.frameNum = frameNum
+                        
+            # send processsed data to main program
+            if mscanData is not None:
+                try:
+                    if procRawDataQ is not None:
+                        procRawDataQ.put(rawData, timeout=0.25)
+                    if regionMscan:
+                        procDataQ.put(mscanRgnVolData, timeout=0.25)
+                    else:
+                        ptNum = posLenStep
+                        tCurve = mscanTuningCurveList[ptNum]
+                        procDataQ.put(tCurve, timeout=0.25)
+                        #(mscanPosAndStim.ampIdx == (numAmpSteps - 1)) and (mscanPosAndStim.freqIdx == (numFreqSteps - 1))
+                        
+                    procDataQ.put(mscanData, timeout=0.25)   # send this data last because it contains frame number which client uss to detect whether acquisition is complete                                
+                except queue.Full:
+                    putTimeout = True
+        except Exception as ex:
+            traceback.print_exc(file=sys.stdout)
+            statusMsg = OCTCommon.StatusMsg(OCTCommon.StatusMsgSource.PROCESSING, OCTCommon.StatusMsgType.ERROR)
+            statusMsg.param = ex
             try:
-                procDataQ.put(mscanData, timeout=0.25)        
-
-                if regionMscan:
-                    procDataQ.put(mscanRgnVolData, timeout=0.25)
-                else:
-                    ptNum = mscanPosAndStim.posLenStep
-                    tCurve = mscanTuningCurveList[ptNum]
-                    procDataQ.put(tCurve, timeout=0.25)
-                    #(mscanPosAndStim.ampIdx == (numAmpSteps - 1)) and (mscanPosAndStim.freqIdx == (numFreqSteps - 1))
-            except queue.Full:
-                putTimeout = True
+                self.statusQ.put(statusMsg, False)
+            except queue.Full as ex:
+                pass
+            shutdown = True
         
         # chedk for shutdown messages 
         if not msgQ.empty():
@@ -1304,11 +1322,11 @@ def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts,
 
 def handleStatusMessage(statusMsg):
     err = False
-    if statusMsg.msgSrc == OCTCommon.StatusMsgSource.COLLECTION:
-        if statusMsg.msgType == OCTCommon.StatusMsgType.ERROR:
-            err = True
-        elif statusMsg.msgType == OCTCommon.StatusMsgType.DAQ_OUTPUT:
-            pass
+    # if statusMsg.msgSrc == OCTCommon.StatusMsgSource.COLLECTION:
+    if statusMsg.msgType == OCTCommon.StatusMsgType.ERROR:
+        err = True
+    elif statusMsg.msgType == OCTCommon.StatusMsgType.DAQ_OUTPUT:
+        pass
         
     return err
     
@@ -1358,13 +1376,17 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
         statusMsg = oct_hw.GetStatus()        
     
     procDataQ = mproc.Queue(10)
+    procRawDataQ = None
+    if saveOpts.saveRaw:   # if saving raw data, create a raw data queue so that mscan processing process will resned raw data to this function
+        procRawDataQ = mproc.Queue(10)
     msgQ = mproc.Queue(10)
     rawDataQ = oct_hw.rawDataQ
-    procProcess = mproc.Process(target=MscanProcessingProcess, args=[audioParams, scanParams, zROI, regionMscan, procOpts, framesPerScan, rawDataQ, procDataQ, msgQ], daemon=True)
+    procProcess = mproc.Process(target=MscanProcessingProcess, args=[audioParams, scanParams, zROI, regionMscan, procOpts, trigRate, framesPerScan, rawDataQ, procDataQ, procRawDataQ, msgQ], daemon=True)
     DebugLog.log("runBScanMultiProcess(): starting processing process")
     procProcess.start()
+    frameNum = -1
         
-    while not appObj.doneFlag:
+    while not appObj.doneFlag and frameNum < framesPerScan-1:
         # update parameters in background process
         # start the acquisitio on first loop iteration
         # we don't just do this outside the loop because we haven't loaded function args yet
@@ -1377,7 +1399,7 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
         if not procDataQ.empty():
             DebugLog.log("runBScanMultiProcess: grabbing data")
 
-            data = procDataQ.get(mscanData)      
+            data = procDataQ.get()      
             mscanRegionData = None
             mscanData = None
             tuningCurve = None
@@ -1385,7 +1407,7 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
                 DebugLog.log("runBScanMultiProcess: received mscan data")
                 frameNum = data.frameNum
                 mscanData = data
-                displayMscanDataSinglePt(appObj, mscanData, data)
+                displayMscanDataSinglePt(appObj, mscanData, tuningCurve)
                 appObj.acquisition_progressBar.setValue(round(100*(frameNum+1)/framesPerScan))                
             elif isinstance(data, MscanTuningCurve):
                 DebugLog.log("runBScanMultiProcess: received tuning curve data")
@@ -1412,8 +1434,10 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
                         saveMscanTuningCurve(tuningCurve, audioParams, posLenStep, saveDir)
                         
                 if saveOpts.saveRaw:
-                    OCTCommon.saveRawData(oct_data, saveDir, frameNum, dataType=0)
-                    OCTCommon.saveRawData(mic_data, saveDir, frameNum, dataType=3)
+                    if not procRawDataQ.empty():
+                        rawData = procRawDataQ.get()
+                        OCTCommon.saveRawData(rawData.oct_data, saveDir, frameNum, dataType=0)
+                        OCTCommon.saveRawData(rawData.mic_data, saveDir, frameNum, dataType=3)
                     
             statusMsg = oct_hw.GetStatus()
             while statusMsg is not None:
@@ -1422,7 +1446,6 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
                 if err:
                     appObj.doneFlag = True  # if error occured, stop pcollecting
                 statusMsg = oct_hw.GetStatus()
-                
             
 
         tElapsed = time.time() - startTime
@@ -1430,8 +1453,6 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
         tSecs = int(tElapsed - 60*tMins)
         appObj.timeElapsed_label.setText("%d mins %d secs" % (tMins, tSecs))
 
-        
-            
         # check for GUI events, particularly the "done" flag
         QtGui.QApplication.processEvents() 
         time.sleep(0.005)

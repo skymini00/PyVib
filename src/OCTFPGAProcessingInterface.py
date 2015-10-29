@@ -784,7 +784,7 @@ class LV_DLLInterface_BGProcess_Adaptor:
         
     def LoadOCTDispersion(self, magWin, phaseCorr):
         msg = ['loadDispersion', (magWin, phaseCorr)]
-        self.collMsgQ.put(msg, timeout=self.putTimeout)
+        self.collMsgQ.put(msg, timeout=self.qTimeout)
         err = -1
         if not self.statusQ.empty():
             err = self.statusQ.get(timeout=self.qTimeout)
