@@ -25,7 +25,7 @@ import struct
 import time
 import pickle
 import multiprocessing as mproc
-
+import queue 
 from OCTProtocolParams import *
 
 # Mscan processing options
@@ -932,78 +932,79 @@ def makeVibRespImg(mscanRgnData, volData, magAutoNorm=True, magNorms=(0, 100), i
     return (magImg, phaseImg, minMag, maxMag)          
                     
 def displayMscanDataSinglePt(appObj, mscanData, tuningCurve):
-    pl = appObj.plot_mscan_avgAline
-    pl.clear()
-    pl.plot(mscanData.avgAline, pen="b")
-    al_max = np.max(mscanData.avgAline)
-    al_min = np.min(mscanData.avgAline)
-    if hasattr(mscanData, 'zROIidx'):
-        idx1 = mscanData.zROIidx[0]
-        idx2 = mscanData.zROIidx[1]
-        pl.plot([idx1, idx1], [al_min, al_max], pen="m")
-        pl.plot([idx2, idx2], [al_min, al_max], pen="m")
-        # zROIpl1.sigClicked.connect(self.zROIplot1Clicked())
-    if hasattr(mscanData, 'maxSNR_Zidx'):
-        idx = mscanData.maxSNR_Zidx
-        DebugLog.log("displayMscanDataSinglePt: mscanData.maxSNR_Zidx = %d" % (idx))
-        pl.plot([idx, idx], [al_min, al_max], pen="r")
-        
-    if len(mscanData.stimRespMag.shape) == 1:
-        appObj.mscan_stim_mag_resp.setText("%0.3g nm" % (mscanData.stimRespMag))
-
-    if len(mscanData.mscanTD.shape) == 1:
-        pl = appObj.plot_mscan_TD
+    if mscanData is not None:
+        pl = appObj.plot_mscan_avgAline
         pl.clear()
-        t = np.linspace(0, mscanData.trialTime, len(mscanData.mscanTD))
-        
-        pl.plot(t, 1e-9*mscanData.mscanTD, pen="b")
-        labelStyle = appObj.xLblStyle
-        pl.setLabel('bottom', 'Time', 's', **labelStyle)
-        labelStyle = appObj.yLblStyle
-        pl.setLabel('left', 'Displacement', 'm', **labelStyle)
+        pl.plot(mscanData.avgAline, pen="b")
+        al_max = np.max(mscanData.avgAline)
+        al_min = np.min(mscanData.avgAline)
+        if hasattr(mscanData, 'zROIidx'):
+            idx1 = mscanData.zROIidx[0]
+            idx2 = mscanData.zROIidx[1]
+            pl.plot([idx1, idx1], [al_min, al_max], pen="m")
+            pl.plot([idx2, idx2], [al_min, al_max], pen="m")
+            # zROIpl1.sigClicked.connect(self.zROIplot1Clicked())
+        if hasattr(mscanData, 'maxSNR_Zidx'):
+            idx = mscanData.maxSNR_Zidx
+            DebugLog.log("displayMscanDataSinglePt: mscanData.maxSNR_Zidx = %d" % (idx))
+            pl.plot([idx, idx], [al_min, al_max], pen="r")
+            
+        if len(mscanData.stimRespMag.shape) == 1:
+            appObj.mscan_stim_mag_resp.setText("%0.3g nm" % (mscanData.stimRespMag))
     
-    DebugLog.log("displayMscanDataSinglePt: mscanData.maxFFTFreq = %g" % (mscanData.maxFFTFreq))
-    if len(mscanData.mscanFFT.shape) == 1:
-        freq = np.linspace(0, mscanData.maxFFTFreq, len(mscanData.mscanFFT))
+        if len(mscanData.mscanTD.shape) == 1:
+            pl = appObj.plot_mscan_TD
+            pl.clear()
+            t = np.linspace(0, mscanData.trialTime, len(mscanData.mscanTD))
+            
+            pl.plot(t, 1e-9*mscanData.mscanTD, pen="b")
+            labelStyle = appObj.xLblStyle
+            pl.setLabel('bottom', 'Time', 's', **labelStyle)
+            labelStyle = appObj.yLblStyle
+            pl.setLabel('left', 'Displacement', 'm', **labelStyle)
         
-        # don't plot below 80 Hz because of large LF component that throws off scaling
-        idx = int(np.floor(80 / freq[1]))
-        pl = appObj.plot_mscan_FFT
-        pl.clear()
-        pl.plot(freq[idx:], 1e-9*np.abs(mscanData.mscanFFT[idx:]), pen="b")
-        labelStyle = appObj.xLblStyle
-        pl.setLabel('bottom', 'Frequency', 'Hz', **labelStyle)
-        labelStyle = appObj.yLblStyle
-        pl.setLabel('left', 'Displacement', 'm', **labelStyle)
+        DebugLog.log("displayMscanDataSinglePt: mscanData.maxFFTFreq = %g" % (mscanData.maxFFTFreq))
+        if len(mscanData.mscanFFT.shape) == 1:
+            freq = np.linspace(0, mscanData.maxFFTFreq, len(mscanData.mscanFFT))
+            
+            # don't plot below 80 Hz because of large LF component that throws off scaling
+            idx = int(np.floor(80 / freq[1]))
+            pl = appObj.plot_mscan_FFT
+            pl.clear()
+            pl.plot(freq[idx:], 1e-9*np.abs(mscanData.mscanFFT[idx:]), pen="b")
+            labelStyle = appObj.xLblStyle
+            pl.setLabel('bottom', 'Frequency', 'Hz', **labelStyle)
+            labelStyle = appObj.yLblStyle
+            pl.setLabel('left', 'Displacement', 'm', **labelStyle)
+            
+            noiseNumSD = 3
+            noiseAbove = mscanData.FDnoiseAboveStimFreqMean + noiseNumSD * mscanData.FDnoiseAboveStimFreqSD
+            noiseBelow = mscanData.FDnoiseBelowStimFreqMean + noiseNumSD * mscanData.FDnoiseBelowStimFreqSD
+            
+            appObj.mscan_noise_below_lineEdit.setText("%0.3g nm" % (noiseAbove))
+            appObj.mscan_noise_above_lineEdit.setText("%0.3g nm" % (noiseBelow))
+            
+            clr = QtGui.QColor(128, 0, 0)     # dark red
+            qpen = QtGui.QPen(clr)
+            qbrush = QtGui.QBrush(clr)
         
-        noiseNumSD = 3
-        noiseAbove = mscanData.FDnoiseAboveStimFreqMean + noiseNumSD * mscanData.FDnoiseAboveStimFreqSD
-        noiseBelow = mscanData.FDnoiseBelowStimFreqMean + noiseNumSD * mscanData.FDnoiseBelowStimFreqSD
-        
-        appObj.mscan_noise_below_lineEdit.setText("%0.3g nm" % (noiseAbove))
-        appObj.mscan_noise_above_lineEdit.setText("%0.3g nm" % (noiseBelow))
-        
-        clr = QtGui.QColor(128, 0, 0)     # dark red
-        qpen = QtGui.QPen(clr)
-        qbrush = QtGui.QBrush(clr)
+            stimFreq = [ mscanData.stimFreq ]
+            stimResp = [ mscanData.stimRespMag*1e-9 ]
+            pl.plot(stimFreq, stimResp, symbol='o', pen=qpen, symbolBrush=qbrush)
     
-        stimFreq = [ mscanData.stimFreq ]
-        stimResp = [ mscanData.stimRespMag*1e-9 ]
-        pl.plot(stimFreq, stimResp, symbol='o', pen=qpen, symbolBrush=qbrush)
+    if tuningCurve is not None:
+        DebugLog.log("displayMscanDataSinglePt() plotting mscan tuning curves")
+        mag_plt = appObj.plot_mscan_mag_tuning
+        phase_plt = appObj.plot_mscan_phase_tuning
+        mag_plt.clear()
+        phase_plt.clear()
+        
+        #yAxis = mag_plt.getAxis('left')
+        #yAxis.setLogMode(True)
+        mag_plt.setLogMode(y=True)
     
-    DebugLog.log("displayMscanDataSinglePt() plotting mscan tuning curves")
-    mag_plt = appObj.plot_mscan_mag_tuning
-    phase_plt = appObj.plot_mscan_phase_tuning
-    mag_plt.clear()
-    phase_plt.clear()
-    
-    #yAxis = mag_plt.getAxis('left')
-    #yAxis.setLogMode(True)
-    mag_plt.setLogMode(y=True)
-
-    # penColors = ['b', 'r', 'g', 'y']
-    tcurve = tuningCurve
-    if tcurve is not None:
+        # penColors = ['b', 'r', 'g', 'y']
+        tcurve = tuningCurve
         numAmp = len(tcurve.amp)
         for aIdx in range(0, numAmp):
             # mag = tcurve.magResp[:, aIdx] * 1e-9
@@ -1251,32 +1252,49 @@ def MscanCollectFcn(oct_hw, frameNum, extraArgs):
 
     return rawData, audioOutput
         
-def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts, rawDataQ, procDataQ, msgQ):
+class MScanRegionVolData():
+    def __init__(mscanRegionnData, volData):
+        self.mscanRegionnData = mscanRegionnData
+        self.volData = volData
+        
+def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts, framesPerScan, rawDataQ, procDataQ, msgQ):
     shutdown = False
     mscanTuningCurveList = []
     numZPts = zROI[1] - zROI[0] + 1
     mscanRegionData = MscanRegionData(audioParams, scanParams, procOpts, numZPts)
     
-    numAmpSteps = len(audioParams.amp)
-    numFreqSteps = audioParams.getNumFrequencies()
-    
-    while not shutdown:
-        if not rawDataQ.empty():
-            rawData = rawDataQ.get()
+    frameNum = 0
+    putTimeout = False
+    while not shutdown and frameNum < framesPerScan:
+        if not putTimeout:
+            if not rawDataQ.empty():
+                rawData = rawDataQ.get(timeout=0.25)
             
-            # process the data
-            mscanData, mscanTuningCurveList, mscanRegionData, volData = processMscanData(oct_data, mscanPosAndStim, scanParams, audioParams, procOpts, trigRate, mscanTuningCurveList, mscanRegionData, volData)
-            mscanData.lastFrame = rawData.lastFrame
-            shutdown = rawData.lastFrame
-            procDataQ.put(mscanData)        
-            
-            if regionMscan:
-                procDataQ.put(mscanRegionData)
-            else:
-                ptNum = mscanPosAndStim.posLenStep
-                tCurve = mscanTuningCurveList[ptNum]
-                procDataQ.put(tCurve)
-                #(mscanPosAndStim.ampIdx == (numAmpSteps - 1)) and (mscanPosAndStim.freqIdx == (numFreqSteps - 1))
+                if rawData is not None and isinstance(rawData, MscanRawData) and not putTimeout:
+                    # convet to cocorret type
+                    #if isinstance(data, MScanData):
+                    #    mscanData = data
+                    #rawData.frameNum
+                    #rawData.mic_data
+                    DebugLog.log("MscanProcessingProcess(): got raw data")
+                    # process the data
+                    frameNum = rawData.frameNum
+                    posLenStep, posWidthStep, freqStep, ampStep = MscanGetStepFromFrameNum(frameNum, scanParams, audioParams)
+                    mscanData, mscanTuningCurveList, mscanRegionData, volData = processMscanData(rawData.oct_data, rawData.mscanPosAndStim, scanParams, audioParams, procOpts, trigRate, mscanTuningCurveList, mscanRegionData, volData)
+                    mscanRgnVolData = MScanRegionVolData(mscanRegionData, volData)
+                    
+            try:
+                procDataQ.put(mscanData, timeout=0.25)        
+
+                if regionMscan:
+                    procDataQ.put(mscanRgnVolData, timeout=0.25)
+                else:
+                    ptNum = mscanPosAndStim.posLenStep
+                    tCurve = mscanTuningCurveList[ptNum]
+                    procDataQ.put(tCurve, timeout=0.25)
+                    #(mscanPosAndStim.ampIdx == (numAmpSteps - 1)) and (mscanPosAndStim.freqIdx == (numFreqSteps - 1))
+            except queue.Full:
+                putTimeout = True
         
         # chedk for shutdown messages 
         if not msgQ.empty():
@@ -1309,7 +1327,7 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
     # start up the processing process
   #  procProc = mproc.Process(target=MscanProcessingProcess, args=(audioParams, scanParams, zROI, regionMscan, procOpts, dataQ, procDataQ, procMsgQ), daemon=True)
    # procProc.start()
-    
+    startTime = time.time()    
     DebugLog.log("runBScanMultiProcess: new acquisiiton")
     oct_hw.NewAcquisition()
     oct_hw.SetSendExtraInfo(False)   # do not send audio output
@@ -1324,6 +1342,13 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
     mscanRegionData = None
     volData = None
     startAcq = True
+    
+    numAmpSteps = len(audioParams.amp)
+    numFreqSteps = audioParams.getNumFrequencies()
+    numLenSteps = scanParams.lengthSteps
+    numWidthSteps = scanParams.widthSteps
+    
+    framesPerScan = numAmpSteps*numFreqSteps*numLenSteps*numWidthSteps
         
     DebugLog.log("runBScanMultiProcess: cleaning status message log")
     statusMsg = oct_hw.GetStatus()
@@ -1332,6 +1357,13 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
         err = handleStatusMessage(statusMsg)
         statusMsg = oct_hw.GetStatus()        
     
+    procDataQ = mproc.Queue(10)
+    msgQ = mproc.Queue(10)
+    rawDataQ = oct_hw.rawDataQ
+    procProcess = mproc.Process(target=MscanProcessingProcess, args=[audioParams, scanParams, zROI, regionMscan, procOpts, framesPerScan, rawDataQ, procDataQ, msgQ], daemon=True)
+    DebugLog.log("runBScanMultiProcess(): starting processing process")
+    procProcess.start()
+        
     while not appObj.doneFlag:
         # update parameters in background process
         # start the acquisitio on first loop iteration
@@ -1341,24 +1373,29 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
             oct_hw.StartAcquisition() 
             startAcq = False
         
-        DebugLog.log("runBScanMultiProcess: acquiring data")
-        rawData = oct_hw.GetData()
-        if rawData is not None and isinstance(rawData, MscanRawData):
-            # convet to cocorret type
-            #if isinstance(data, MScanData):
-            #    mscanData = data
-            #rawData.frameNum
-            #rawData.mic_data
-            DebugLog.log("runMscanMultiProcess(): got raw data")
-            # process the data
-            frameNum = rawData.frameNum
-            posLenStep, posWidthStep, freqStep, ampStep = MscanGetStepFromFrameNum(frameNum, scanParams, audioParams)
-            mscanData, mscanTuningCurveList, mscanRegionData, volData = processMscanData(rawData.oct_data, rawData.mscanPosAndStim, scanParams, audioParams, procOpts, trigRate, mscanTuningCurveList, mscanRegionData, volData)
-            if regionMscan:
-                displayMscanRegionData(mscanRegionData, volData, appObj, useLastFreqAmpIdx=True)          
-            else:
-                tuningCurve = mscanTuningCurveList[posLenStep]
+        
+        if not procDataQ.empty():
+            DebugLog.log("runBScanMultiProcess: grabbing data")
+
+            data = procDataQ.get(mscanData)      
+            mscanRegionData = None
+            mscanData = None
+            tuningCurve = None
+            if isinstance(data, MScanData):
+                DebugLog.log("runBScanMultiProcess: received mscan data")
+                frameNum = data.frameNum
+                mscanData = data
+                displayMscanDataSinglePt(appObj, mscanData, data)
+                appObj.acquisition_progressBar.setValue(round(100*(frameNum+1)/framesPerScan))                
+            elif isinstance(data, MscanTuningCurve):
+                DebugLog.log("runBScanMultiProcess: received tuning curve data")
+                tuningCurve = data
                 displayMscanDataSinglePt(appObj, mscanData, tuningCurve)
+            elif isinstance(data, MscanRegionVolData):
+                DebugLog.log("runBScanMultiProcess: received mscan region data")
+                mscanRegionData = data.mscanRegionData
+                volData = data.volData
+                displayMscanRegionData(mscanRegionData, volData, appObj, useLastFreqAmpIdx=True)          
 
             # save the mscan tuning curve
             if appObj.getSaveState():
@@ -1366,12 +1403,13 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
                     saveDir = OCTCommon.initSaveDir(saveOpts, 'MScan', scanParams=scanParams, audioParams=audioParams)
                     isSaveDirInit = True
                 if regionMscan:
-                    saveMscanRegionData(mscanRegionData, volData, saveDir)
+                    if mscanRegionData is not None:
+                        saveMscanRegionData(mscanRegionData, volData, saveDir)
                 else:
-                    saveMscanDataTimeDomain(mscanData, freq, amp, frameNum, saveDir)                   
-                    if saveTC:
-                        tuningCurve = mscanTuningCurveList[posLenStep]
-                        saveMscanTuningCurve(tuningCurve, audioParams, posLenStep, saveDir)                        
+                    if mscanData is not None:
+                        saveMscanDataTimeDomain(mscanData, freq, amp, frameNum, saveDir)                   
+                    if tuningCurve is not None:
+                        saveMscanTuningCurve(tuningCurve, audioParams, posLenStep, saveDir)
                         
                 if saveOpts.saveRaw:
                     OCTCommon.saveRawData(oct_data, saveDir, frameNum, dataType=0)
@@ -1384,12 +1422,21 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
                 if err:
                     appObj.doneFlag = True  # if error occured, stop pcollecting
                 statusMsg = oct_hw.GetStatus()
+                
+            
 
-                        
+        tElapsed = time.time() - startTime
+        tMins = int(np.floor(tElapsed / 60))
+        tSecs = int(tElapsed - 60*tMins)
+        appObj.timeElapsed_label.setText("%d mins %d secs" % (tMins, tSecs))
+
+        
+            
         # check for GUI events, particularly the "done" flag
         QtGui.QApplication.processEvents() 
         time.sleep(0.005)
     
+    msgQ.put('shutdown')  # tell processing process to stop
     DebugLog.log("runBScanMultiProcess: finishd acquiring data")        
     oct_hw.PauseAcquisition()        
     appObj.isCollecting = False
@@ -1404,7 +1451,8 @@ def runMScan(appObj, multiProcess=False):
     try: 
         appObj.doneFlag = False
         appObj.isCollecting = True    
-    
+        startTime = time.time()
+        
         if not appObj.oct_hw.IsOCTTestingMode():
             from DAQHardware import DAQHardware
             daq = DAQHardware()
@@ -1457,6 +1505,7 @@ def runMScan(appObj, multiProcess=False):
             runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataDir, regionMscan)
             return
             
+        
         rset = True
         
         frameNum = 0
@@ -1496,7 +1545,8 @@ def runMScan(appObj, multiProcess=False):
         mscanTuningCurveList = None
         mscanRegionData = None
         volData = None
-
+        
+        
         while not appObj.doneFlag and posWidthStep < numWidthSteps:
             # set mirror position
             (xPos, yPos) = getXYPos(posLenStep, posWidthStep, scanParams)
@@ -1653,7 +1703,14 @@ def runMScan(appObj, multiProcess=False):
                     OCTCommon.saveRawData(oct_data, saveDir, frameNum-1, dataType=0)
                     OCTCommon.saveRawData(mic_data, saveDir, frameNum-1, dataType=3)
 
-                            
+    
+            framesPerScan = numAmpSteps*numFreqSteps*numLenSteps*numWidthSteps
+            appObj.acquisition_progressBar.setValue(round(100*frameNum/framesPerScan))
+            tElapsed = time.time() - startTime
+            tMins = int(np.floor(tElapsed / 60))
+            tSecs = int(tElapsed - 60*tMins)
+            appObj.timeElapsed_label.setText("%d mins %d secs" % (tMins, tSecs))
+            
             # check for GUI events, particularly the "done" flag
             QtGui.QApplication.processEvents() 
     except Exception as ex:

@@ -1,4 +1,4 @@
-OCTsetup=4
+OCTsetup=-1
 DispersionFilename=dispersionLast.pickle
 zResolution=5.9
 imgNorms=[30, 95]

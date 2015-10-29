@@ -70,7 +70,7 @@
      </font>
     </property>
     <property name="currentIndex">
-     <number>7</number>
+     <number>0</number>
     </property>
     <widget class="QWidget" name="bscan_tab">
      <attribute name="title">
@@ -5899,7 +5899,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>2</number>
+     <number>1</number>
     </property>
     <widget class="QWidget" name="tab_2">
      <attribute name="title">
@@ -6552,7 +6552,7 @@ focal plane adjust</string>
    <widget class="QProgressBar" name="acquisition_progressBar">
     <property name="geometry">
      <rect>
-      <x>1250</x>
+      <x>1010</x>
       <y>0</y>
       <width>471</width>
       <height>21</height>
@@ -6579,6 +6579,42 @@ focal plane adjust</string>
     </property>
     <property name="checked">
      <bool>false</bool>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_142">
+    <property name="geometry">
+     <rect>
+      <x>1490</x>
+      <y>0</y>
+      <width>107</width>
+      <height>19</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>Time elapsed:</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="timeElapsed_label">
+    <property name="geometry">
+     <rect>
+      <x>1610</x>
+      <y>0</y>
+      <width>121</width>
+      <height>19</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>0</string>
     </property>
    </widget>
   </widget>
