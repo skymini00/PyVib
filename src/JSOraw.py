@@ -199,9 +199,9 @@ def getNewRawData(numTrigs,requestedSamplesPerTrig,appObj):
     except Exception as ex:
         print('Error collecting data')
         raise ex
-        err = OCTRaw.CloseFPGA()
-        if err>0:
-            print("Close FPGA: err = %d" % err)
+#        err = OCTRaw.CloseFPGA()
+#        if err>0:
+#            print("Close FPGA: err = %d" % err)
     
     if appObj.saveData_checkBox.isChecked()==True:      # get new data and save to disk for later use
         outfile='testData.npz'

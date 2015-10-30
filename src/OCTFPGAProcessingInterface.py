@@ -604,17 +604,17 @@ def StartOCTInterfaceBGProcess(basePath):
     adaptor = LV_DLLInterface_BGProcess_Adaptor(rawDataQ, msgQ, statusQ)
     return adaptor
     
-def _OCTBGLoop(dataQ, collMsgQ, statusQ):
-    bgProcess = LV_DLLInterface_BGProcess(dataQ, collMsgQ, statusQ)
+def _OCTBGLoop(rawDataQ, collMsgQ, statusQ):
+    bgProcess = LV_DLLInterface_BGProcess(rawDataQ, collMsgQ, statusQ)
     bgProcess.loop()
     
 
 # interface to the as a background process
 class LV_DLLInterface_BGProcess:
-    def __init__(self, dataQ, collMsgQ, statusQ):
+    def __init__(self, rawDataQ, collMsgQ, statusQ):
         self.oct_hw = LV_DLLInterface()
         self.shutdown = False
-        self.dataQ = dataQ
+        self.rawDataQ = rawDataQ
         self.msgQ = collMsgQ
         self.statusQ = statusQ 
         
@@ -654,6 +654,15 @@ class LV_DLLInterface_BGProcess:
             self.oct_hw.fpgaOpts = fpgaOpts
         elif msgType == 'setSendExtraInfo':
             self.sendExtraInfo = param
+        elif msgType == 'acquireFFT':
+            err, oct_data = self.oct_hw.AcquireOCTDataFFT(param[0], param[1], param[2], param[3])
+            self.rawDataQ.put((err, oct_data))
+        elif msgType == 'acquireInterpPD':
+            err, interp_pd = self.oct_hw.AcquireOCTDataInterpPD(param)
+            self.rawDataQ.put((err, interp_pd))
+        elif msgType == 'acquireRaw':
+            err, pd_data, mzi_data = self.oct_hw.AcquireOCTDataRaw(param[0], param[1], param[2], param[3])
+            self.rawDataQ.put((err, pd_data, mzi_data))
         else:
             DebugLog.log('LV_DLLInterface_BGProcess: unknown message ' + repr(msgType))
             
@@ -682,7 +691,7 @@ class LV_DLLInterface_BGProcess:
                         try:
                             # try send raw data to consumer - a queue.Full exception may be thrown 
                             # in which case we will try to send it again next loop iteration
-                            self.dataQ.put(data, True, 0.25)   
+                            self.rawDataQ.put(data, True, 0.25)   
                             putTimeout = False
                             self.frameNum += 1   # increment frame number
                         except queue.Full as ex:
@@ -712,7 +721,7 @@ class LV_DLLInterface_BGProcess:
                         pass
                     self.acquireData = False
             else:
-                time.sleep(0.05)  # sleep for 50 ms, to reduce CPU load when not acquiring
+                time.sleep(0.02)  # sleep for 20 ms, to reduce CPU load when not acquiring
                 
             while not self.msgQ.empty():
                 try:
@@ -825,7 +834,6 @@ class LV_DLLInterface_BGProcess_Adaptor:
         msg = ['newAcquisition', 0]
         self.collMsgQ.put(msg, timeout=self.qTimeout)
         self.ClearDataQ()
-
         
     # sets the acquisition function, that will be called when collecting data
     # the acquisition function should have the form acqFunction(oct_hw, frameNum, extraArgs)
@@ -863,8 +871,41 @@ class LV_DLLInterface_BGProcess_Adaptor:
             data = self.rawDataQ.get(timeout=self.qTimeout)
         
     def Shutdown(self):
-        msg = ['shutdown', 0]
+        msg = ('shutdown', 0)
         self.collMsgQ.put(msg, timeout=self.qTimeout)
+        
+    def AcquireOCTDataFFT(self, numTriggers, zROI, startTrigOffset=0, dispCorr=True):
+        self.ClearDataQ()
+        msg = ('acquireFFT', (numTriggers, zROI, startTrigOffset, dispCorr))
+        self.collMsgQ.put(msg, timeout=self.qTimeout)
+        t = min((numTrigs*1e-4 + 500e-3, 5))
+        (err, oct_data) = self.rawDataQ.get(timeout=t)
+    
+        return err, oct_data
+    
+    # grab the interpolated photodiode data
+    def AcquireOCTDataInterpPD(self, numTrigs):
+        self.ClearDataQ()
+        msg = ('acquireInterpPD', numTrigs)
+        self.collMsgQ.put(msg, timeout=self.qTimeout)
+        t = min((numTrigs*1e-4 + 500e-3, 5))
+        (err, interp_pd) = self.rawDataQ.get(timeout=t)
+        
+        return err, interp_pd
+    
+    # grabb the output of the FFT 
+    def AcquireOCTDataMagOnly(self, numTriggers, zROI):
+        pass
+    
+    # grabb the output of the FFT 
+    def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
+        self.ClearDataQ()
+        msg = ('acquireRaw', (numTriggers, samplesPerTrig, Ch0Shift, startTrigOffset))
+        t = min((numTrigs*1e-4 + 500e-3, 5))
+        self.collMsgQ.put(msg, timeout=t)
+        (err, interp_pd) = self.rawDataQ.get(timeout=self.qTimeout)
+        
+        return err, pd_data, mzi_data        
     
 def readFPGAOptsConfig(filepath):    
     opts = FPGAOpts_t()
