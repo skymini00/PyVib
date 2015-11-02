@@ -17,6 +17,15 @@
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <property name="mouseTracking">
+    <bool>true</bool>
+   </property>
    <widget class="QPushButton" name="Bscan_pushButton">
     <property name="geometry">
      <rect>
@@ -70,7 +79,7 @@
      </font>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>5</number>
     </property>
     <widget class="QWidget" name="bscan_tab">
      <attribute name="title">
@@ -5899,7 +5908,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>1</number>
+     <number>2</number>
     </property>
     <widget class="QWidget" name="tab_2">
      <attribute name="title">
@@ -6624,7 +6633,7 @@ focal plane adjust</string>
      <x>0</x>
      <y>0</y>
      <width>1880</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
   </widget>

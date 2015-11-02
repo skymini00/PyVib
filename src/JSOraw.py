@@ -17,6 +17,15 @@ from DebugLog import DebugLog
 class blankClass:
     def __init__(self):
         pass
+    
+class DispersionData:
+    def __init__(self):
+        self.magWin = []
+        self.phaseCorr = []
+        self.phDiode = []
+        self.uncorrAline = []
+        self.corrAline = []
+        self.phDiode_background = None
 
 def processMZI(mzi_data, MZIHPfilter=True):
     # MZIHPfilter=0    
@@ -48,7 +57,9 @@ def dispersionCorrection(pd,dispMode='None'):
         windowFunctionMag = 2*np.hamming(numKlinPts)
         windowFunctionPh = np.zeros(numKlinPts)
     elif dispMode=='Unique':
-        windowFunctionMag,windowFunctionPh = processUniqueDispersion(pd)
+        dispData = processUniqueDispersion(pd)
+        windowFunctionMag = dispData.magWin
+        windowFunctionPh = dispData.phaseCorr
     else:
         windowFunctionMag = np.ones(numKlinPts)
         windowFunctionPh = np.zeros(numKlinPts)
@@ -90,7 +101,94 @@ def calcOCTDataFFT(pdData, mziData, MZI_PD_shift, klinROI_idx, numklinpts, klin,
     
     
     
-def processUniqueDispersion(pd_data):
+def processUniqueDispersion(pd_data, PDfilterCutoffs=[0.35, 0.05], magWin_LPfilterCutoff=[0.125], pd_background=None, bg_collect=False):
+
+    numTrigs = pd_data.shape[0]
+    numklinpts = pd_data.shape[1]
+        
+    dispData = DispersionData()
+    
+    dispData.magWin = []
+    dispData.phaseCorr = []
+    pd = np.mean(pd_data, 0)
+    dispData.phDiode = pd
+    dispData.uncorrAline = []
+    dispData.corrAline = []
+    
+    winFcn = np.hanning(numklinpts)
+#    k = np.linspace(0, 1000, numklinpts)
+
+    if bg_collect:
+        pd = np.real(pd_data[:, 0:numklinpts])
+        pd_background = np.mean(pd, 0)
+    
+    magWin = np.zeros((numTrigs, numklinpts))
+    phaseCorr = np.zeros((numTrigs, numklinpts))
+    
+    # set up filter coefficients
+    lpfc = PDfilterCutoffs[0]
+    hpfc = PDfilterCutoffs[1]
+#    Wn = [hpfc, lpfc]
+#    (b, a) = scipy.signal.butter(2, Wn=Wn, btype='bandpass')
+    (b2, a2) = scipy.signal.butter(2, 0.4, 'lowpass')
+    
+    # subtract background
+    sigdata = np.real(pd_data[:, 0:numklinpts])
+    if pd_background is not None:
+        bg = np.tile(pd_background, (numTrigs, 1))
+        sigdata = sigdata - bg
+        
+    for n in range(0, numTrigs):
+        sig = sigdata[n, :]
+        
+        # ideal filter using the FFT-IFFT method
+        fftsig = np.fft.rfft(sig)
+        ln = len(sig)
+        
+        # calculate indices in array by multipling by filter cuoffs
+        idx0 = np.round(hpfc*ln)
+        idx1 = np.round(lpfc*ln)            
+        fftsig[0:idx0] = 0
+        fftsig[idx1:] = 0
+        sig = np.fft.irfft(fftsig, len(sig))
+        
+        """
+        Hilbert Transform
+        A perfect reflector like a mirror should make the interferogram like a
+        sine wave. The phase of the Hilbert Transform of a sine wave should be
+        a linear ramp. Any deviation from this must therefor be from dispersion.
+        """
+        sig_ht = scipy.signal.hilbert(sig)
+        mag = np.abs(sig_ht)
+        mag0 = mag[0]
+        mag = mag - mag0
+        mag = scipy.signal.lfilter(b2, a2, mag)
+        mag = mag + mag0
+        magWin[n, :] = winFcn / mag
+        
+        ph = np.angle(sig_ht)
+        ph_unwr = np.unwrap(ph)
+        phaseCorr[n, :] = ph_unwr - scipy.signal.detrend(ph_unwr)
+
+    magWin = np.mean(magWin, 0)
+    (b, a) = scipy.signal.butter(2, magWin_LPfilterCutoff, 'lowpass')
+    magWin = scipy.signal.lfilter(b, a, magWin)
+    
+    # renomalze to 0...1
+    minWin = np.min(magWin)
+    maxWin = np.max(magWin)
+    magWin = (magWin - minWin)/(maxWin - minWin)
+    
+    #magWin = magWin[0, :]
+    phaseCorr = np.mean(phaseCorr, 0)
+
+    dispData.magWin = magWin
+    dispData.phaseCorr = phaseCorr
+        
+    return dispData
+    
+    
+def processUniqueDispersion_old1(pd_data):
     numTrigs = pd_data.shape[0]
     numklinpts = pd_data.shape[1]
     
@@ -130,7 +228,7 @@ def processUniqueDispersion(pd_data):
     return magWinOut, phaseCorrOut
 
 
-def processUniqueDispersion_old(pd_data, PD_HPfilterCutoff=0.05, magWin_LPfilterCutoff = 0.05):
+def processUniqueDispersion_old2(pd_data, PD_HPfilterCutoff=0.05, magWin_LPfilterCutoff = 0.05):
     numTrigs = pd_data.shape[0]
     numklinpts = pd_data.shape[1]
     
