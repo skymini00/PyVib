@@ -7,6 +7,8 @@ Created on Wed Oct  7 12:22:44 2015
 
 import OCTCommon
 import OCTFPGAProcessingInterface as octfpga
+import BScan
+
 from DebugLog import DebugLog
 from scipy import stats
 from scipy import signal
@@ -161,7 +163,82 @@ def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     scanDetails.cTile=np.transpose(np.tile(cSum,[plotParam.zPixel,1,1]),(1, 2, 0))          
     scanDetails.c=np.reshape(c2,(plotParam.xPixel*plotParam.yPixel,scanDetails.numTrigs))            
     scanDetails.c3=np.uint(np.reshape(scanDetails.c3,(plotParam.xPixel*plotParam.yPixel)))
+    
+    
+def makeImgSliceFromVolume(volData, widthStep, norms=(0, 120), autoNorm=True, correctAspectRatio=True):
+    imgData = volData.volumeImg[widthStep, :, :]
+    imgData = imgData.transpose()
+            
+    xRes = volData.xRes
+    zRes = volData.zRes
+    
+    # remap to 8 bit
+    if(autoNorm):
+        nL = np.min(imgData)
+        nH = np.max(imgData)
+    else:
+        nL = norms[0]
+        nH = norms[1]
+        
+    imgData = np.floor(255*(imgData - nL)/(nH - nL))
+    imgData = np.clip(imgData, 0, 255)
+    # imgData = np.reshape((imgData.shape[1], imgData.shape[2]))
+    
+    # correct the aspect ratio
+    if xRes != zRes and correctAspectRatio:    
+        imgData = BScan.correctImageAspectRatio(imgData, xRes, zRes)
 
+    return imgData
+    # imgData = np.transpose(imgData)
+    
+
+class EnFaceProjType(Enum):
+    AVERAGE = 0
+    MAX = 1
+        
+def makeEnfaceImgSliceFromVolume(volData, zStep, zDepth, projType=EnFaceProjType.AVERAGE, norms=(0, 120), autoNorm=True, correctAspectRatio=True):
+    #imgData = volData.volumeImg[widthStep, :, :]
+    shp = volData.volumeImg.shape
+    
+    zStart = max(zStep - zDepth // 2, 0)
+    zEnd = min(zStep + zDepth // 2, shp[1]-1)
+    
+    if DebugLog.isLogging:
+        DebugLog.log("makeEnfaceImgSliceFromVolume shp=%s zStart= %d zEnd= %d" % (repr(shp), zStart, zEnd))
+        
+    imgData = volData.volumeImg[:, :, zStart:zEnd+1]
+    if zStart != zEnd:
+        if projType == EnFaceProjType.AVERAGE:
+            imgData = np.mean(imgData, 2)
+        elif projType == EnFaceProjType.MAX:
+            imgData = np.max(imgData, 2)
+    else:
+        imgData = imgData[:, :, 0]
+        
+    if (autoNorm):
+        nL = np.min(imgData)
+        nH = np.max(imgData)
+    else:
+        nL = norms[0]
+        nH = norms[1]
+        
+    imgData = np.floor(255*(imgData - nL)/(nH - nL))
+    imgData = np.clip(imgData, 0, 255)
+            
+    xRes = volData.xRes
+    yRes = volData.yRes
+
+    DebugLog.log("makeEnfaceImgSliceFromVolume imgData.shape=%s xRes= %f yRes= %f" % (repr(imgData.shape), xRes, yRes))
+    
+    # correct the aspect ratio
+    if xRes != yRes and correctAspectRatio:    
+        imgData = correctImageAspectRatio(imgData, xRes, yRes)
+    else:
+        imgData = np.require(imgData, np.uint8)
+
+    return imgData
+    # imgData = np.transpose(imgData)
+    
 def makeScanXYcoords(scanParams, galvMirror, volWidthStep=-1, xskew=1.0):
     hsl = scanParams.length/2   # half scan length
     vpm = galvMirror.voltsPerMillimeter

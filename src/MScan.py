@@ -9,6 +9,7 @@ import OCTCommon
 from DebugLog import DebugLog
 import VolumeScan
 import AudioHardware
+import BScan
 # import OCTFPGAProcessingInterface as octfpga
 
 from PyQt4 import QtCore, QtGui, uic
@@ -491,7 +492,7 @@ def processMscanData(oct_data, mscanPosAndStim, scanParams, audioParams, procOpt
         
         # calculate noise
         t1 = time.time()
-        noisePts = np.ceil(numTrigs * procOpts.mscan.noiseBandwidth / trigRate)
+        noisePts = np.ceil(numTrigs * procOpts.noiseBandwidth / trigRate)
         noisePts = noisePts*zeroPad
         #noiseRgn = fftmag[i2:(i2 + noisePts), :]
         noiseRgn = np.abs(mscan_fft[i2:(i2 + noisePts), :])
@@ -506,7 +507,12 @@ def processMscanData(oct_data, mscanPosAndStim, scanParams, audioParams, procOpt
             DebugLog.log("Mscan.processMscanData(): mscan.stimRespMag.FDnoiseAboveStimFreqMean= %s" % (repr(mscan.FDnoiseAboveStimFreqMean.shape)))
         
         t1 = time.time()
-        rgnData = self.aggregateData.mscanRegionData
+        rgnData = mscanRegionData
+        # rgnData = self.aggregateData.mscanRegionData
+        posWidthStep = mscan.posWidthStep
+        posLenStep = mscan.posLenStep
+        freqIdx = mscan.stimFreqIdx
+        ampIdx = mscan.stimAmpIdx
         rgnData.magResp[:, posWidthStep, posLenStep, freqIdx, ampIdx] = mscan.stimRespMag
         rgnData.phaseResp[:, posWidthStep, posLenStep, freqIdx, ampIdx] = mscan.stimRespPhase
         
@@ -864,7 +870,7 @@ def makeVibRespImg(mscanRgnData, volData, magAutoNorm=True, magNorms=(0, 100), i
     intThreshIdx = np.where(intImg < intThresh)
     
     # make the intensity image
-    intImg = makeImgSliceFromVolume(volData, widthStep, correctAspectRatio=False)
+    intImg = VolumeScan.makeImgSliceFromVolume(volData, widthStep, correctAspectRatio=False)
     intImg = intImg // 2  # since intensity image maps from 0.255
 
     if(vibDataType == VibDataType.STIM):
@@ -927,8 +933,8 @@ def makeVibRespImg(mscanRgnData, volData, magAutoNorm=True, magNorms=(0, 100), i
     xRes = mscanRgnData.xRes
     zRes = mscanRgnData.zRes
     
-    magImg = correctImageAspectRatio(magImg, xRes, zRes, PIL.Image.NEAREST)
-    phaseImg = correctImageAspectRatio(phaseImg, xRes, zRes, PIL.Image.NEAREST)
+    magImg = BScan.correctImageAspectRatio(magImg, xRes, zRes, PIL.Image.NEAREST)
+    phaseImg = BScan.correctImageAspectRatio(phaseImg, xRes, zRes, PIL.Image.NEAREST)
 
     return (magImg, phaseImg, minMag, maxMag)          
                     
@@ -1025,16 +1031,17 @@ def displayMscanDataSinglePt(appObj, mscanData, tuningCurve):
         phase_plt.setLabel('left', 'Phase', 'rad', **labelStyle)
 
 
+    
 def displayMscanRegionData(mscanRegionData, volumeData, appObj, useLastFreqAmpIdx=True):
     intThreshVal = 65535*appObj.mscan_intensityThresh_slider.value()/100
     numSD = appObj.mscan_noise_numSD_dblSpinBox.value()
     
     if not useLastFreqAmpIdx:
         # TODO set frequency, amp and width sstep indices based off UI elements (probably fromcombo boxes )
-        aggData.mscanRegionData.freqIdx = appObj.mscan_vol_freq_comboBox.currentIndex()
-        aggData.mscanRegionData.ampIdx = appObj.mscan_vol_amp_comboBox.currentIndex()
+        mscanRegionData.freqIdx = appObj.mscan_vol_freq_comboBox.currentIndex()
+        mscanRegionData.ampIdx = appObj.mscan_vol_amp_comboBox.currentIndex()
     
-    print("mscanVolImgUpdate() intThreshVal= %d numSD= %f" % (intThreshVal, numSD))
+    DebugLog.log("MScan.displayMscanRegionData() intThreshVal= %d numSD= %f" % (intThreshVal, numSD))
     # def makeVibRespImg(mscanRgnData, volData, magAutoNorm=True, magNorms=(0, 100), intThresh=0, vibDataType=VibDataType.STIM, vibNoiseRgn=VibNoiseRegion.ABOVE, noiseNumSD=3):
     (magImg, phaseImg, minMag, maxMag) = makeVibRespImg(mscanRegionData, volumeData, intThresh=intThreshVal, noiseNumSD=numSD)
     #(magImg, phaseImg) = makeVibRespImg(aggData.mscanRegionData, self.volumeData)
@@ -1058,7 +1065,7 @@ def displayMscanRegionData(mscanRegionData, volumeData, appObj, useLastFreqAmpId
     imgData = np.round(np.linspace(255, 0, h))
     imgData = np.tile(imgData, (w, 1))
     imgData = imgData.transpose()
-    print("imgData.shape= %s minMag= %f maxMag= %f" % (repr(imgData.shape), minMag, maxMag))
+    DebugLog.log("MScan.displayMscanRegionData() imgData.shape= %s minMag= %f maxMag= %f" % (repr(imgData.shape), minMag, maxMag))
     imgData = np.require(imgData, np.uint8, 'C')
     qImg = QtGui.QImage(imgData.data, w, h, w, QtGui.QImage.Format_Indexed8)
     qImg.setColorTable(magClrMap)
@@ -1076,6 +1083,21 @@ def displayMscanRegionData(mscanRegionData, volumeData, appObj, useLastFreqAmpId
     qImg.setColorTable(phaseClrMap)
     qPixMap = QtGui.QPixmap.fromImage(qImg)
     appObj.mscan_img_phase_clrbar_lbl.setPixmap(qPixMap)
+    
+    rgnData = mscanRegionData
+    widthStep = rgnData.widthStep
+    imgData = VolumeScan.makeImgSliceFromVolume(volumeData, widthStep)
+    DebugLog.log("MScan.displayMscanRegionData()() imgData.shape= %s" % (repr(imgData.shape)))
+    
+    rset = (rgnData.widthStep, rgnData.lengthStep, rgnData.freqIdx, rgnData.ampIdx) == (0, 0, 0, 0)
+    appObj.mscan_img_vol_roi_gv.setImage(imgData, ROIImageGraphicsView.COLORMAP_HOT, rset)
+    if rset:
+        gvs = (appObj.mscan_img_vol_roi_gv, appObj.mscan_img_mag_roi_gv, appObj.mscan_img_phase_roi_gv)
+        for gv in gvs:
+            hscroll = gv.horizontalScrollBar()
+            hscroll.setSliderPosition(-500)
+            vscroll = gv.verticalScrollBar()
+            vscroll.setSliderPosition(-500)
                     
 def GetTestData(frameNum):
     return oct_data
@@ -1109,6 +1131,7 @@ def MscanGetStepFromFrameNum(frameNum, scanParams, audioParams):
 # collect mscan data for a given frame number
 # oct_hw is a LV_DLL_Interface
 def MscanCollectFcn(oct_hw, frameNum, extraArgs):
+    t1 = time.time()
     scanParams = extraArgs[0]
     audioParams = extraArgs[1]
     mirrorDriver = extraArgs[2]
@@ -1250,20 +1273,21 @@ def MscanCollectFcn(oct_hw, frameNum, extraArgs):
     rawData.oct_data = oct_data
     rawData.mic_data = mic_data
     rawData.mscanPosAndStim = mscanPosAndStim
+    rawData.collectTime = time.time() - t1
 
     return rawData, audioOutput
         
 class MScanRegionVolData():
-    def __init__(self, mscanRegionnData, volData):
-        self.mscanRegionnData = mscanRegionnData
+    def __init__(self, mscanRegionData, volData):
+        self.mscanRegionData = mscanRegionData
         self.volData = volData
         
 def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts, trigRate, framesPerScan, rawDataQ, procDataQ, procRawDataQ, msgQ):
     shutdown = False
     mscanTuningCurveList = None
     numZPts = zROI[1] - zROI[0] + 1
-    mscanRegionData = MscanRegionData(audioParams, scanParams, procOpts, numZPts)
-    volData = VolumeScan.VolumeData()
+    mscanRegionData = None
+    volData = None
     
     frameNum = 0
     putTimeout = False  # indicates there was a timeout attempting to send data to 
@@ -1273,7 +1297,7 @@ def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts,
                 if not rawDataQ.empty():
                     mscanData = None
                     rawData = rawDataQ.get(timeout=0.25)
-                
+                    
                     if rawData is not None and isinstance(rawData, MscanRawData) and not putTimeout:
                         # convet to cocorret type
                         #if isinstance(data, MScanData):
@@ -1282,11 +1306,15 @@ def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts,
                         #rawData.mic_data
                         DebugLog.log("MscanProcessingProcess(): got raw data")
                         # process the data
+                        t1 = time.time()
                         frameNum = rawData.frameNum
                         posLenStep, posWidthStep, freqStep, ampStep = MscanGetStepFromFrameNum(frameNum, scanParams, audioParams)
                         mscanData, mscanTuningCurveList, mscanRegionData, volData = processMscanData(rawData.oct_data, rawData.mscanPosAndStim, scanParams, audioParams, procOpts, trigRate, mscanTuningCurveList, mscanRegionData, volData)
                         mscanRgnVolData = MScanRegionVolData(mscanRegionData, volData)
                         mscanData.frameNum = frameNum
+                        mscanData.collectTime = rawData.collectTime
+                        mscanData.processTime = time.time() - t1
+                        
                         
             # send processsed data to main program
             if mscanData is not None:
@@ -1309,7 +1337,7 @@ def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts,
             statusMsg = OCTCommon.StatusMsg(OCTCommon.StatusMsgSource.PROCESSING, OCTCommon.StatusMsgType.ERROR)
             statusMsg.param = ex
             try:
-                self.statusQ.put(statusMsg, False)
+                statusQ.put(statusMsg, False)
             except queue.Full as ex:
                 pass
             shutdown = True
@@ -1407,13 +1435,18 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
                 DebugLog.log("runBScanMultiProcess: received mscan data")
                 frameNum = data.frameNum
                 mscanData = data
-                displayMscanDataSinglePt(appObj, mscanData, tuningCurve)
                 appObj.acquisition_progressBar.setValue(round(100*(frameNum+1)/framesPerScan))                
+                appObj.mscanCollectionTime_label.setText("%0.1f ms" % (mscanData.collectTime * 1000))
+                appObj.mscanProcessTime_label.setText("%0.1f ms" % (mscanData.processTime * 1000))
+
+                if not regionMscan:
+                    displayMscanDataSinglePt(appObj, mscanData, tuningCurve)
+                    
             elif isinstance(data, MscanTuningCurve):
                 DebugLog.log("runBScanMultiProcess: received tuning curve data")
                 tuningCurve = data
                 displayMscanDataSinglePt(appObj, mscanData, tuningCurve)
-            elif isinstance(data, MscanRegionVolData):
+            elif isinstance(data, MScanRegionVolData):
                 DebugLog.log("runBScanMultiProcess: received mscan region data")
                 mscanRegionData = data.mscanRegionData
                 volData = data.volData
@@ -1492,7 +1525,7 @@ def runMScan(appObj, multiProcess=False):
         isSaveDirInit = False
         audioParams = appObj.getAudioParams()
         
-        if (scanParams.lengthSteps == 1 and scanParams.widthSteps == 1) or len(scanParams.ptsList) > 0:
+        if (scanParams.lengthSteps == 1 and scanParams.widthSteps == 1):
             regionMscan = False
             appObj.tabWidget.setCurrentIndex(3)
             testDataDir = os.path.join(appObj.basePath, 'exampledata', 'MScan single pt')
@@ -1500,7 +1533,9 @@ def runMScan(appObj, multiProcess=False):
             regionMscan = True
             appObj.tabWidget.setCurrentIndex(4)
             testDataDir = os.path.join(appObj.basePath, 'exampledata', 'MScan B-Mscan')
-
+        
+        DebugLog.log("Mscan runMscan(): regionMscan= %s" % repr(regionMscan))
+        
         # if in testing mode, load proper paramaeters instead of getting them from GUI
         if oct_hw.IsOCTTestingMode():
             filePath = os.path.join(testDataDir, 'ScanParams.pickle')
