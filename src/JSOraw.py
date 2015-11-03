@@ -58,7 +58,7 @@ def dispersionCorrection(pd,dispMode='None'):
     dispData.phDiode = np.mean(pd, 0)
     dispData.uncorrAline = []
     dispData.corrAline = []
-    dispData.PDfilterCutoffs=[0.35, 0.05]
+    dispData.PDfilterCutoffs=[0.25, 0.05]
     dispData.magWin_LPfilterCutoff=[0.125]
     
     if dispMode=='Hanning':
@@ -125,9 +125,9 @@ def processUniqueDispersion(pd_data, dispData, pd_background=None, bg_collect=Fa
     
     # set up filter coefficients
     idx0 = np.round(dispData.PDfilterCutoffs[1]*numklinpts)
-    idx1 = np.round(dispData.PDfilterCutoffs[0]*numklinpts)            #    Wn = [hpfc, lpfc]
+    idx1 = np.round(dispData.PDfilterCutoffs[0]*numklinpts)            
     (b, a) = scipy.signal.butter(2, dispData.magWin_LPfilterCutoff, 'lowpass')
-    (b2, a2) = scipy.signal.butter(2, 0.4, 'lowpass')
+#    (b2, a2) = scipy.signal.butter(2, 0.4, 'lowpass')
     
     # subtract background
     sigdata = np.real(pd_data[:, 0:numklinpts])
@@ -152,10 +152,10 @@ def processUniqueDispersion(pd_data, dispData, pd_background=None, bg_collect=Fa
         """
         sig_ht = scipy.signal.hilbert(sig)
         mag = np.abs(sig_ht)
-        mag0 = mag[0]
-        mag = mag - mag0
-        mag = scipy.signal.lfilter(b2, a2, mag)
-        mag = mag + mag0
+#        mag0 = mag[0]
+#        mag = mag - mag0
+#        mag = scipy.signal.lfilter(b2, a2, mag)
+#        mag = mag + mag0
         magWin[n, :] = winFcn / mag       
         ph = np.angle(sig_ht)
         ph_unwr = np.unwrap(ph)
