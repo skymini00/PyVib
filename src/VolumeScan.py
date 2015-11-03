@@ -26,6 +26,7 @@ import os
 import tifffile
 import pickle
 import time
+import multiprocessing as mproc
 
 class blankRecord():
     pass
@@ -603,19 +604,23 @@ def saveVolumeData(volData, saveDir, saveOpts, scanNum):
     tifffile.imsave(filePath, volImg)    
 
 
-# collect volume data for a given frame number
-# oct_hw is a LV_DLL_Interface
+"""
+    VolScanCollectFcn - function that is intended to be called by raw data collection loop (see OCTFPGAProcessingIntreface.LV_DLL_BGProcess_Adaptor)
+    oct_hw is a LV_DLL_Interface
+"""    
+
 def VolScanCollectFcn(oct_hw, frameNum, extraArgs):
     t1 = time.time()
     scanParams = extraArgs[0]
     mirrorDriver = extraArgs[1]
     zROI = extraArgs[2]
     testDataDir =  extraArgs[3]
+    scanDetails =  extraArgs[4]
     
     OCTtrigRate = oct_hw.GetTriggerRate()
     
     chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
-    outputRate = audioHW.DAQOutputRate
+    outputRate = mirrorDriver.DAQoutputRate
     trigChan = mirrorDriver.trig_daqChan
     if not oct_hw.IsOCTTestingMode():
         from DAQHardware import DAQHardware
@@ -635,10 +640,10 @@ def VolScanCollectFcn(oct_hw, frameNum, extraArgs):
     
     # setup and grab the OCT data
     numTrigs = getNumTrigs(scanParams, scanDetails, OCTtrigRate, mirrorDriver)
-    if appObj.oct_hw.IsOCTTestingMode():
+    if oct_hw.IsOCTTestingMode():
         packedData = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
     else:
-        err, packedData = appObj.oct_hw.AcquireOCTDataMagOnly(numTrigs, zROI, startTrigOffset)
+        err, packedData = oct_hw.AcquireOCTDataMagOnly(numTrigs, zROI, startTrigOffset)
     
     if not oct_hw.IsDAQTestingMode():
         daq.stopAnalogOutput()
@@ -647,8 +652,11 @@ def VolScanCollectFcn(oct_hw, frameNum, extraArgs):
     rawData = VolumeRawData(packedData, frameNum)
     rawData.collectTime = time.time() - t1
     return rawData, mirrorOut
-    
-def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, rawDataQ, procDataQ, procRawDataQ, msgQ):
+
+"""
+    VolScanProcessingProcess - function intended to be run as background process that processes volume scan data 
+"""    
+def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, rawDataQ, procDataQ, procRawDataQ, msgQ, statusQ):
     shutdown = False
     volData = None
     
@@ -676,7 +684,7 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
                         gotData = True
                         
             # send processsed data to main program
-            if gotDatat:
+            if gotData:
                 try:
                     if procRawDataQ is not None:
                         procRawDataQ.put(rawData, timeout=0.25)
@@ -707,8 +715,10 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
             if msg == 'shutdown':
                 shutdown = True
 
-
-def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, scanDetails, procOPt, saveOpts):
+"""
+    runVolScanMultiProcess - run a volume 
+"""    
+def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, scanDetails, procOpts, saveOpts, numFrames, framesPerScan):
     mirrorDriver = appObj.mirrorDriver
     rset = True
     isSaveDirInit = False
@@ -726,7 +736,7 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
     oct_hw.SetSendExtraInfo(False)   # do not send audio output
     DebugLog.log("runVolScanMultiProcess: setting acquire function")
     oct_hw.SetAcqFunction(VolScanCollectFcn)
-    extraArgs = [scanParams, mirrorDriver, zROI, testDataDir]
+    extraArgs = [scanParams, mirrorDriver, zROI, testDataDir, scanDetails]
     DebugLog.log("runVolScanMultiProcess: setting acquire functiona args")
     oct_hw.SetAcqFunctionArgs(extraArgs)
     
@@ -746,12 +756,15 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
         procRawDataQ = mproc.Queue(10)
     msgQ = mproc.Queue(10)
     rawDataQ = oct_hw.rawDataQ
-    procProcess = mproc.Process(target=VolScanProcessingProcess, args=[scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, rawDataQ, procDataQ, procRawDataQ, msgQ], daemon=True)
+    statusQ = oct_hw.statusQ
+    # VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, rawDataQ, procDataQ, procRawDataQ, msgQ, statusQ):
+    OCTtrigRate = oct_hw.GetTriggerRate()
+    procProcess = mproc.Process(target=VolScanProcessingProcess, args=[scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, rawDataQ, procDataQ, procRawDataQ, msgQ, statusQ], daemon=True)
     DebugLog.log("runVolScanMultiProcess(): starting processing process")
     procProcess.start()
-    frameNum = -1
+    frameNum = 0
         
-    while not appObj.doneFlag and (frameNum < framesPerScan-1 or scanParams.continuousScan):
+    while not appObj.doneFlag and (frameNum < numFrames or scanParams.continuousScan):
         # update parameters in background process
         # start the acquisitio on first loop iteration
         # we don't just do this outside the loop because we haven't loaded function args yet
@@ -837,6 +850,7 @@ def runVolScan(appObj):
     outputRate = mirrorDriver.DAQoutputRate
 
     # if in testing mode, load proper paramaeters instead of getting them from GUI
+    testDataDir = '' 
     if appObj.oct_hw.IsOCTTestingMode():
         testDataDir = os.path.join(appObj.basePath, 'exampledata', 'VolumeScan')
         filePath = os.path.join(testDataDir, 'ScanParams.pickle')
@@ -849,6 +863,7 @@ def runVolScan(appObj):
         
     zROI = appObj.getZROI()
     scanDetails = None
+    plotParam = None
     if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
         plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts)
     
@@ -870,7 +885,7 @@ def runVolScan(appObj):
     
     saveOpts = appObj.getSaveOpts()
     if(appObj.multiProcess):
-        runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, scanDetails, procOPt, saveOpts)
+        runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, scanDetails, procOpts, saveOpts, numFrames, framesPerScan)
         return
 
     isSaveDirInit = False

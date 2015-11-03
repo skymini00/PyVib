@@ -179,6 +179,8 @@ class LV_DLLInterface:
         self.isInitialized = False
         self.fpgaOpts = FPGAOpts_t()        
     
+    """ InitInterface: loads the LabVIEW OCT FPGA interface DLL and maps C routines to Python equivalents
+    """ 
     def InitInterface(self):
         # load in DLL
         # see header file LV_OCT_Raw_Data.h for C function definitions
@@ -472,10 +474,10 @@ class LV_DLLInterface:
     
     # return only the magnitude in a packed 64-bit integer
     # this gives max speed for imaging only acquisiiton in multiprocess mode
-    def AcquireOCTDataMagOnly(self, numTriggers, zROI, dispCorr=True):
+    def AcquireOCTDataMagOnly(self, numTriggers, zROI, startTrigOffset=0, dispCorr=True):
         setupNum = c_uint16(self.setupNum)
         
-        fpgaOpts = self.fpgaOpts
+        fpgaOpts = copy.copy(self.fpgaOpts)
         fpgaOpts.procRoiBegin = c_uint16(zROI[0])
         fpgaOpts.procRoiEnd = c_uint16(zROI[1])
         fpgaOpts.StartTriggerOfffset = c_uint16(startTrigOffset)
@@ -502,8 +504,8 @@ class LV_DLLInterface:
             return err, None
         
         numSamples = roiSizeOut.value * numTrigsOut.value
-        numDataPts = numSamples
-        numPackedDataPts = 0
+        numDataPts = 0
+        numPackedDataPts = numSamples // 4
                 
         len_data = c_int32(numDataPts)
         len_packed_data = c_int32(numPackedDataPts)
@@ -521,13 +523,13 @@ class LV_DLLInterface:
         transferTime = c_uint32(0)
         unpackTime = c_uint32(0)
         trigOffset = c_uint32(0)
-        unpackData = False
+        unpackData = c_uint8(0)
         
         # DebugLog.log("OCTDataCollector.startFrameGetData(): isSynchOCT = " + repr(self.protocol.isSynchOCT()))
         err = self.acq_fpga_data(setupNum, c_uint32(numTrigsOut.value), c_uint32(numSamples), trigOffset, unpackData, d_re, d_im, byref(len_data), packedData, byref(len_packed_data), byref(timeElapsed), byref(transferTime), byref(unpackTime))
         DebugLog.log("AcquireOCTDataMagOnly  len_packed_data= " + repr(len_packed_data.value))
     
-        return err, packedDag
+        return err, packedData
     
     # grabb the output of the FFT 
     def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
