@@ -128,6 +128,8 @@ def processUniqueDispersion(pd_data, PDfilterCutoffs=[0.35, 0.05], magWin_LPfilt
     # set up filter coefficients
     lpfc = PDfilterCutoffs[0]
     hpfc = PDfilterCutoffs[1]
+    idx0 = np.round(hpfc*numklinpts)
+    idx1 = np.round(lpfc*numklinpts)            
 #    Wn = [hpfc, lpfc]
 #    (b, a) = scipy.signal.butter(2, Wn=Wn, btype='bandpass')
     (b2, a2) = scipy.signal.butter(2, 0.4, 'lowpass')
@@ -141,16 +143,11 @@ def processUniqueDispersion(pd_data, PDfilterCutoffs=[0.35, 0.05], magWin_LPfilt
     for n in range(0, numTrigs):
         sig = sigdata[n, :]
         
-        # ideal filter using the FFT-IFFT method
-        fftsig = np.fft.rfft(sig)
-        ln = len(sig)
-        
-        # calculate indices in array by multipling by filter cuoffs
-        idx0 = np.round(hpfc*ln)
-        idx1 = np.round(lpfc*ln)            
-        fftsig[0:idx0] = 0
-        fftsig[idx1:] = 0
-        sig = np.fft.irfft(fftsig, len(sig))
+#        # first filter the interferograph using an ideal filter with the FFT-IFFT method
+#        fftsig = np.fft.rfft(sig)
+#        fftsig[0:idx0] = 0
+#        fftsig[idx1:] = 0
+#        sig = np.fft.irfft(fftsig, len(sig))
         
         """
         Hilbert Transform
@@ -168,7 +165,12 @@ def processUniqueDispersion(pd_data, PDfilterCutoffs=[0.35, 0.05], magWin_LPfilt
         
         ph = np.angle(sig_ht)
         ph_unwr = np.unwrap(ph)
-        phaseCorr[n, :] = ph_unwr - scipy.signal.detrend(ph_unwr)
+        phaseCorr[n, :] = scipy.signal.detrend(ph_unwr)
+#        plt.figure(1)
+#        plt.clf()
+#        plt.plot(scipy.signal.detrend(ph_unwr),'b')
+#        plt.hold        
+#        plt.plot(ph_unwr,'r')  
 
     magWin = np.mean(magWin, 0)
     (b, a) = scipy.signal.butter(2, magWin_LPfilterCutoff, 'lowpass')
@@ -186,83 +188,7 @@ def processUniqueDispersion(pd_data, PDfilterCutoffs=[0.35, 0.05], magWin_LPfilt
     dispData.phaseCorr = phaseCorr
         
     return dispData
-    
-    
-def processUniqueDispersion_old1(pd_data):
-    numTrigs = pd_data.shape[0]
-    numklinpts = pd_data.shape[1]
-    
-    (b2, a2) = scipy.signal.butter(2, 0.6, 'lowpass')
-    (b, a) = scipy.signal.butter(2, 0.01, 'highpass')
-    pd_dataFilt=scipy.signal.lfilter(b, a, pd_data,axis=-1) #this smooths out the hilbert phase plot
-    pd_hilbert=scipy.signal.hilbert(pd_dataFilt, axis=-1)
-    pd_hilbertMag = scipy.signal.lfilter(b2, a2, np.abs(pd_hilbert), axis=-1)
-    pd_hilbertPh=np.unwrap(np.angle(pd_hilbert), axis=-1)    
-    phaseDetrend=scipy.signal.detrend(pd_hilbertPh,axis=-1)
-    
-    winFcn = np.hanning(numklinpts)  
-    magWin=winFcn/np.mean(pd_hilbertMag,0)
-    minWin = np.amin(magWin)    # renomalze to 0...1
-    maxWin = np.amax(magWin)
-    magWinOut = (magWin - minWin)/(maxWin - minWin)    
-    phaseCorrOut=np.mean(phaseDetrend,0)
-    
-    plt.figure(1)
-    plt.clf()
-    plotColors = ['-r', '-b', '-g', '-c', '-m', '-y', '-k']
-    for n in range(0, 1):
-        clr = plotColors[n % len(plotColors)]
-        plt.subplot(3, 1, 1)
-        plt.plot(pd_hilbertMag[n, :], clr)
-        plt.subplot(3, 1, 2)
-        plt.plot(pd_hilbertPh[n, :], clr)
-        plt.subplot(3, 1, 3)
-        plt.plot(phaseDetrend[n, :], clr)
-    plt.subplot(3, 1, 1)
-    plt.title("hilbert magnitude after filter")
-    plt.subplot(3, 1, 2)
-    plt.title("hilbert phase")
-    plt.subplot(3, 1, 3)
-    plt.title("hilbert phase after detrend")
-
-    return magWinOut, phaseCorrOut
-
-
-def processUniqueDispersion_old2(pd_data, PD_HPfilterCutoff=0.05, magWin_LPfilterCutoff = 0.05):
-    numTrigs = pd_data.shape[0]
-    numklinpts = pd_data.shape[1]
-    
-    winFcn = np.hanning(numklinpts)
-    k = np.linspace(0, numklinpts, numklinpts)    
-    magWin = np.zeros((numTrigs, numklinpts))
-    phaseCorr = np.zeros((numTrigs, numklinpts))
-    
-    (b, a) = scipy.signal.butter(2, PD_HPfilterCutoff, 'highpass')
-    (b2, a2) = scipy.signal.butter(2, 0.4, 'lowpass')
-    for n in range(0, numTrigs):
-        sig = pd_data[n, :]
-        sig = scipy.signal.lfilter(b, a, sig)
-        sig_ht = scipy.signal.hilbert(sig)        
-        mag = np.abs(sig_ht)
-        mag0 = mag[0]
-        mag = mag - mag0
-        mag = scipy.signal.lfilter(b2, a2, mag)
-        mag = mag + mag0
-        magWin[n, :] = winFcn / mag        
-        ph = np.angle(sig_ht)
-        ph_unwr = np.unwrap(ph)
-        pcof = np.polyfit(k, ph_unwr, 1)
-        fity = np.polyval(pcof, k)
-        phaseCorr[n, :] = ph_unwr - fity
-    magWin = np.mean(magWin, 0)    
-    (b, a) = scipy.signal.butter(2, magWin_LPfilterCutoff, 'lowpass')
-    magWin = scipy.signal.lfilter(b, a, magWin)    
-    minWin = np.min(magWin)    # renomalze to 0...1
-    maxWin = np.max(magWin)
-    magWin = (magWin - minWin)/(maxWin - minWin)    
-    phaseCorr = np.mean(phaseCorr, 0)       
-    return magWin, phaseCorr
-    
+        
   
 def getSavedRawData(numTrigs,requestedSamplesPerTrig,JSOrawSavedData):
     # oct_data is a 2D arary of complex numbers
