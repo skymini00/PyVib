@@ -25,6 +25,7 @@ import sys
 import os
 import tifffile
 import pickle
+import time
 
 class blankRecord():
     pass
@@ -54,6 +55,13 @@ class SpiralScanData():
         self.surfacePlot = None
         self.bscanPlot = None
         self.bscanPlot_16b = None
+
+# raw data used for multi processing
+class VolumeRawData:
+    def __init__(self, packedData, frameNum):
+        self.packedData = packedData
+        self.frameNum = frameNum
+
         
 def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
     """
@@ -239,184 +247,6 @@ def makeEnfaceImgSliceFromVolume(volData, zStep, zDepth, projType=EnFaceProjType
     return imgData
     # imgData = np.transpose(imgData)
     
-def makeScanXYcoords(scanParams, galvMirror, volWidthStep=-1, xskew=1.0):
-    hsl = scanParams.length/2   # half scan length
-    vpm = galvMirror.voltsPerMillimeter
-    hsl = vpm * hsl
-    
-    # rotate the scan
-    rot = scanParams.rotation_Z*np.pi/180
-    cos_rot = np.cos(rot)
-    sin_rot = np.sin(rot)
-    x2 = hsl * cos_rot
-    x1 = -x2 
-    
-    y2 = hsl * sin_rot
-    y1 = -y2
-    
-    # offset scan
-    lo_vpm = vpm*scanParams.lengthOffset
-    xOffset = lo_vpm*cos_rot
-    yOffset = lo_vpm*sin_rot
-    
-    rot_wo = rot + np.pi/2
-    width = scanParams.width
-    widthOffset = scanParams.widthOffset
-    if volWidthStep >=0:
-        widthOffset = widthOffset + -width/2 + (volWidthStep*width)/(scanParams.widthSteps + 1)
-        
-    wo_vpm = vpm*widthOffset
-    
-    xOffset = xOffset + wo_vpm*np.cos(rot_wo)
-    yOffset = yOffset + wo_vpm*np.sin(rot_wo)
-    
-    x1 = x1*xskew
-    x2 = x2*xskew
-    
-    
-    x1 = x1 + xOffset
-    x2 = x2 + xOffset
-    y1 = y1 + yOffset
-    y2 = y2 + yOffset
-    
-    return (x1, y1, x2, y2)
-    
-# return the mirror B scam (slice) command
-def makeBscanCommand(scanParams, mirrorDriver, OCTtriggerRate, volWidthStep=-1):
-    cmd_x = None
-    cmd_y = None
-    galv = mirrorDriver
-    DAQoutputRate = galv.DAQoutputRate
-    DebugLog.log("makeBscanCommand(): outputRate= %0.1f trigRate= %0.1f" % (DAQoutputRate, OCTtriggerRate))
-    DAQptsPerTrig = DAQoutputRate/OCTtriggerRate
-    if scanParams.pattern == ScanPattern.rasterFast or (scanParams.pattern == ScanPattern.bidirectional):
-        scanTime = scanParams.lengthSteps / OCTtriggerRate 
-        scanPts = np.floor(scanTime * DAQoutputRate)
-        
-        startupTrigs = np.round(galv.settleTime * OCTtriggerRate)
-        startupPts = np.floor(DAQoutputRate*startupTrigs/OCTtriggerRate)
-        # startupPts = np.floor(galv.settleTime * DAQoutputRate)
-        
-        reversePts = np.floor(galv.reverseTime * DAQoutputRate)
-        bidirOddFrame = False
-        biDirScan = False
-        if scanParams.pattern == ScanPattern.bidirectional:
-            flybackPts = 0
-            bidirOddFrame = (np.mod(volWidthStep, 2) != 0)
-            biDirScan = True
-            if volWidthStep > 0:
-                startupPts = 0
-                
-        else:
-            #flybackPts = min(scanPts, np.floor(galv.flybackTime * DAQoutputRate))
-            flybackPts = np.floor(galv.flybackTime * DAQoutputRate)
-        DebugLog.log("makeBscanCommand(): scanPts= %d startupPts= %d reversePts= %d flybackPts= %d" % (scanPts, startupPts, reversePts, flybackPts))
-        
-        # get reversal/flyback to align with OCT triggering
-        extraPts = 0
-        endPts = reversePts + flybackPts
-        extraTrigs = endPts / DAQptsPerTrig  - np.floor(endPts/DAQptsPerTrig)
-        if extraTrigs > 0:
-            extraPts = int(np.round((1-extraTrigs) *  DAQoutputRate / OCTtriggerRate))
-        DebugLog.log("makeBscanCommand(): extraTrigs= %0.3f extraPts= %d" % (extraTrigs, extraPts))
-        reversePts = reversePts + extraPts
-
-        xskew = 1.0
-        if hasattr(scanParams, 'xskew'):
-            xskew = scanParams.xskew
-            
-        (x1, y1, x2, y2) = makeScanXYcoords(scanParams, galv, volWidthStep, xskew)
-        
-        if bidirOddFrame:
-            (x1, y1, x2, y2) = (x2, y2, x1, y1)
-        
-        # startup command
-        mx = (x2 - x1)/scanPts
-        my = (y2 - y1)/scanPts
-        x0 = -startupPts*mx + x1
-        y0 = -startupPts*my + y1
-        
-        startup_x = []
-        startup_y = []
-        if startupPts > 0:
-            startup_x = np.linspace(x0, x1, startupPts)
-            startup_y = np.linspace(y0, y1, startupPts)
-        
-        # scan command
-        scan_x = np.linspace(x1, x2, scanPts)
-        scan_y = np.linspace(y1, y2, scanPts)
-        
-        # reversa command
-        x3 = x2 + mx*(reversePts/2)
-        y3 = y2 + my*(reversePts/2)
-        x4 = x2
-        y4 = y2
-        if volWidthStep >= 0 and biDirScan:
-            x3 = x2 + mx*(reversePts / 4)
-            y3 = y2 + my*(reversePts / 4)
-            (x4, y4, x5, y5) = makeScanXYcoords(scanParams, galv, volWidthStep + 1)
-            t1 = np.linspace(0, np.pi/2, reversePts // 2)
-            if bidirOddFrame:
-                (x4, y4) = (x5, y5)
-        else:                
-            t1 = np.linspace(0, np.pi/2, reversePts)
-            
-        reverse_x = (x3 - x2)*np.sin(t1) + x2
-        reverse_y = (y3 - y2)*np.sin(t1) + y2
-
-        if volWidthStep >= 0 and biDirScan:
-            t2 = np.linspace(np.pi/2, np.pi, reversePts // 2)
-            reverse_x = np.concatenate((reverse_x, (x3 - x2)*np.sin(t2) + x2))
-            reverse_y = np.concatenate((reverse_y, (y3 - y2)*np.sin(t2) + y2))
-        
-        # flyback command
-        flyback_x = []
-        flyback_y = []
-        if flybackPts > 0:
-            t = np.linspace(0, np.pi, flybackPts)
-            s = (np.cos(t)+1)/2
-            flyback_x = (x3 - x0)*s + x0           
-            flyback_y = (y3 - y0)*s + y0
-        
-        cmd_x = np.concatenate((startup_x, scan_x, reverse_x, flyback_x))
-        cmd_y = np.concatenate((startup_y, scan_y, reverse_y, flyback_y))
-        
-    elif scanParams.pattern == ScanPattern.rasterSlow:
-        scanTime = scanParams.lengthSteps / OCTtriggerRate 
-        # trigsPerPt = np.ceil(galv.settleTime * OCTtriggerRate)
-        DAQptsPerTrig = galvoMirror.settleTime * DAQoutputRate 
-        scanPts = np.floor(DAQptsPerTrig * scanParams.lengthSteps)
-        DebugLog.log("makeBscanCommand(): DAQptsPerTrig= %0.1f scanPts= %0.1f" % (DAQptsPerTrig, scanPts))
-
-        flybackPts = np.floor(galvoMirror.flybackTime * DAQoutputRate)
-        
-        (x1, y1, x2, y2) = makeScanXYcoords(galvoMirror)
-        
-        scan_x = np.zeros(scanPts)
-        scan_y = np.zeros(scanPts)
-        # scan command
-        for n in range(0, scanParams.lengthSteps):
-            pt1 = np.floor(n*DAQptsPerTrig)
-            pt2 = np.floor((n+1)*DAQptsPerTrig)
-            scan_x[pt1:pt2] = x1 + n*(x2 - x1)/scanParams.lengthSteps
-            scan_y[pt1:pt2] = y1 + n*(y2 - y1)/scanParams.lengthSteps
-        
-        # flyback command
-        t = np.linspace(0, np.pi, flybackPts)
-        s = (np.cos(t)+1)/2
-        flyback_x = (x2 - x1)*s + x1           
-        flyback_y = (y2 - y1)*s + y1
-        
-        cmd_x = np.concatenate((scan_x, flyback_x))
-        cmd_y = np.concatenate((scan_y, flyback_y))
-        
-    else:
-        DebugLog.log("makeBscanCommand(): unsupported scan pattern '%s'"  % repr(scanParams.pattern))
-    
-    if cmd_x is not None:
-        return np.vstack((cmd_x, cmd_y))
-    else:
-        return None
     
 # return command for entire volume 
 def makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, OCTtriggerRate):
@@ -429,7 +259,7 @@ def makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, OCTtriggerRate):
         if DebugLog.isLogging:
             DebugLog.log("makeVolumeScanCommand: frameNum= %d widthOffset= %g" % (frameNum // bscansPerFrame + n, scanParams.widthOffset))
         
-        (cmd_x, cmd_y) = makeBscanCommand(scanParams, mirrorDriver, OCTtriggerRate, frameOffset)
+        (cmd_x, cmd_y) = BScan.makeBscanCommand(scanParams, mirrorDriver, OCTtriggerRate, frameOffset)
         daqOutputTmp = np.vstack((cmd_x, cmd_y))
         if daqOutput is None:
             daqOutput = copy.copy(daqOutputTmp)
@@ -643,85 +473,7 @@ def plotScan(plotParam,data3D, spiralScanThresholdVal, normLow, normHigh):
     
     return surfacePlot,bScanPlot,bScanPlot16b
 
-def makeBscanImage(oct_data_mag, scanParams, zRes, normLow, normHigh, correctAspectRatio=True):
-    # numTrigs = self.scanParams.lengthSteps
-    numTrigs = oct_data_mag.shape[0]
-    
-    # for a slwo scan, reshape and exclude unwanted triggers
-    if scanParams.pattern == ScanPattern.rasterSlow: 
-        # rawdata = trigsPerPt = np.ceil(galv.settleTime * OCTtriggerRate)
-        shp = rawdata.shape
-        
-        trigsPerStep = numTrigs // scanParams.lengthSteps
-        DebugLog.log("VolumeScan makeBscanImage(): rawdata.shape= %s trigsPerStep= %d" %  (repr(rawdata.shape), trigsPerStep))
-        # rawdata = np.reshape(rawdata, (trigsPerStep, scanParams.lengthSteps, shp[1], shp[2]))
-        
-        i1 = trigsPerStep - 1
-        i2 = scanParams.lengthSteps * trigsPerStep
-        rng = list(range(i1, i2, trigsPerStep))
-        oct_data_mag = rawdata[rng, :]
-            
-    mag = np.clip(oct_data_mag, 1, np.inf)
-    mag = 20*np.log10(mag)
-        
-    DebugLog.log("VolumeScan makeBscanImage(): (before averaging) mag.shape= " + repr(mag.shape))          
-    
-    # average all trials
-    if len(mag.shape) > 2:
-        mag = np.mean(mag, 2)
-    
-    DebugLog.log("VolumeScan makeBscanImage(): (after averaging) mag.shape= " + repr(mag.shape))  
-    mag = mag.transpose()
-    
-    #DebugLog.log("processBScanData: mag min= %g max= %g" % (np.min(mag), np.max(mag)))
-     # map the data to 0 ... 1
-    nL = normLow
-    nH = normHigh
-    nRng = nH - nL
-    
-    DebugLog.log("VolumeScan makeBscanImage(): nL= %g nH=%g nRng= %g" % (nL, nH, nRng))
-        
-    # remap range to 0...1
-    mag = (mag - nL)/nRng  
 
-    # remap range to 0 ... to 2^16 - 1
-    mag16b = mag*65535
-    mag16b = np.clip(mag16b, 0, 65535)
-    
-    DebugLog.log("VolumeScan makeBscanImage():  mag16b min= %g max= %g" % (np.min(mag16b), np.max(mag16b)))
-    
-    # produce image            
-    mag16b = np.require(mag16b, 'uint32')
-
-    s = mag16b.shape
-    
-    sizeX = s[1]
-    sizeY = s[0]
-    
-    sl = scanParams.length
-    xRes = sl*1e3/sizeX
-    
-    DebugLog.log("VolumeScan makeBscanImage(): sizeX = %d sizeY= %d xRes= %g" % (sizeX, sizeY, xRes))
-    
-    img16b = PIL.Image.fromarray(mag16b, 'I')     # 'I' for 32-bit images, 'P' for 8-bit
-    # correct aspect ratio
-    if(correctAspectRatio):
-        sizeX = int(np.round(sizeX*xRes/zRes))
-        sizeX = min(sizeX, 4000)    # guard against images that are too big
-        sizeX = max(2, sizeX)
-        DebugLog.log("VolumeScan makeBscanImage():  new sizeX = %d" % (sizeX))
-        img16b = img16b.resize((sizeX, sizeY), PIL.Image.BILINEAR) 
-
-    imgdata_16b = np.array(img16b)
-    imgdata_8b = np.floor(255*imgdata_16b/65535)
-
-    imgdata_8b = np.require(imgdata_8b, np.uint8, 'C')
-    imgdata_16b = np.require(imgdata_16b, np.uint16, 'C')
-    DebugLog.log("VolumeScan makeBscanImage():  img8b min= %g max= %g" % (np.min(imgdata_8b), np.max(imgdata_8b)))
-    DebugLog.log("VolumeScan makeBscanImage():  img16b min= %g max= %g" % (np.min(imgdata_16b), np.max(imgdata_16b)))
-
-    return imgdata_16b, imgdata_8b
-    
 def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
     DebugLog.log("SpiralScanProtocol.processData()")
 
@@ -802,7 +554,7 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
                 if DebugLog.isLogging:
                     DebugLog.log("VolumeScan processData(): n= %d idx1= %d idx2= %d" % (n, idx1, idx2))
                 
-                img16b, img8b = makeBscanImage(oct_data_mag, scanParams, procOpts.zRes, procOpts.normLow, procOpts.normHigh, correctAspectRatio=True)
+                img16b, img8b = BScan.makeBscanImage(oct_data_mag, scanParams, procOpts.zRes, procOpts.normLow, procOpts.normHigh, correctAspectRatio=True)
                 if volDataIn is None:
                     volDataIn = VolumeData()
                     volDataIn.scanParams = scanParams
@@ -815,7 +567,7 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
                 DebugLog.log("VolumeScan processData(): frame= %d img16b max= %d min=%d " % (n + bscanPerFrame*frameNum, np.max(img16b), np.min(img16b)))
                 volDataIn.volumeImg[n + bscanPerFrame*frameNum, :, :] = img16
         else:
-            img16b, img8b = makeBscanImage(oct_data_mag, scanParams, procOpts.zRes, procOpts.normLow, procOpts.normHigh, correctAspectRatio=True)
+            img16b, img8b = BScan.makeBscanImage(oct_data_mag, scanParams, procOpts.zRes, procOpts.normLow, procOpts.normHigh, correctAspectRatio=True)
             
             if volDataIn is None:
                 volDataIn = VolumeData()
@@ -849,6 +601,222 @@ def saveVolumeData(volData, saveDir, saveOpts, scanNum):
     filePath = os.path.join(saveDir, fileName)
     
     tifffile.imsave(filePath, volImg)    
+
+
+# collect volume data for a given frame number
+# oct_hw is a LV_DLL_Interface
+def VolScanCollectFcn(oct_hw, frameNum, extraArgs):
+    t1 = time.time()
+    scanParams = extraArgs[0]
+    mirrorDriver = extraArgs[1]
+    zROI = extraArgs[2]
+    testDataDir =  extraArgs[3]
+    
+    OCTtrigRate = oct_hw.GetTriggerRate()
+    
+    chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
+    outputRate = audioHW.DAQOutputRate
+    trigChan = mirrorDriver.trig_daqChan
+    if not oct_hw.IsOCTTestingMode():
+        from DAQHardware import DAQHardware
+        daq = DAQHardware()
+    
+    if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
+        mirrorOut = scanDetails.mirrOut
+        startTrigOffset = 0
+    else:
+        mirrorOut = makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, OCTtrigRate)
+        startTrigOffset = int(np.round(OCTtrigRate*mirrorDriver.settleTime))
+
+    if not oct_hw.IsDAQTestingMode():
+        # setup the analog output DAQ device
+        daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOut.transpose())        
+        daq.startAnalogOutput()
+    
+    # setup and grab the OCT data
+    numTrigs = getNumTrigs(scanParams, scanDetails, OCTtrigRate, mirrorDriver)
+    if appObj.oct_hw.IsOCTTestingMode():
+        packedData = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
+    else:
+        err, packedData = appObj.oct_hw.AcquireOCTDataMagOnly(numTrigs, zROI, startTrigOffset)
+    
+    if not oct_hw.IsDAQTestingMode():
+        daq.stopAnalogOutput()
+        daq.clearAnalogOutput()
+        
+    rawData = VolumeRawData(packedData, frameNum)
+    rawData.collectTime = time.time() - t1
+    return rawData, mirrorOut
+    
+def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, rawDataQ, procDataQ, procRawDataQ, msgQ):
+    shutdown = False
+    volData = None
+    
+    frameNum = 0
+    putTimeout = False  # indicates there was a timeout attempting to send data to 
+    while not shutdown:
+        try:
+            if not putTimeout:
+                gotData = False
+                if not rawDataQ.empty():
+                    OCTdataMag = None
+                    rawData = rawDataQ.get(timeout=0.25)
+                    
+                    if rawData is not None:
+                        DebugLog.log("VolScanProcessingProcess(): got raw data")
+                        # process the data
+                        t1 = time.time()
+        
+                        frameNum = rawData.frameNum
+                        OCTdataMag = octfpga.unpackData(rawData.packedData)
+                        volData = processData(OCTdataMag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
+                           
+                        volData.collectTime = rawData.collectTime
+                        volData.processTime = time.time() - t1
+                        gotData = True
+                        
+            # send processsed data to main program
+            if gotDatat:
+                try:
+                    if procRawDataQ is not None:
+                        procRawDataQ.put(rawData, timeout=0.25)
+                    if regionMscan:
+                        procDataQ.put(volData, timeout=0.25)
+                    else:
+                        ptNum = posLenStep
+                        tCurve = mscanTuningCurveList[ptNum]
+                        procDataQ.put(tCurve, timeout=0.25)
+                        #(mscanPosAndStim.ampIdx == (numAmpSteps - 1)) and (mscanPosAndStim.freqIdx == (numFreqSteps - 1))
+                        
+                    procDataQ.put(mscanData, timeout=0.25)   # send this data last because it contains frame number which client uss to detect whether acquisition is complete                                
+                except queue.Full:
+                    putTimeout = True
+        except Exception as ex:
+            traceback.print_exc(file=sys.stdout)
+            statusMsg = OCTCommon.StatusMsg(OCTCommon.StatusMsgSource.PROCESSING, OCTCommon.StatusMsgType.ERROR)
+            statusMsg.param = ex
+            try:
+                statusQ.put(statusMsg, False)
+            except queue.Full as ex:
+                pass
+            shutdown = True
+        
+        # chedk for shutdown messages 
+        if not msgQ.empty():
+            msg = msgQ.get()
+            if msg == 'shutdown':
+                shutdown = True
+
+
+def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, scanDetails, procOPt, saveOpts):
+    mirrorDriver = appObj.mirrorDriver
+    rset = True
+    isSaveDirInit = False
+    oct_hw = appObj.oct_hw
+    
+    #procDataQ = mproc.Queue(4)        
+#    procMsgQ = mproc.Queue(4)        
+ #   dataQ = oct_hw.
+    # start up the processing process
+  #  procProc = mproc.Process(target=MscanProcessingProcess, args=(audioParams, scanParams, zROI, regionMscan, procOpts, dataQ, procDataQ, procMsgQ), daemon=True)
+   # procProc.start()
+    startTime = time.time()    
+    DebugLog.log("runVolScanMultiProcess: new acquisiiton")
+    oct_hw.NewAcquisition()
+    oct_hw.SetSendExtraInfo(False)   # do not send audio output
+    DebugLog.log("runVolScanMultiProcess: setting acquire function")
+    oct_hw.SetAcqFunction(VolScanCollectFcn)
+    extraArgs = [scanParams, mirrorDriver, zROI, testDataDir]
+    DebugLog.log("runVolScanMultiProcess: setting acquire functiona args")
+    oct_hw.SetAcqFunctionArgs(extraArgs)
+    
+    volData = None
+    startAcq = True
+    
+    DebugLog.log("runVolScanMultiProcess: cleaning status message log")
+    statusMsg = oct_hw.GetStatus()
+    while statusMsg is not None:
+        DebugLog.log("runVolScanMultiProcess: got status message type=" + repr(statusMsg.msgType))
+        err = handleStatusMessage(statusMsg)
+        statusMsg = oct_hw.GetStatus()        
+    
+    procDataQ = mproc.Queue(10)
+    procRawDataQ = None
+    if saveOpts.saveRaw:   # if saving raw data, create a raw data queue so that volume scan processing process will resned raw data to this function
+        procRawDataQ = mproc.Queue(10)
+    msgQ = mproc.Queue(10)
+    rawDataQ = oct_hw.rawDataQ
+    procProcess = mproc.Process(target=VolScanProcessingProcess, args=[scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, rawDataQ, procDataQ, procRawDataQ, msgQ], daemon=True)
+    DebugLog.log("runVolScanMultiProcess(): starting processing process")
+    procProcess.start()
+    frameNum = -1
+        
+    while not appObj.doneFlag and (frameNum < framesPerScan-1 or scanParams.continuousScan):
+        # update parameters in background process
+        # start the acquisitio on first loop iteration
+        # we don't just do this outside the loop because we haven't loaded function args yet
+        if startAcq:  
+            DebugLog.log("runVolScanMultiProcess: starting acquisition")
+            oct_hw.StartAcquisition() 
+            startAcq = False
+        
+        if not procDataQ.empty():
+            DebugLog.log("runVolScanMultiProcess: grabbing data")
+
+            data = procDataQ.get()      
+            volData = None
+            if isinstance(data, VolumeData):
+                DebugLog.log("runVolScanMultiProcess: received volume data")
+                frameNum = data.frameNum
+                volData  = data
+                appObj.acquisition_progressBar.setValue(round(100*(frameNum+1)/framesPerScan))                
+                appObj.mscanCollectionTime_label.setText("%0.1f ms" % (volData .collectTime * 1000))
+                appObj.mscanProcessTime_label.setText("%0.1f ms" % (volData .processTime * 1000))
+
+            # save the mscan tuning curve
+            if appObj.getSaveState():
+                if not isSaveDirInit:
+                    saveDir = OCTCommon.initSaveDir(saveOpts, 'MScan', scanParams=scanParams, audioParams=audioParams)
+                    isSaveDirInit = True
+                if regionMscan:
+                    if mscanRegionData is not None:
+                        saveMscanRegionData(mscanRegionData, volData, saveDir)
+                else:
+                    if mscanData is not None:
+                        saveMscanDataTimeDomain(mscanData, freq, amp, frameNum, saveDir)                   
+                    if tuningCurve is not None:
+                        saveMscanTuningCurve(tuningCurve, audioParams, posLenStep, saveDir)
+                        
+                if saveOpts.saveRaw:
+                    if not procRawDataQ.empty():
+                        rawData = procRawDataQ.get()
+                        OCTCommon.saveRawData(rawData.oct_data, saveDir, frameNum, dataType=0)
+                        OCTCommon.saveRawData(rawData.mic_data, saveDir, frameNum, dataType=3)
+                    
+            statusMsg = oct_hw.GetStatus()
+            while statusMsg is not None:
+                DebugLog.log("runBScanMultiProcess: got status message type=" + repr(statusMsg.msgType))
+                err = handleStatusMessage(statusMsg)
+                if err:
+                    appObj.doneFlag = True  # if error occured, stop pcollecting
+                statusMsg = oct_hw.GetStatus()
+            
+
+        tElapsed = time.time() - startTime
+        tMins = int(np.floor(tElapsed / 60))
+        tSecs = int(tElapsed - 60*tMins)
+        appObj.timeElapsed_label.setText("%d mins %d secs" % (tMins, tSecs))
+
+        # check for GUI events, particularly the "done" flag
+        QtGui.QApplication.processEvents() 
+        time.sleep(0.005)
+    
+    msgQ.put('shutdown')  # tell processing process to stop
+    DebugLog.log("runBScanMultiProcess: finishd acquiring data")        
+    oct_hw.PauseAcquisition()        
+    appObj.isCollecting = False
+    QtGui.QApplication.processEvents() # check for GUI events
+    appObj.finishCollection()    
     
 def runVolScan(appObj):
     DebugLog.log("runVolScan")
@@ -901,6 +869,10 @@ def runVolScan(appObj):
     biDirTrigVolAdj = appObj.volBidirTrigAdj_spinBox.value()
     
     saveOpts = appObj.getSaveOpts()
+    if(appObj.multiProcess):
+        runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, scanDetails, procOPt, saveOpts)
+        return
+
     isSaveDirInit = False
 
     try: 
@@ -942,7 +914,7 @@ def runVolScan(appObj):
                 oct_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
             else:
                 err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
-            
+                
             # process the data
             oct_data_mag = np.abs(oct_data)
             volData = processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum)
