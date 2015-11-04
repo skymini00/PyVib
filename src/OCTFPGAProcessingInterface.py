@@ -543,7 +543,7 @@ class LV_DLLInterface:
         fpgaOpts.DispCorr = c_uint8(0) # False
         fpgaOpts.FFT = c_uint8(0)  # False
         fpgaOpts.klinRoiBegin = c_uint16(0) 
-     
+        fpgaOpts.SampleOffset = c_int16(0) 
         if Ch0Shift < 0:
             Ch0Shift = fpgaOpts.Ch0Shift
         else:
