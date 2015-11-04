@@ -174,6 +174,33 @@ def saveDispersionData(dispData, basePath):
     f.write(s)           
     f.close()
     
+def plotDispData(appObj, dispData, PDfiltCutoffs):
+    pl = appObj.plot_disp_phdiode
+    pl.clear()
+    pl.plot(dispData.phDiode, pen='b')
+    
+    pl = appObj.plot_disp_magwin
+    pl.clear()
+    pl.plot(dispData.magWin, pen='b')
+
+    pl = appObj.plot_disp_phasecorr            
+    pl.clear()
+    pl.plot(dispData.phaseCorr, pen='b')
+    
+    pl = appObj.plot_disp_uncorrected_aline
+    pl.clear()
+    pl.plot(dispData.uncorrAline, pen='b')
+    x1 = 2*1024*PDfiltCutoffs[0]
+    x1 = np.array([x1, x1])
+    x2 = 2*1024*PDfiltCutoffs[1]
+    x2 = np.array([x2, x2])
+    y = np.array([np.min(dispData.uncorrAline), np.max(dispData.uncorrAline)])
+    pl.plot(x1, y, pen='r')
+    pl.plot(x2, y, pen='r')
+    
+    pl = appObj.plot_disp_corrected_aline
+    pl.clear()
+    pl.plot(dispData.corrAline, pen='b')    
     
 # collect dispersion data
 # appObj is an OCTWindowClass as defined in OCTnew.py
@@ -229,25 +256,7 @@ def runDispersion(appObj):
             pd_background = dispData.phDiode_background
                 
             # plot the data
-            pl = appObj.plot_disp_phdiode
-            pl.clear()
-            pl.plot(dispData.phDiode, pen='b')
-            
-            pl = appObj.plot_disp_magwin
-            pl.clear()
-            pl.plot(dispData.magWin, pen='b')
-    
-            pl = appObj.plot_disp_phasecorr            
-            pl.clear()
-            pl.plot(dispData.phaseCorr, pen='b')
-            
-            pl = appObj.plot_disp_uncorrected_aline
-            pl.clear()
-            pl.plot(dispData.uncorrAline, pen='b')
-    
-            pl = appObj.plot_disp_corrected_aline
-            pl.clear()
-            pl.plot(dispData.corrAline, pen='b')
+            plotDispData(appObj, dispData, PDfiltCutoffs)
             
             if appObj.getSaveState():
                 saveDispersionData(dispData, appObj.settingsPath)
