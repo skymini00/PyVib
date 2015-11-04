@@ -477,7 +477,7 @@ def runBScanMultiProcess(appObj, testDataDir):
                 startAcq = False
             
             rawData = oct_hw.GetData()
-            if rawData is not None:
+            if rawData is not None and isinstance(rawData, BScanRawData):
                 # DebugLog.log("runBScanMultiProcess: got data dict= " + rawData.__dict__)
                 oct_data = rawData.oct_data
                 frameNum = rawData.frameNum
@@ -485,7 +485,7 @@ def runBScanMultiProcess(appObj, testDataDir):
                 isSaveDirInit = saveBScanData(appObj, oct_data, img16b, frameNum, scanParams, saveOpts, isSaveDirInit)
                 rset = False
             else:
-                DebugLog.log("runBScanMultiProcess: data is None")
+                DebugLog.log("runBScanMultiProcess: data is None or is not BScanRawData")
                 
             statusMsg = oct_hw.GetStatus()
             while statusMsg is not None:

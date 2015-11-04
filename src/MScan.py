@@ -1330,6 +1330,7 @@ def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts,
                         #(mscanPosAndStim.ampIdx == (numAmpSteps - 1)) and (mscanPosAndStim.freqIdx == (numFreqSteps - 1))
                         
                     procDataQ.put(mscanData, timeout=0.25)   # send this data last because it contains frame number which client uss to detect whether acquisition is complete                                
+                    putTimeout = False
                 except queue.Full:
                     putTimeout = True
         except Exception as ex:

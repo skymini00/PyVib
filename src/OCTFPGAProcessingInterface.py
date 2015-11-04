@@ -499,13 +499,13 @@ class LV_DLLInterface:
         roiSize = zROI[1]-zROI[0]+1
         roiSizeOut = c_int32(roiSize)
         err = self.config_fpga_acq(setupNum, c_uint32(numTriggers), byref(fpgaOpts), byref(roiSizeOut), byref(numTrigsOut), byref(fpgaOptsOut))
-        DebugLog.log("AcquireOCTDataFFT  roiSizeout= %d numTrigsOut=  %d" % (roiSizeOut.value,  numTrigsOut.value))
+        DebugLog.log("AcquireOCTDataMagOnly: roiSizeout= %d numTrigsOut=  %d" % (roiSizeOut.value,  numTrigsOut.value))
         if err < 0:
             return err, None
         
         numSamples = roiSizeOut.value * numTrigsOut.value
         numDataPts = 0
-        numPackedDataPts = numSamples // 4
+        numPackedDataPts = numSamples 
                 
         len_data = c_int32(numDataPts)
         len_packed_data = c_int32(numPackedDataPts)
@@ -527,8 +527,9 @@ class LV_DLLInterface:
         
         # DebugLog.log("OCTDataCollector.startFrameGetData(): isSynchOCT = " + repr(self.protocol.isSynchOCT()))
         err = self.acq_fpga_data(setupNum, c_uint32(numTrigsOut.value), c_uint32(numSamples), trigOffset, unpackData, d_re, d_im, byref(len_data), packedData, byref(len_packed_data), byref(timeElapsed), byref(transferTime), byref(unpackTime))
-        DebugLog.log("AcquireOCTDataMagOnly  len_packed_data= " + repr(len_packed_data.value))
-    
+        DebugLog.log("AcquireOCTDataMagOnly: len_packed_data= " + repr(len_packed_data.value))
+        
+        packedData = packedData.reshape((numTrigsOut.value, roiSizeOut.value))
         return err, packedData
     
     # grabb the output of the FFT 
@@ -589,7 +590,7 @@ class LV_DLLInterface:
         transferTime = c_uint32(0)
         unpackTime = c_uint32(0)
         trigOffset = c_uint32(0)
-        unpackData = True
+        unpackData = c_uint8(55)
         
         # DebugLog.log("OCTDataCollector.startFrameGetData(): isSynchOCT = " + repr(self.protocol.isSynchOCT()))
         err = self.acq_fpga_data(setupNum, c_uint32(numTrigsOut.value), c_uint32(numSamples), trigOffset, unpackData, d_re, d_im, byref(len_data), packedData, byref(len_packed_data), byref(timeElapsed), byref(transferTime), byref(unpackTime))
@@ -1002,16 +1003,16 @@ def unpackData(packed_data, isMagOnly=True, is16b=True, isPolar=True):
         idx1 = range(1, shp1, 4)
         idx2 = range(2, shp1, 4)
         idx3 = range(3, shp1, 4)
-        shp =  [shp[0], shp1, shp[2]]
+        shp =  [shp[0], shp1]
         if DebugLog.isLogging:
             DebugLog.log("OCTProcessing unpackData(): shp= %s" % repr(shp))
             
         mag = np.zeros(shp, dtype=np.int16)
         
-        mag[:, idx0, :] = np.require((packed_data & mask3) >> 48, dtype=np.int16)
-        mag[:, idx1, :] = np.require((packed_data & mask2) >> 32, dtype=np.int16)
-        mag[:, idx2, :] = np.require((packed_data & mask1) >> 16, dtype=np.int16)
-        mag[:, idx3, :] = np.require((packed_data & mask0), dtype=np.int16)
+        mag[:, idx0] = np.require((packed_data & mask3) >> 48, dtype=np.int16)
+        mag[:, idx1] = np.require((packed_data & mask2) >> 32, dtype=np.int16)
+        mag[:, idx2] = np.require((packed_data & mask1) >> 16, dtype=np.int16)
+        mag[:, idx3] = np.require((packed_data & mask0), dtype=np.int16)
         if DebugLog.isLogging:
             DebugLog.log("OCTProcessing unpackData():  mag min= %g max= %g" % (np.min(mag), np.max(mag)))
     elif is16b:
@@ -1030,20 +1031,20 @@ def unpackData(packed_data, isMagOnly=True, is16b=True, isPolar=True):
         
         if isPolar:
             mag = np.zeros(shp, dtype=np.int16)
-            mag[:, idx0, :] = np.require((packed_data & mask3) >> 48, dtype=np.int16)
-            mag[:, idx1, :] = np.require((packed_data & mask1) >> 16, dtype=np.int16)
+            mag[:, idx0] = np.require((packed_data & mask3) >> 48, dtype=np.int16)
+            mag[:, idx1] = np.require((packed_data & mask1) >> 16, dtype=np.int16)
             
             phase = np.zeros(shp, dtype=np.int16)
-            phase[:, idx0, :] = np.require((packed_data & mask2) >> 32, dtype=np.int16)
-            phase[:, idx1, :] = np.require((packed_data & mask0), dtype=np.int16)
+            phase[:, idx0] = np.require((packed_data & mask2) >> 32, dtype=np.int16)
+            phase[:, idx1] = np.require((packed_data & mask0), dtype=np.int16)
         else:
             oct_data = np.zeros(shp, dtype=np.complex)
             d_re = np.require((packed_data & mask3) >> 48, dtype=np.int16)
             d_im = np.require((packed_data & mask2) >> 32, dtype=np.int16)
-            oct_data[:, idx0, :] = d_re + 1j * d_im
+            oct_data[:, idx0] = d_re + 1j * d_im
             d_re = np.require((packed_data & mask1) >> 16, dtype=np.int16)
             d_im = np.require((packed_data & mask0), dtype=np.int16)
-            oct_data[:, idx1, :] = d_re + 1j * d_im
+            oct_data[:, idx1] = d_re + 1j * d_im
     else:
         mask0 = 2**32 - 1 
         mask1 = mask0 << 32
@@ -1051,7 +1052,7 @@ def unpackData(packed_data, isMagOnly=True, is16b=True, isPolar=True):
         oct_data = np.zeros(shp, dtype=np.complex)
         d_re = np.require((packed_data & mask1) >> 32, dtype=np.int32)
         d_im = np.require((packed_data & mask0), dtype=np.int32)
-        oct_data[:, :, :] = d_re + 1j * d_im
+        oct_data[:, :] = d_re + 1j * d_im
         
     return (oct_data, mag, phase)
     

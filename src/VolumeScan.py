@@ -646,6 +646,7 @@ def VolScanCollectFcn(oct_hw, frameNum, extraArgs):
         err, packedData = oct_hw.AcquireOCTDataMagOnly(numTrigs, zROI, startTrigOffset)
     
     if not oct_hw.IsDAQTestingMode():
+        daq.waitDoneOutput()
         daq.stopAnalogOutput()
         daq.clearAnalogOutput()
         
@@ -670,15 +671,15 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
                     OCTdataMag = None
                     rawData = rawDataQ.get(timeout=0.25)
                     
-                    if rawData is not None:
+                    if rawData is not None and isinstance(rawData, VolumeRawData):
                         DebugLog.log("VolScanProcessingProcess(): got raw data")
                         # process the data
                         t1 = time.time()
         
                         frameNum = rawData.frameNum
-                        OCTdataMag = octfpga.unpackData(rawData.packedData)
-                        volData = processData(OCTdataMag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
-                           
+                        (oct_data, mag, phase) = octfpga.unpackData(rawData.packedData)
+                        volData = processData(mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
+                        volData.frameNum = rawData.frameNum
                         volData.collectTime = rawData.collectTime
                         volData.processTime = time.time() - t1
                         gotData = True
@@ -686,17 +687,12 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
             # send processsed data to main program
             if gotData:
                 try:
-                    if procRawDataQ is not None:
+                    if procRawDataQ is not None and rawData is not None:
                         procRawDataQ.put(rawData, timeout=0.25)
-                    if regionMscan:
-                        procDataQ.put(volData, timeout=0.25)
-                    else:
-                        ptNum = posLenStep
-                        tCurve = mscanTuningCurveList[ptNum]
-                        procDataQ.put(tCurve, timeout=0.25)
-                        #(mscanPosAndStim.ampIdx == (numAmpSteps - 1)) and (mscanPosAndStim.freqIdx == (numFreqSteps - 1))
+                        rawData = None
                         
-                    procDataQ.put(mscanData, timeout=0.25)   # send this data last because it contains frame number which client uss to detect whether acquisition is complete                                
+                    procDataQ.put(volData, timeout=0.25)   # send this data last because it contains frame number which client uss to detect whether acquisition is complete                                
+                    putTimeout = False
                 except queue.Full:
                     putTimeout = True
         except Exception as ex:
@@ -714,7 +710,19 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
             msg = msgQ.get()
             if msg == 'shutdown':
                 shutdown = True
+                
+        time.sleep(0.005)  # sleep for 5 ms to reduce CPU load
 
+def handleStatusMessage(statusMsg):
+    err = False
+    # if statusMsg.msgSrc == OCTCommon.StatusMsgSource.COLLECTION:
+    if statusMsg.msgType == OCTCommon.StatusMsgType.ERROR:
+        err = True
+    elif statusMsg.msgType == OCTCommon.StatusMsgType.DAQ_OUTPUT:
+        pass
+        
+    return err
+    
 """
     runVolScanMultiProcess - run a volume 
 """    
@@ -742,7 +750,8 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
     
     volData = None
     startAcq = True
-    
+    bscansPerFrame = scanParams.volBscansPerFrame
+
     DebugLog.log("runVolScanMultiProcess: cleaning status message log")
     statusMsg = oct_hw.GetStatus()
     while statusMsg is not None:
@@ -781,24 +790,33 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
             if isinstance(data, VolumeData):
                 DebugLog.log("runVolScanMultiProcess: received volume data")
                 frameNum = data.frameNum
-                volData  = data
+                volData = data
                 appObj.acquisition_progressBar.setValue(round(100*(frameNum+1)/framesPerScan))                
-                appObj.mscanCollectionTime_label.setText("%0.1f ms" % (volData .collectTime * 1000))
-                appObj.mscanProcessTime_label.setText("%0.1f ms" % (volData .processTime * 1000))
+                appObj.volCollectionTime_label.setText("%0.1f ms" % (volData.collectTime * 1000))
+                appObj.volProcessTime_label.setText("%0.1f ms" % (volData.processTime * 1000))
+                    
+                if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
+                    pass
+                else:
+                    img16b = volData.volumeImg[frameNum*bscansPerFrame, :, :]
+                    img8b = np.round(255.0*img16b/65335.0)  # remap image range
+                    DebugLog.log("VolumeScan runVolScan(): frame= %d img16b max= %d min=%d " % (frameNum*bscansPerFrame, np.max(img8b), np.min(img8b)))
+    
+                    img8b = np.require(img8b, dtype=np.uint8)
+                    appObj.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
+                    rset = False                
+                    
+                appObj.acquisition_progressBar.setValue(round(100*frameNum/framesPerScan))
+                    
+                if frameNum % framesPerScan == 0:
+                    appObj.volDataLast = volData
+                    appObj.displayVolumeImg3D(volData.volumeImg)  # update the volume image    
 
             # save the mscan tuning curve
             if appObj.getSaveState():
                 if not isSaveDirInit:
                     saveDir = OCTCommon.initSaveDir(saveOpts, 'MScan', scanParams=scanParams, audioParams=audioParams)
                     isSaveDirInit = True
-                if regionMscan:
-                    if mscanRegionData is not None:
-                        saveMscanRegionData(mscanRegionData, volData, saveDir)
-                else:
-                    if mscanData is not None:
-                        saveMscanDataTimeDomain(mscanData, freq, amp, frameNum, saveDir)                   
-                    if tuningCurve is not None:
-                        saveMscanTuningCurve(tuningCurve, audioParams, posLenStep, saveDir)
                         
                 if saveOpts.saveRaw:
                     if not procRawDataQ.empty():

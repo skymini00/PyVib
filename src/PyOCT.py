@@ -543,8 +543,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             roiEnd = roiBegin + 1
         roiSize = roiEnd - roiBegin 
         # ensure ROI is aligned to multiple of 4
-        # this is required if data is 16-bit 
-        if roiSize % 4 != 0:
+        # this is required if data is 16-bit, such as for magnitude only collection
+        if (roiSize % 4) != 0:
             roiEnd += 4 - roiSize % 4
         zROI = (roiBegin, roiEnd)
         return zROI
