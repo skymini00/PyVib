@@ -310,7 +310,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.sound_quickSet_reload_pushButton.clicked.connect(self.sound_quickSet_reload_clicked)
         self.sound_quickSet_comboBox.currentIndexChanged.connect(self.sound_quickSet_comboBox_currentIndexChanged)
 
-        # 
         self.freqStart_dblSpinBox.valueChanged.connect(self.freqStartEndChanged)
         self.freqEnd_dblSpinBox.valueChanged.connect(self.freqStartEndChanged)
         self.freqSteps_spinBox.valueChanged.connect(self.freqStepsChanged)
@@ -332,6 +331,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
         self.audio_loadFlatSpkCal_pushButton.clicked.connect(self.loadFlatSpeakerCal)
         self.JSOsaveDispersion_pushButton.clicked.connect(self.JSOsaveDispersion_pushButton_clicked)         
+        self.JSOloadDispersion_pushButton.clicked.connect(self.JSOloadDispersion_pushButton_clicked)         
         
         self.roiBeginSlider.valueChanged.connect(self.ZROIChanged)
         self.roiEndSlider.valueChanged.connect(self.ZROIChanged)
@@ -630,8 +630,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
 
     def JSOraw_clicked(self):  # CtoF button event handler
         if self.JSOraw_pushButton.isChecked():
-#            self.JSOrawWindowFunctionmag=np.array([0])
-#            self.JSOrawWindowFunctionphase=np.array([0])
+            self.dispData = JSOraw.DispersionData()             # this class holds all the dispersion compensation data           
             if self.isCollecting:
                 self.nextProtocol = 'JSOraw'
                 self.stopCollection()
@@ -643,7 +642,10 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
  
     def JSOsaveDispersion_pushButton_clicked(self):  # CtoF button event handler
         JSOraw.saveDispersion_pushButton_clicked(self)
-
+        
+    def JSOloadDispersion_pushButton_clicked(self):  # CtoF button event handler
+        self.dispData = JSOraw.DispersionData()             # this class holds all the dispersion compensation data           
+        JSOraw.loadDispersion_pushButton_clicked(self)
             
     def rotationZDialChanged(self):
         self.rotation_spinBox.setValue(self.rotZ_dial.value())

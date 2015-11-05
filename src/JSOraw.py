@@ -13,27 +13,30 @@ import numpy as np
 import datetime
 import matplotlib.pyplot as plt
 from DebugLog import DebugLog
+import pickle
 
 class blankClass:
     def __init__(self):
         pass
     
-class DispersionData:
+class DispersionData:  # this class holds all the dispersion compensation data
     def __init__(self):
         self.magWin = []
         self.phaseCorr = []
-        self.phDiode = []
-        self.uncorrAline = []
-        self.corrAline = []
         self.phDiode_background = None
+        self.startSample=[]
+        self.endSample=[]
+        self.numKlinPts=[]
+        self.numShiftPts=[]
+        self.filterWidth=[]
         self.PDfilterCutoffs=[]
+        self.mziFilter=[]
         self.magWin_LPfilterCutoff=[]
-
-def processMZI(mzi_data, MZIHPfilter=True):
-    # MZIHPfilter=0    
-    if MZIHPfilter:       # filtering seems to reduce sidebands caused by interpolation
-        (b, a) = scipy.signal.butter(2, 0.005, 'highpass')
-        mzi_data=scipy.signal.lfilter(b, a, mzi_data,axis=-1)    
+        
+def processMZI(mzi_data, dispData):
+    # filtering seems to reduce sidebands created during the interpolation process
+    (b, a) = scipy.signal.butter(2, dispData.mziFilter, 'highpass')
+    mzi_data=scipy.signal.lfilter(b, a, mzi_data,axis=-1)    
     
     mzi_hilbert = scipy.signal.hilbert(mzi_data, axis=-1)
     mzi_mag = np.abs(mzi_hilbert)
@@ -42,43 +45,27 @@ def processMZI(mzi_data, MZIHPfilter=True):
     k0 = np.unwrap(mzi_ph,axis=-1)    
     return mzi_hilbert, mzi_mag, mzi_ph, k0
     
-def processPD(pd_data, k0, klin_idx=[15, 2030], numklinpts=2000, klin=None):
+def processPD(pd_data, k0, dispData, klin=None):
     if klin is None:
-        klin = np.linspace(k0[0,klin_idx[0]], k0[0,klin_idx[1]], numklinpts)
-    pd_interp=np.zeros([pd_data.shape[0],numklinpts])
+        klin = np.linspace(k0[0,dispData.startSample], k0[0,dispData.endSample], dispData.numKlinPts)
+    pd_interp=np.zeros([pd_data.shape[0],dispData.numKlinPts])
     for i in range(pd_data.shape[0]):
         pd_interp[i,:] = np.interp(klin, k0[i,:], pd_data[i,:])    
     return pd_interp, klin  
 
-def dispersionCorrection(pd,dispMode='None'):
-    numKlinPts=pd.shape[1]
-    dispData = DispersionData()
-    dispData.magWin = []
-    dispData.phaseCorr = []
-    dispData.phDiode = np.mean(pd, 0)
-    dispData.uncorrAline = []
-    dispData.corrAline = []
-    dispData.PDfilterCutoffs=[0.25, 0.05]
-    dispData.magWin_LPfilterCutoff=[0.125]
-    
-    if dispMode=='Hanning':
-        windowFunctionMag = 2*np.hanning(numKlinPts)
-        windowFunctionPh = np.zeros(numKlinPts)
-    elif dispMode=='Hamming':
-        windowFunctionMag = 2*np.hamming(numKlinPts)
-        windowFunctionPh = np.zeros(numKlinPts)
-    elif dispMode=='Unique':
-        dispData = processUniqueDispersion(pd,dispData)
-        windowFunctionMag = dispData.magWin
-        windowFunctionPh = dispData.phaseCorr
+def dispersionCorrection(pd,dispData):
+    if dispData.dispMode=='Hanning':
+        dispData.magWin = 2*np.hanning(dispData.numKlinPts)
+        dispData.phaseCorr = np.zeros(dispData.numKlinPts)
+    elif dispData.dispMode=='Hamming':
+        dispData.magWin = 2*np.hamming(dispData.numKlinPts)
+        dispData.phaseCorr = np.zeros(dispData.numKlinPts)
+    elif dispData.dispMode=='Unique':
+        processUniqueDispersion(pd,dispData)
     else:
-        windowFunctionMag = np.ones(numKlinPts)
-        windowFunctionPh = np.zeros(numKlinPts)
+        dispData.magWin = np.ones(dispData.numKlinPts)
+        dispData.phaseCorr = np.zeros(dispData.numKlinPts)
     
-#    pd_interpDisp = np.abs(windowFunctionMag * pd * (np.cos(-1*windowFunctionPh) + 1j * np.sin(-1*windowFunctionPh)))
-    pd_interpDisp = windowFunctionMag * pd * (np.cos(-1*windowFunctionPh) + 1j * np.sin(-1*windowFunctionPh))
-    return pd_interpDisp, windowFunctionMag, windowFunctionPh, dispData
-
 def calculateAline(pd):
     numPts=pd.shape[1] 
     pd_fft = np.fft.fft(pd, n=2048,axis=-1)/numPts
@@ -86,9 +73,9 @@ def calculateAline(pd):
     alinePhase=np.unwrap(np.angle(pd_fft),axis=-1)
     return pd_fft, alineMag, alinePhase
 
-def channelShift(ch0_data,ch1_data,numShiftPts):
-    actualSamplesPerTrig=ch0_data.shape[1]-numShiftPts
-    pdData=ch0_data[:,numShiftPts:]
+def channelShift(ch0_data,ch1_data,dispData):
+    actualSamplesPerTrig=ch0_data.shape[1]-dispData.numShiftPts
+    pdData=ch0_data[:,dispData.numShiftPts:]
     mziData=ch1_data[:,0:actualSamplesPerTrig]
     return pdData,mziData,actualSamplesPerTrig
 
@@ -107,10 +94,8 @@ def calcOCTDataFFT(pdData, mziData, MZI_PD_shift, klinROI_idx, numklinpts, klin,
 
     oct_data = np.fft.fft(pd_interpDisp, 2048)
     oct_data = oct_data[:, zROI[0]:zROI[1]]
-    oct_data = oct_data / numklinpts
-    
+    oct_data = oct_data / numklinpts   
     return oct_data, klin
-    
     
 def processUniqueDispersion(pd_data, dispData, pd_background=None, bg_collect=False):
     numTrigs = pd_data.shape[0]
@@ -127,7 +112,6 @@ def processUniqueDispersion(pd_data, dispData, pd_background=None, bg_collect=Fa
     idx0 = np.round(dispData.PDfilterCutoffs[1]*numklinpts)
     idx1 = np.round(dispData.PDfilterCutoffs[0]*numklinpts)            
     (b, a) = scipy.signal.butter(2, dispData.magWin_LPfilterCutoff, 'lowpass')
-#    (b2, a2) = scipy.signal.butter(2, 0.4, 'lowpass')
     
     # subtract background
     sigdata = np.real(pd_data[:, 0:numklinpts])
@@ -152,10 +136,6 @@ def processUniqueDispersion(pd_data, dispData, pd_background=None, bg_collect=Fa
         """
         sig_ht = scipy.signal.hilbert(sig)
         mag = np.abs(sig_ht)
-#        mag0 = mag[0]
-#        mag = mag - mag0
-#        mag = scipy.signal.lfilter(b2, a2, mag)
-#        mag = mag + mag0
         magWin[n, :] = winFcn / mag       
         ph = np.angle(sig_ht)
         ph_unwr = np.unwrap(ph)
@@ -163,15 +143,11 @@ def processUniqueDispersion(pd_data, dispData, pd_background=None, bg_collect=Fa
 
     magWin = np.mean(magWin, 0)
     magWin = scipy.signal.lfilter(b, a, magWin)
-    
-    # renomalze to 0...1
     minWin = np.min(magWin)
     maxWin = np.max(magWin)
     dispData.magWin = (magWin - minWin)/(maxWin - minWin)
     dispData.phaseCorr = np.mean(phaseCorr, 0)
-    return dispData
     
-  
 def getSavedRawData(numTrigs,requestedSamplesPerTrig,JSOrawSavedData):
     # oct_data is a 2D arary of complex numbers
     # When used to carry raw data:
@@ -190,24 +166,12 @@ def getSavedRawData(numTrigs,requestedSamplesPerTrig,JSOrawSavedData):
         JSOrawSavedData.count=JSOrawSavedData.count+1             
     return ch0_data, ch1_data
     
-    
 def getNewRawData(numTrigs,requestedSamplesPerTrig,appObj):                                 
     try:
-#        err = OCTRaw.ConfigAcq(numTrigs, requestedSamplesPerTrig)
-#        if err>0:
-#            print("Config Acq: err = %d" % err)
-#        (err, ch0_data, ch1_data, samplesRemaining, timeElapsed) = OCTRaw.GrabData(numTrigs, requestedSamplesPerTrig)
-#        if err>0:
-#            print("Grab Data: err = %d" % err)
-#            print("Grab Data: ch0_data.shape = %s ch1_data.shape= %s" % (repr(ch0_data.shape), repr(ch1_data.shape)))
-#            print("Grab Data: Samples Remaing= %d TimeElapsed= %d" % (samplesRemaining, timeElapsed))
         err, ch0_data, ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, requestedSamplesPerTrig)
     except Exception as ex:
         print('Error collecting data')
         raise ex
-#        err = OCTRaw.CloseFPGA()
-#        if err>0:
-#            print("Close FPGA: err = %d" % err)
     
     if appObj.saveData_checkBox.isChecked()==True:      # get new data and save to disk for later use
         outfile='testData.npz'
@@ -215,21 +179,53 @@ def getNewRawData(numTrigs,requestedSamplesPerTrig,appObj):
         print('saved data in :',outfile)
         appObj.saveData_checkBox.setChecked(False)                     
     return ch0_data, ch1_data
-    
-    
-    err, pd_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs)
-    DebugLog.log("runBScan(): AcquireOCTDataRaw() err = %d" % err)
-
-    
-def saveDispersion_pushButton_clicked(appObj):                
-    outfile=datetime.datetime.now().strftime("dispComp-%Y_%m_%d-%H_%M_%S.npz")
-    windowFunctionMag=appObj.JSOrawWindowFunctionmag
-    windowFunctionPh=appObj.JSOrawWindowFunctionphase
-    np.savez_compressed(outfile, windowFunctionMag=windowFunctionMag, windowFunctionPh=windowFunctionPh)
-    print('saved data in :',outfile)       
+      
+def saveDispersion_pushButton_clicked(appObj):
+    dispData=appObj.dispData
+    filename=datetime.datetime.now().strftime("dispComp-%Y_%m_%d-%H_%M_%S.pickle")
+    outfile=os.path.join(appObj.configPath, 'Dispersion',filename)
+    print(appObj.dispData.numKlinPts,appObj.dispData.magWin.shape)
+    file1=open(outfile,'wb')
+    pickle.dump(dispData,file1)
+    file1.close()
     appObj.dispCompFilename_label.setText(outfile)
-          
-          
+    
+def loadDispersion_pushButton_clicked(appObj):
+    loadpath=os.path.join(appObj.configPath, 'Dispersion')  
+    w = QtGui.QWidget()    
+    infile = QtGui.QFileDialog.getOpenFileName(w, 'Open File', loadpath)
+    
+    file2=open(infile,'rb')
+    dispData=pickle.load(file2)
+    file2.close()
+
+    appObj.dispData=dispData
+    appObj.dispCompFilename_label.setText(infile) 
+
+    # Clear all of the plots
+    appObj.mzi_plot_2.clear() 
+    appObj.pd_plot_2.clear()
+    appObj.mzi_mag_plot_2.clear()
+    appObj.mzi_phase_plot_2.clear()
+    appObj.k0_plot_2.clear()
+    appObj.interp_pdRaw_plot.clear()
+    appObj.interp_pdDispComp_plot.clear()
+    appObj.alineNoInterp_plot.clear()
+    appObj.alineRaw_plot.clear()
+    appObj.alineDispComp_plot.clear()
+    appObj.phaseNoiseTD_plot.clear()
+    appObj.phaseNoiseFD_plot.clear()
+    appObj.dispWnfcMag_plot.clear()
+    appObj.dispWnfcPh_plot.clear()
+    
+    # Plot the dispersion window functions and update the processing values
+    appObj.dispWnfcMag_plot.plot(dispData.magWin, pen='b')
+    appObj.dispWnfcPh_plot.plot(dispData.phaseCorr, pen='b')
+    appObj.startSample.setValue(dispData.startSample)
+    appObj.endSample.setValue(dispData.endSample)
+    appObj.numKlinPts.setValue(dispData.numKlinPts)
+    appObj.numShiftPts.setValue(dispData.numShiftPts)
+
 def runJSOraw(appObj):
     DebugLog.log("runJSOraw")
     appObj.tabWidget.setCurrentIndex(7)
@@ -237,13 +233,11 @@ def runJSOraw(appObj):
     appObj.isCollecting = True
     testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
     
-    JSOrawSavedData=blankClass()
-    
+    dispData = DispersionData()             # this class holds all the dispersion compensation data    
     laserSweepFreq=appObj.oct_hw.GetTriggerRate()
     mirrorDriver = appObj.mirrorDriver
-    rset = True
     
-    if not appObj.oct_hw.IsOCTTestingMode():      # prepare to get new data            
+    if not appObj.oct_hw.IsOCTTestingMode():     # prepare to get new data            
         # set the mirror position to (0,0)
         chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
         data = np.zeros(2)
@@ -253,6 +247,7 @@ def runJSOraw(appObj):
     else:    # load in the saved data and use it instead
         outfile=os.path.join(testDataDir,'testData3.npz')
         x=np.load(outfile)             
+        JSOrawSavedData=blankClass()        #This class stores the data from the disk file
         JSOrawSavedData.ch0_data_file=x['ch0_data']
         JSOrawSavedData.ch1_data_file=x['ch1_data']
         JSOrawSavedData.count=0
@@ -262,28 +257,33 @@ def runJSOraw(appObj):
            
     peakXPos=np.array([0],dtype=int)       
     peakYPos=np.array([0],dtype=float)       
+    peakXPos1=np.array([0],dtype=int)       
+    peakYPos1=np.array([0],dtype=float)       
                
     while appObj.doneFlag == False:
         # read data analysis settings from the GUI
         numTrigs=appObj.numTrig.value()
         requestedSamplesPerTrig=appObj.requestedSamplesPerTrig.value()
-        startSample=appObj.startSample.value()
-        endSample=appObj.endSample.value()
-        klin_idx = [startSample, endSample]
-        numKlinPts=appObj.numKlinPts.value()
-        numShiftPts=appObj.numShiftPts.value()
-        numTrigs=appObj.numTrig.value()
+        dispData.startSample=appObj.startSample.value()
+        dispData.endSample=appObj.endSample.value()
+        dispData.numKlinPts=appObj.numKlinPts.value()
+        dispData.numShiftPts=appObj.numShiftPts.value()
+        dispData.filterWidth=appObj.filterWidth.value()
+        dispData.PDfilterCutoffs=[0.25, 0.05]
+        dispData.mziFilter=appObj.mziFilter.value()
+        dispData.magWin_LPfilterCutoff=appObj.dispMagWindowFilter.value()
+        
         dispCode=appObj.dispersionCompAlgorithm_comboBox.currentIndex()            
         if dispCode==0:
-            dispMode='None'
+            dispData.dispMode='None'
         elif dispCode==1:
-            dispMode='Hanning'
+            dispData.dispMode='Hanning'
         elif dispCode==2:
-            dispMode='Hamming'
+            dispData.dispMode='Hamming'
         elif dispCode==3:
-            dispMode='Unique'
+            dispData.dispMode='Unique'
         else:
-            dispMode='None'
+            dispData.dispMode='None'
                  
         # Get data using one of several methods
         if appObj.oct_hw.IsOCTTestingMode():
@@ -292,21 +292,32 @@ def runJSOraw(appObj):
             ch0_data,ch1_data=getNewRawData(numTrigs,requestedSamplesPerTrig,appObj)
         
         # delay the MZI to account for it having a shorter optical path than the sample/reference arm path
-        pdData,mziData,actualSamplesPerTrig=channelShift(ch0_data,ch1_data,numShiftPts)    
+        pdData,mziData,actualSamplesPerTrig=channelShift(ch0_data,ch1_data,dispData)    
         textString='Actual samples per trigger: {actualSamplesPerTrig}'.format(actualSamplesPerTrig=actualSamplesPerTrig)            
         appObj.actualSamplesPerTrig_label.setText(textString)         
               
-        # Process the data        
-        MZI_HPfilter = appObj.JSORaw_MZI_HPfilter_checkBox.isChecked()
-        mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData, MZI_HPfilter) 
-        pd_interpRaw, klin = processPD(pdData, k0, klin_idx, numKlinPts)   
-        pd_interpDispComp,windowFunctionMag,windowFunctionPh,dispData = dispersionCorrection(pd_interpRaw,dispMode)
-        appObj.JSOrawWindowFunctionmag=windowFunctionMag       
-        appObj.JSOrawWindowFunctionphase=windowFunctionPh       
-        pd_fftNoInterp, alineMagNoInterp, alinePhaseNoInterp = calculateAline(pdData[:,startSample:endSample])
+        # Interpolate the PD data based upon the MZI data and calculate the a-lines before dispersion compensation      
+        mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData, dispData) 
+        pd_interpRaw, klin = processPD(pdData, k0, dispData)
+        pd_fftNoInterp, alineMagNoInterp, alinePhaseNoInterp = calculateAline(pdData[:,dispData.startSample:dispData.endSample])
         pd_fftRaw, alineMagRaw, alinePhaseRaw = calculateAline(pd_interpRaw)
+        
+        # find the mirror in the a-line to determine the filter settings, and then perform the dispersion compensatsion 
+        rangePeak1=[100, 900]
+        alineAve1=np.average(alineMagRaw,axis=0) 
+        peakXPos1[0]=np.argmax(alineAve1[rangePeak1[0]:rangePeak1[1]])+rangePeak1[0]
+        peakYPos1[0]=alineAve1[peakXPos1[0]]     
+        width=dispData.filterWidth*(rangePeak1[1]-rangePeak1[0])/2         
+        dispData.PDfilterCutoffs[1]=(peakXPos1[0]-width)/2048
+        dispData.PDfilterCutoffs[0]=(peakXPos1[0]+width)/2048
+    
+        dispersionCorrection(pd_interpRaw,dispData)
+        appObj.dispData=dispData      #store the local variable in the overall class so that it can be saved when the save button is pressed
+        
+        # now correct the data using dispersion compensation and then process the a-lines
+        pd_interpDispComp = dispData.magWin * pd_interpRaw * (np.cos(-1*dispData.phaseCorr) + 1j * np.sin(-1*dispData.phaseCorr))
         pd_fftDispComp, alineMagDispComp, alinePhaseDispComp = calculateAline(pd_interpDispComp)
-       
+              
         #scale k0 and the MZI to the same range to plot them so they overlap
         k0Ripple= scipy.signal.detrend(k0[0,500:700],axis=-1)
         k0RippleNorm=k0Ripple/k0Ripple.max()
@@ -316,7 +327,6 @@ def runJSOraw(appObj):
         # Find the peak of the A-line within a range and calculate the phase noise
         rangePeak=[100, 900]
         alineAve=np.average(alineMagDispComp,axis=0) 
-#            alineAve[501]=1.1
         peakXPos[0]=np.argmax(alineAve[rangePeak[0]:rangePeak[1]])+rangePeak[0]
         peakYPos[0]=alineAve[peakXPos[0]]              
         phaseNoiseTD=np.unwrap(alinePhaseDispComp[:,peakXPos[0]])
@@ -347,7 +357,7 @@ def runJSOraw(appObj):
             appObj.mzi_plot_2.plot(mziData[i,:], pen='r')            
             appObj.mzi_mag_plot_2.plot(mzi_mag[i,:], pen='r')            
             appObj.k0_plot_2.plot(k0[i,:], pen='r')
-            sampleNum=np.linspace(startSample,endSample,numKlinPts)
+            sampleNum=np.linspace(dispData.startSample,dispData.endSample,dispData.numKlinPts)
             appObj.k0_plot_2.plot(sampleNum,klin, pen='b')                      
             appObj.interp_pdRaw_plot.plot(pd_interpRaw[i,:], pen='r')           
             appObj.interp_pdDispComp_plot.plot(np.abs(pd_interpDispComp[i,:]), pen='r')           
@@ -362,11 +372,12 @@ def runJSOraw(appObj):
                 appObj.mzi_phase_plot_2.plot(mzi_ph[i,:], pen=(i,numTrigs))            
                 appObj.k0_plot_2.plot(k0[i,:], pen=(i,numTrigs))                      
                 appObj.interp_pdRaw_plot.plot(pd_interpRaw[i,:], pen=(i,numTrigs))           
-                appObj.interp_pdDispComp_plot.plot(pd_interpDispComp[i,:], pen=(i,numTrigs))           
+                appObj.interp_pdDispComp_plot.plot(np.abs(pd_interpDispComp[i,:]), pen=(i,numTrigs))           
                 appObj.alineNoInterp_plot.plot(alineMagNoInterp[i,:], pen=(i,numTrigs))
                 appObj.alineRaw_plot.plot(alineMagRaw[i,:], pen=(i,numTrigs))
                 appObj.alineDispComp_plot.plot(alineMagDispComp[i,:], pen=(i,numTrigs))
             
+        appObj.alineRaw_plot.plot(peakXPos1,peakYPos1, pen=None, symbolBrush='k', symbolPen='b')
         appObj.alineDispComp_plot.plot(peakXPos,peakYPos, pen=None, symbolBrush='k', symbolPen='b')
         appObj.phaseNoiseTD_plot.plot(phaseNoiseTD, pen='r')
         appObj.phaseNoiseFD_plot.plot(phaseNoiseFD, pen='r')
@@ -377,8 +388,8 @@ def runJSOraw(appObj):
 #            plotPDPhase.plot(pdData[0,:], pen='r')
 #            plotPDPhase.plot(mziData[0,:], pen='b')
 
-        appObj.dispWnfcMag_plot.plot(windowFunctionMag, pen='b')
-        appObj.dispWnfcPh_plot.plot(windowFunctionPh, pen='b')
+        appObj.dispWnfcMag_plot.plot(dispData.magWin, pen='b')
+        appObj.dispWnfcPh_plot.plot(dispData.phaseCorr, pen='b')
         
         # plot filter cutoff ranges on the raw Aline plot
         yy=[0,np.max(alineMagRaw[0,:])]

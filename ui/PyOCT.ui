@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1913</width>
-    <height>977</height>
+    <width>1912</width>
+    <height>1085</height>
    </rect>
   </property>
   <property name="cursor">
@@ -106,7 +106,7 @@
          </rect>
         </property>
         <property name="currentIndex">
-         <number>2</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="tab_2">
          <attribute name="title">
@@ -770,7 +770,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>7</number>
         </property>
         <widget class="QWidget" name="bscan_tab">
          <attribute name="title">
@@ -3870,186 +3870,6 @@
          <attribute name="title">
           <string>JSOraw</string>
          </attribute>
-         <widget class="QWidget" name="layoutWidget">
-          <property name="geometry">
-           <rect>
-            <x>10</x>
-            <y>90</y>
-            <width>274</width>
-            <height>196</height>
-           </rect>
-          </property>
-          <layout class="QGridLayout" name="gridLayout">
-           <item row="0" column="1">
-            <widget class="QSpinBox" name="numTrig">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="maximum">
-              <number>1000</number>
-             </property>
-             <property name="value">
-              <number>1</number>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="label_115">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Requested samples per trigger</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QSpinBox" name="requestedSamplesPerTrig">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="maximum">
-              <number>10000</number>
-             </property>
-             <property name="value">
-              <number>2100</number>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="label_119">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Start sample for processing</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QSpinBox" name="startSample">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="maximum">
-              <number>5000</number>
-             </property>
-             <property name="value">
-              <number>50</number>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="0">
-            <widget class="QLabel" name="label_120">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>End sample for processing</string>
-             </property>
-            </widget>
-           </item>
-           <item row="3" column="1">
-            <widget class="QSpinBox" name="endSample">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="maximum">
-              <number>5000</number>
-             </property>
-             <property name="value">
-              <number>1800</number>
-             </property>
-            </widget>
-           </item>
-           <item row="4" column="0">
-            <widget class="QLabel" name="label_121">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Number of klin interp points</string>
-             </property>
-            </widget>
-           </item>
-           <item row="4" column="1">
-            <widget class="QSpinBox" name="numKlinPts">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="maximum">
-              <number>5000</number>
-             </property>
-             <property name="value">
-              <number>2000</number>
-             </property>
-            </widget>
-           </item>
-           <item row="5" column="1">
-            <widget class="QSpinBox" name="numShiftPts">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="minimum">
-              <number>-1000</number>
-             </property>
-             <property name="maximum">
-              <number>1000</number>
-             </property>
-             <property name="singleStep">
-              <number>2</number>
-             </property>
-             <property name="value">
-              <number>46</number>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="0">
-            <widget class="QLabel" name="label_122">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Number of triggers</string>
-             </property>
-            </widget>
-           </item>
-           <item row="5" column="0">
-            <widget class="QLabel" name="label_123">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-              </font>
-             </property>
-             <property name="text">
-              <string>Number of ch0-ch1 shift points</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
          <widget class="PlotWidget" name="phaseNoiseFD_plot">
           <property name="geometry">
            <rect>
@@ -4090,8 +3910,8 @@
          <widget class="QComboBox" name="dispersionCompAlgorithm_comboBox">
           <property name="geometry">
            <rect>
-            <x>26</x>
-            <y>490</y>
+            <x>20</x>
+            <y>690</y>
             <width>211</width>
             <height>22</height>
            </rect>
@@ -4141,11 +3961,16 @@
          <widget class="QLabel" name="label_126">
           <property name="geometry">
            <rect>
-            <x>31</x>
-            <y>602</y>
-            <width>61</width>
+            <x>20</x>
+            <y>842</y>
+            <width>81</width>
             <height>16</height>
            </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
           </property>
           <property name="text">
            <string>Filename:</string>
@@ -4154,21 +3979,35 @@
          <widget class="QLabel" name="dispCompFilename_label">
           <property name="geometry">
            <rect>
-            <x>30</x>
-            <y>620</y>
-            <width>241</width>
-            <height>51</height>
+            <x>20</x>
+            <y>861</y>
+            <width>721</width>
+            <height>21</height>
            </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>8</pointsize>
+           </font>
           </property>
           <property name="text">
            <string/>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
+          <property name="scaledContents">
+           <bool>true</bool>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
           </property>
          </widget>
          <widget class="QLabel" name="label_127">
           <property name="geometry">
            <rect>
-            <x>30</x>
-            <y>470</y>
+            <x>24</x>
+            <y>670</y>
             <width>241</width>
             <height>16</height>
            </rect>
@@ -4294,8 +4133,8 @@
          <widget class="QLabel" name="actualSamplesPerTrig_label">
           <property name="geometry">
            <rect>
-            <x>30</x>
-            <y>300</y>
+            <x>24</x>
+            <y>500</y>
             <width>241</width>
             <height>24</height>
            </rect>
@@ -4418,8 +4257,8 @@
          <widget class="QCheckBox" name="plotFirstOnly_checkBox">
           <property name="geometry">
            <rect>
-            <x>30</x>
-            <y>330</y>
+            <x>24</x>
+            <y>530</y>
             <width>181</width>
             <height>21</height>
            </rect>
@@ -4582,8 +4421,8 @@
          <widget class="QPushButton" name="JSOsaveDispersion_pushButton">
           <property name="geometry">
            <rect>
-            <x>26</x>
-            <y>570</y>
+            <x>20</x>
+            <y>800</y>
             <width>181</width>
             <height>31</height>
            </rect>
@@ -4687,8 +4526,8 @@
          <widget class="QCheckBox" name="saveData_checkBox">
           <property name="geometry">
            <rect>
-            <x>30</x>
-            <y>360</y>
+            <x>24</x>
+            <y>560</y>
             <width>181</width>
             <height>21</height>
            </rect>
@@ -4737,21 +4576,306 @@
            </brush>
           </property>
          </widget>
-         <widget class="QCheckBox" name="JSORaw_MZI_HPfilter_checkBox">
+         <widget class="QPushButton" name="JSOloadDispersion_pushButton">
           <property name="geometry">
            <rect>
             <x>20</x>
-            <y>441</y>
-            <width>271</width>
-            <height>20</height>
+            <y>760</y>
+            <width>181</width>
+            <height>31</height>
            </rect>
           </property>
           <property name="text">
-           <string>MZI high pass filter (k0 generation)</string>
+           <string>Load Dispersion File</string>
           </property>
-          <property name="checked">
-           <bool>true</bool>
+          <property name="checkable">
+           <bool>false</bool>
           </property>
+          <property name="default">
+           <bool>false</bool>
+          </property>
+         </widget>
+         <widget class="QWidget" name="">
+          <property name="geometry">
+           <rect>
+            <x>10</x>
+            <y>50</y>
+            <width>271</width>
+            <height>248</height>
+           </rect>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_2">
+           <item row="0" column="0">
+            <widget class="QLabel" name="label_122">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Number of triggers</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QSpinBox" name="numTrig">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="maximum">
+              <number>1000</number>
+             </property>
+             <property name="value">
+              <number>1</number>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_115">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Requested samples per trigger</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QSpinBox" name="requestedSamplesPerTrig">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="maximum">
+              <number>10000</number>
+             </property>
+             <property name="value">
+              <number>2100</number>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_119">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Start sample for processing</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QSpinBox" name="startSample">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="maximum">
+              <number>5000</number>
+             </property>
+             <property name="value">
+              <number>50</number>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="label_120">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>End sample for processing</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QSpinBox" name="endSample">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="maximum">
+              <number>5000</number>
+             </property>
+             <property name="value">
+              <number>1800</number>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="label_121">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Number of klin interp points</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QSpinBox" name="numKlinPts">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="maximum">
+              <number>5000</number>
+             </property>
+             <property name="value">
+              <number>2000</number>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="0">
+            <widget class="QLabel" name="label_123">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Number of ch0-ch1 shift points</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="1">
+            <widget class="QSpinBox" name="numShiftPts">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="minimum">
+              <number>-1000</number>
+             </property>
+             <property name="maximum">
+              <number>1000</number>
+             </property>
+             <property name="singleStep">
+              <number>2</number>
+             </property>
+             <property name="value">
+              <number>46</number>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="0">
+            <widget class="QLabel" name="label_143">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Width of the mirror line filter</string>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="0">
+            <widget class="QLabel" name="label_144">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>MZI high pass filter</string>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="0">
+            <widget class="QLabel" name="label_145">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Disp Mag window low-pass filter</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="1">
+            <widget class="QDoubleSpinBox" name="filterWidth">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="minimum">
+              <double>0.010000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>1.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.050000000000000</double>
+             </property>
+             <property name="value">
+              <double>0.200000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="7" column="1">
+            <widget class="QDoubleSpinBox" name="mziFilter">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="decimals">
+              <number>3</number>
+             </property>
+             <property name="maximum">
+              <double>0.500000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.001000000000000</double>
+             </property>
+             <property name="value">
+              <double>0.005000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="1">
+            <widget class="QDoubleSpinBox" name="dispMagWindowFilter">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+              </font>
+             </property>
+             <property name="decimals">
+              <number>3</number>
+             </property>
+             <property name="minimum">
+              <double>0.001000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>0.500000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.025000000000000</double>
+             </property>
+             <property name="value">
+              <double>0.125000000000000</double>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </widget>
         </widget>
        </widget>
@@ -6693,7 +6817,7 @@ focal plane adjust</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1913</width>
+     <width>1912</width>
      <height>21</height>
     </rect>
    </property>
