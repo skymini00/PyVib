@@ -4036,7 +4036,7 @@
            </font>
           </property>
           <property name="text">
-           <string>K0 (red) and raw MZI (blue) zoomed in to show ripple</string>
+           <string>K0 (red) zoomed in and detrended to show ripple. MZI (blue)</string>
           </property>
          </widget>
          <widget class="QLabel" name="label_129">
@@ -4116,7 +4116,7 @@
            <rect>
             <x>300</x>
             <y>390</y>
-            <width>611</width>
+            <width>151</width>
             <height>100</height>
            </rect>
           </property>
@@ -4374,7 +4374,7 @@
           </property>
           <property name="font">
            <font>
-            <pointsize>12</pointsize>
+            <pointsize>10</pointsize>
            </font>
           </property>
           <property name="text">
@@ -4593,6 +4593,117 @@
           </property>
           <property name="default">
            <bool>false</bool>
+          </property>
+         </widget>
+         <widget class="PlotWidget" name="k0_plot_3">
+          <property name="geometry">
+           <rect>
+            <x>460</x>
+            <y>390</y>
+            <width>141</width>
+            <height>100</height>
+           </rect>
+          </property>
+          <property name="backgroundBrush">
+           <brush brushstyle="NoBrush">
+            <color alpha="255">
+             <red>255</red>
+             <green>255</green>
+             <blue>255</blue>
+            </color>
+           </brush>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_146">
+          <property name="geometry">
+           <rect>
+            <x>460</x>
+            <y>373</y>
+            <width>181</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Start of K0 (MZI phase)</string>
+          </property>
+         </widget>
+         <widget class="PlotWidget" name="k0_plot_4">
+          <property name="geometry">
+           <rect>
+            <x>610</x>
+            <y>390</y>
+            <width>141</width>
+            <height>100</height>
+           </rect>
+          </property>
+          <property name="backgroundBrush">
+           <brush brushstyle="NoBrush">
+            <color alpha="255">
+             <red>255</red>
+             <green>255</green>
+             <blue>255</blue>
+            </color>
+           </brush>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_147">
+          <property name="geometry">
+           <rect>
+            <x>610</x>
+            <y>373</y>
+            <width>181</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>K0 at start sample (raw)</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_148">
+          <property name="geometry">
+           <rect>
+            <x>760</x>
+            <y>373</y>
+            <width>181</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>K0 at start sample (fixed)</string>
+          </property>
+         </widget>
+         <widget class="PlotWidget" name="k0_plot_5">
+          <property name="geometry">
+           <rect>
+            <x>760</x>
+            <y>390</y>
+            <width>141</width>
+            <height>100</height>
+           </rect>
+          </property>
+          <property name="backgroundBrush">
+           <brush brushstyle="NoBrush">
+            <color alpha="255">
+             <red>255</red>
+             <green>255</green>
+             <blue>255</blue>
+            </color>
+           </brush>
           </property>
          </widget>
          <widget class="QWidget" name="">

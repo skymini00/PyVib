@@ -8,7 +8,8 @@ import sys
 import os
 from PyQt4 import QtCore, QtGui, uic
 import pyqtgraph as pg
-import scipy.signal 
+import scipy.signal
+import scipy.cluster
 import numpy as np
 import datetime
 import matplotlib.pyplot as plt
@@ -32,7 +33,7 @@ class DispersionData:  # this class holds all the dispersion compensation data
         self.PDfilterCutoffs=[]
         self.mziFilter=[]
         self.magWin_LPfilterCutoff=[]
-        
+            
 def processMZI(mzi_data, dispData):
     # filtering seems to reduce sidebands created during the interpolation process
     (b, a) = scipy.signal.butter(2, dispData.mziFilter, 'highpass')
@@ -44,7 +45,18 @@ def processMZI(mzi_data, dispData):
     mzi_hilbert = np.imag(mzi_hilbert)
     k0 = np.unwrap(mzi_ph,axis=-1)    
     return mzi_hilbert, mzi_mag, mzi_ph, k0
-    
+ 
+def cleank0(k0,dispData):
+    k0Cleaned=k0    
+    k0Init=k0Cleaned[:,dispData.startSample]
+    while (np.max(k0Init)-np.min(k0Init))>(1.5*np.pi):
+        # there are phase jumps going on in the data
+        # need to put code in here to unwrap, find # points that are different, and shift to the most common point. Then re-run algorithm
+        break
+        
+    return k0Cleaned
+
+   
 def processPD(pd_data, k0, dispData, klin=None):
     if klin is None:
         klin = np.linspace(k0[0,dispData.startSample], k0[0,dispData.endSample], dispData.numKlinPts)
@@ -217,6 +229,9 @@ def loadDispersion_pushButton_clicked(appObj):
     appObj.phaseNoiseFD_plot.clear()
     appObj.dispWnfcMag_plot.clear()
     appObj.dispWnfcPh_plot.clear()
+    appObj.k0_plot_3.clear()
+    appObj.k0_plot_4.clear()
+    appObj.k0_plot_5.clear()
     
     # Plot the dispersion window functions and update the processing values
     appObj.dispWnfcMag_plot.plot(dispData.magWin, pen='b')
@@ -245,7 +260,7 @@ def runJSOraw(appObj):
         daq = DAQHardware()
         daq.writeValues(chanNames, data)
     else:    # load in the saved data and use it instead
-        outfile=os.path.join(testDataDir,'testData3.npz')
+        outfile=os.path.join(testDataDir,'testData.npz')
         x=np.load(outfile)             
         JSOrawSavedData=blankClass()        #This class stores the data from the disk file
         JSOrawSavedData.ch0_data_file=x['ch0_data']
@@ -269,10 +284,9 @@ def runJSOraw(appObj):
         dispData.numKlinPts=appObj.numKlinPts.value()
         dispData.numShiftPts=appObj.numShiftPts.value()
         dispData.filterWidth=appObj.filterWidth.value()
-        dispData.PDfilterCutoffs=[0.25, 0.05]
         dispData.mziFilter=appObj.mziFilter.value()
         dispData.magWin_LPfilterCutoff=appObj.dispMagWindowFilter.value()
-        
+        dispData.PDfilterCutoffs=[0,0]
         dispCode=appObj.dispersionCompAlgorithm_comboBox.currentIndex()            
         if dispCode==0:
             dispData.dispMode='None'
@@ -291,13 +305,16 @@ def runJSOraw(appObj):
         else:
             ch0_data,ch1_data=getNewRawData(numTrigs,requestedSamplesPerTrig,appObj)
         
-        # delay the MZI to account for it having a shorter optical path than the sample/reference arm path
+        # delay the MZI to account for it having a shorter optical path than the sample/reference arm path, then calculate k0 as the MZI phase
         pdData,mziData,actualSamplesPerTrig=channelShift(ch0_data,ch1_data,dispData)    
         textString='Actual samples per trigger: {actualSamplesPerTrig}'.format(actualSamplesPerTrig=actualSamplesPerTrig)            
         appObj.actualSamplesPerTrig_label.setText(textString)         
-              
-        # Interpolate the PD data based upon the MZI data and calculate the a-lines before dispersion compensation      
         mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData, dispData) 
+
+        # k-means cluster the k0 curves to figure out how to start the unwrapping
+        k0Cleaned=cleank0(k0,dispData)              
+
+        # Interpolate the PD data based upon the MZI data and calculate the a-lines before dispersion compensation      
         pd_interpRaw, klin = processPD(pdData, k0, dispData)
         pd_fftNoInterp, alineMagNoInterp, alinePhaseNoInterp = calculateAline(pdData[:,dispData.startSample:dispData.endSample])
         pd_fftRaw, alineMagRaw, alinePhaseRaw = calculateAline(pd_interpRaw)
@@ -308,8 +325,8 @@ def runJSOraw(appObj):
         peakXPos1[0]=np.argmax(alineAve1[rangePeak1[0]:rangePeak1[1]])+rangePeak1[0]
         peakYPos1[0]=alineAve1[peakXPos1[0]]     
         width=dispData.filterWidth*(rangePeak1[1]-rangePeak1[0])/2         
-        dispData.PDfilterCutoffs[1]=(peakXPos1[0]-width)/2048
         dispData.PDfilterCutoffs[0]=(peakXPos1[0]+width)/2048
+        dispData.PDfilterCutoffs[1]=(peakXPos1[0]-width)/2048
     
         dispersionCorrection(pd_interpRaw,dispData)
         appObj.dispData=dispData      #store the local variable in the overall class so that it can be saved when the save button is pressed
@@ -349,6 +366,9 @@ def runJSOraw(appObj):
         appObj.phaseNoiseFD_plot.clear()
         appObj.dispWnfcMag_plot.clear()
         appObj.dispWnfcPh_plot.clear()
+        appObj.k0_plot_3.clear()
+        appObj.k0_plot_4.clear()
+        appObj.k0_plot_5.clear()
         
         # Plot all the data
         if appObj.plotFirstOnly_checkBox.isChecked()==True:
@@ -383,6 +403,13 @@ def runJSOraw(appObj):
         appObj.phaseNoiseFD_plot.plot(phaseNoiseFD, pen='r')
         appObj.mzi_phase_plot_2.plot(mziDataNorm, pen='b')            
         appObj.mzi_phase_plot_2.plot(k0RippleNorm, pen='r')            
+        
+        for i in range(numTrigs):
+            appObj.k0_plot_3.plot(k0[i,:25], pen=(i,numTrigs)) 
+        startMZIdata1=k0[:,dispData.startSample]
+        appObj.k0_plot_4.plot(startMZIdata1, pen='r') 
+        startMZIdata2=k0Cleaned[:,dispData.startSample]
+        appObj.k0_plot_4.plot(startMZIdata2, pen='b') 
         
         # if you want to align the pd and the Mzi data
 #            plotPDPhase.plot(pdData[0,:], pen='r')
