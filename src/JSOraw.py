@@ -33,7 +33,8 @@ class DispersionData:  # this class holds all the dispersion compensation data
         self.PDfilterCutoffs=[]
         self.mziFilter=[]
         self.magWin_LPfilterCutoff=[]
-            
+        self.k0Reference=[]
+        
 def processMZI(mzi_data, dispData):
     # filtering seems to reduce sidebands created during the interpolation process
     (b, a) = scipy.signal.butter(2, dispData.mziFilter, 'highpass')
@@ -46,7 +47,7 @@ def processMZI(mzi_data, dispData):
     k0 = np.unwrap(mzi_ph,axis=-1)    
     return mzi_hilbert, mzi_mag, mzi_ph, k0
  
-def cleank0(k0,dispData):
+def cleank0(k0,dispData):  # for Disp Compensation: look at all of the k0 tracings and shift them 2pi rads so they overlap
     k0Cleaned=np.copy(k0)    
     k0Init=k0Cleaned[:,dispData.startSample]
     # If there are phase jumps going on in the data, find the bad k0 curves and shift them appropriately by 2pi
@@ -61,10 +62,25 @@ def cleank0(k0,dispData):
         else:
             k0Cleaned[indexGrp1,:]=k0Cleaned[indexGrp1,:]-shift
         k0Init=k0Cleaned[:,dispData.startSample]
-                  
+    dispData.k0Reference=np.mean(k0Cleaned,axis=0)              
     return k0Cleaned
 
-   
+def cleank0Run(k0,dispData):  # for Runtime: use the cleaned k0Reference data and adjust all new k0 data by 2pi rads to overlap it
+    k0Cleaned=np.copy(k0)    
+    k0Init=k0Cleaned[:,dispData.startSample]
+    k0RefInit=np.tile(dispData.k0Reference[dispData.startSample],len(k0Init))    
+    
+    # If there are phase jumps going on in the data, find the bad k0 curves and shift them appropriately by 2pi
+    diff=k0Init-k0RefInit
+    while np.max(np.abs(diff))>(1.5*np.pi): 
+        indexGrp1=np.argwhere(diff>(1.5*np.pi))
+        indexGrp2=np.argwhere(diff<(-1.5*np.pi))        
+        k0Cleaned[indexGrp1,:]=k0Cleaned[indexGrp1,:]-2*np.pi
+        k0Cleaned[indexGrp2,:]=k0Cleaned[indexGrp2,:]+2*np.pi
+        k0Init=k0Cleaned[:,dispData.startSample]
+        diff=k0Init-k0RefInit
+    return k0Cleaned
+    
 def processPD(pd_data, k0, dispData, klin=None):
     if klin is None:
         klin = np.linspace(k0[0,dispData.startSample], k0[0,dispData.endSample], dispData.numKlinPts)
