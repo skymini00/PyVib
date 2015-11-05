@@ -47,13 +47,21 @@ def processMZI(mzi_data, dispData):
     return mzi_hilbert, mzi_mag, mzi_ph, k0
  
 def cleank0(k0,dispData):
-    k0Cleaned=k0    
+    k0Cleaned=np.copy(k0)    
     k0Init=k0Cleaned[:,dispData.startSample]
-    while (np.max(k0Init)-np.min(k0Init))>(1.5*np.pi):
-        # there are phase jumps going on in the data
-        # need to put code in here to unwrap, find # points that are different, and shift to the most common point. Then re-run algorithm
-        break
-        
+    # If there are phase jumps going on in the data, find the bad k0 curves and shift them appropriately by 2pi
+    while (np.abs(np.max(k0Init)-np.min(k0Init)))>(1.5*np.pi): 
+        k0InitUW=np.unwrap(k0Init)
+        diff=np.abs(k0InitUW-k0Init)
+        indexGrp1=np.argwhere(diff>(1.5*np.pi))
+        indexGrp2=np.argwhere(diff<(1.5*np.pi))
+        shift=np.sign(k0Init[indexGrp1[0]]-k0Init[indexGrp2[0]])*2*np.pi
+        if len(indexGrp1)>=len(indexGrp2): 
+            k0Cleaned[indexGrp2,:]=k0Cleaned[indexGrp2,:]+shift
+        else:
+            k0Cleaned[indexGrp1,:]=k0Cleaned[indexGrp1,:]-shift
+        k0Init=k0Cleaned[:,dispData.startSample]
+                  
     return k0Cleaned
 
    
@@ -196,7 +204,6 @@ def saveDispersion_pushButton_clicked(appObj):
     dispData=appObj.dispData
     filename=datetime.datetime.now().strftime("dispComp-%Y_%m_%d-%H_%M_%S.pickle")
     outfile=os.path.join(appObj.configPath, 'Dispersion',filename)
-    print(appObj.dispData.numKlinPts,appObj.dispData.magWin.shape)
     file1=open(outfile,'wb')
     pickle.dump(dispData,file1)
     file1.close()
@@ -205,12 +212,10 @@ def saveDispersion_pushButton_clicked(appObj):
 def loadDispersion_pushButton_clicked(appObj):
     loadpath=os.path.join(appObj.configPath, 'Dispersion')  
     w = QtGui.QWidget()    
-    infile = QtGui.QFileDialog.getOpenFileName(w, 'Open File', loadpath)
-    
+    infile = QtGui.QFileDialog.getOpenFileName(w, 'Open File', loadpath)    
     file2=open(infile,'rb')
     dispData=pickle.load(file2)
     file2.close()
-
     appObj.dispData=dispData
     appObj.dispCompFilename_label.setText(infile) 
 
@@ -311,9 +316,21 @@ def runJSOraw(appObj):
         appObj.actualSamplesPerTrig_label.setText(textString)         
         mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData, dispData) 
 
-        # k-means cluster the k0 curves to figure out how to start the unwrapping
+        # Adjust the k0 curves so that the unwrapping all starts at the same phase
+        appObj.k0_plot_3.clear()
+        appObj.k0_plot_4.clear()
+        appObj.k0_plot_5.clear()
         k0Cleaned=cleank0(k0,dispData)              
-
+        for i in range(numTrigs):
+            appObj.k0_plot_3.plot(k0[i,:2*dispData.startSample], pen=(i,numTrigs)) 
+        startMZIdata1=k0[:,dispData.startSample]
+        appObj.k0_plot_4.plot(startMZIdata1, pen='r') 
+        startMZIdata2=k0Cleaned[:,dispData.startSample]
+        appObj.k0_plot_4.plot(startMZIdata2, pen='b') 
+        for i in range(numTrigs):
+            appObj.k0_plot_5.plot(k0Cleaned[i,:2*dispData.startSample], pen=(i,numTrigs)) 
+        k0=k0Cleaned
+        
         # Interpolate the PD data based upon the MZI data and calculate the a-lines before dispersion compensation      
         pd_interpRaw, klin = processPD(pdData, k0, dispData)
         pd_fftNoInterp, alineMagNoInterp, alinePhaseNoInterp = calculateAline(pdData[:,dispData.startSample:dispData.endSample])
@@ -346,11 +363,15 @@ def runJSOraw(appObj):
         alineAve=np.average(alineMagDispComp,axis=0) 
         peakXPos[0]=np.argmax(alineAve[rangePeak[0]:rangePeak[1]])+rangePeak[0]
         peakYPos[0]=alineAve[peakXPos[0]]              
+        time=np.arange(numTrigs)/laserSweepFreq
         phaseNoiseTD=np.unwrap(alinePhaseDispComp[:,peakXPos[0]])
-        phaseNoiseTD=phaseNoiseTD-phaseNoiseTD[0]
-        phaseNoiseFFT = np.fft.fft(phaseNoiseTD, n=2048)
-        phaseNoiseFD = 20*np.log10(np.abs(phaseNoiseFFT) + 1)        
-        
+        phaseNoiseTD=phaseNoiseTD-np.mean(phaseNoiseTD)
+        phaseNoiseTD=phaseNoiseTD*1310e-9/(4*np.pi*1.32)
+        phaseNoiseFFT = np.abs(np.fft.rfft(phaseNoiseTD))/(numTrigs/2)
+        phaseNoiseFD = 20*np.log10(np.abs(phaseNoiseFFT))        
+        freq = np.fft.rfftfreq(numTrigs)*laserSweepFreq
+        print(numTrigs,laserSweepFreq)
+
         # Clear all of the plots
         appObj.mzi_plot_2.clear() 
         appObj.pd_plot_2.clear()
@@ -366,10 +387,7 @@ def runJSOraw(appObj):
         appObj.phaseNoiseFD_plot.clear()
         appObj.dispWnfcMag_plot.clear()
         appObj.dispWnfcPh_plot.clear()
-        appObj.k0_plot_3.clear()
-        appObj.k0_plot_4.clear()
-        appObj.k0_plot_5.clear()
-        
+       
         # Plot all the data
         if appObj.plotFirstOnly_checkBox.isChecked()==True:
             i=0
@@ -399,18 +417,12 @@ def runJSOraw(appObj):
             
         appObj.alineRaw_plot.plot(peakXPos1,peakYPos1, pen=None, symbolBrush='k', symbolPen='b')
         appObj.alineDispComp_plot.plot(peakXPos,peakYPos, pen=None, symbolBrush='k', symbolPen='b')
-        appObj.phaseNoiseTD_plot.plot(phaseNoiseTD, pen='r')
-        appObj.phaseNoiseFD_plot.plot(phaseNoiseFD, pen='r')
+        appObj.phaseNoiseTD_plot.plot(time,phaseNoiseTD, pen='r')
+        appObj.phaseNoiseFD_plot.plot(freq,phaseNoiseFFT, pen='r')
         appObj.mzi_phase_plot_2.plot(mziDataNorm, pen='b')            
         appObj.mzi_phase_plot_2.plot(k0RippleNorm, pen='r')            
         
-        for i in range(numTrigs):
-            appObj.k0_plot_3.plot(k0[i,:25], pen=(i,numTrigs)) 
-        startMZIdata1=k0[:,dispData.startSample]
-        appObj.k0_plot_4.plot(startMZIdata1, pen='r') 
-        startMZIdata2=k0Cleaned[:,dispData.startSample]
-        appObj.k0_plot_4.plot(startMZIdata2, pen='b') 
-        
+       
         # if you want to align the pd and the Mzi data
 #            plotPDPhase.plot(pdData[0,:], pen='r')
 #            plotPDPhase.plot(mziData[0,:], pen='b')
