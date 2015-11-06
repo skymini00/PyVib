@@ -568,14 +568,11 @@ def runBScan(appObj):
             startTrigOffset = int(np.round(trigRate*mirrorDriver.settleTime))
             dispCorr = appObj.dispCorr_pushButton.isChecked() # whehter or not to do dispersion correction
             if appObj.oct_hw.IsOCTTestingMode():
-#                oct_data = OCTCommon.loadRawData(testDataDir, frameNum % 15, dataType=0)
- 
-# I need help here!!!!
-              
-                ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,requestedSamplesPerTrig,appObj.savedDataBuffer)
-                oct_data, klin= softwareProcessing(ch0_data,ch1_data,zROI,appObj)
-                
-                
+                if appObj.oct_hw.OCTTestingMode()==-1:
+                    oct_data = OCTCommon.loadRawData(testDataDir, frameNum % 15, dataType=0)
+                elif appObj.oct_hw.OCTTestingMode()==-2:
+                    ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
+                    oct_data, klin= softwareProcessing(ch0_data,ch1_data,zROI,appObj)
             else:
                 if processMode == OCTCommon.ProcessMode.FPGA:
                     err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, dispCorr)

@@ -25,6 +25,7 @@ class DispersionData:  # this class holds all the dispersion compensation data
         self.magWin =[]
         self.phaseCorr = []
         self.phDiode_background = None
+        self.requestedSamplesPerTrig=[]
         self.startSample=[]
         self.endSample=[]
         self.numKlinPts=[]
@@ -42,6 +43,8 @@ class DispersionData:  # this class holds all the dispersion compensation data
         file2.close()
         appObj.dispCompFilename_label.setText(infile) 
         self.magWin =x.magWin
+        self.requestedSamplesPerTrig=x.requestedSamplesPerTrig
+#        self.requestedSamplesPerTrig=3000
         self.phaseCorr = x.phaseCorr
         self.phDiode_background = x.phDiode_background
         self.startSample=x.startSample
@@ -352,7 +355,7 @@ def runJSOraw(appObj):
     while appObj.doneFlag == False:
         # read data analysis settings from the GUI
         numTrigs=appObj.numTrig.value()
-        requestedSamplesPerTrig=appObj.requestedSamplesPerTrig.value()
+        dispData.requestedSamplesPerTrig=appObj.requestedSamplesPerTrig.value()
         dispData.startSample=appObj.startSample.value()
         dispData.endSample=appObj.endSample.value()
         dispData.numKlinPts=appObj.numKlinPts.value()
@@ -375,9 +378,9 @@ def runJSOraw(appObj):
                  
         # Get data using one of several methods
         if appObj.oct_hw.IsOCTTestingMode():
-            ch0_data,ch1_data=getSavedRawData(numTrigs,requestedSamplesPerTrig,appObj.savedDataBuffer)
+            ch0_data,ch1_data=getSavedRawData(numTrigs,dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
         else:
-            ch0_data,ch1_data=getNewRawData(numTrigs,requestedSamplesPerTrig,appObj)
+            ch0_data,ch1_data=getNewRawData(numTrigs,dispData.requestedSamplesPerTrig,appObj)
         
         # delay the MZI to account for it having a shorter optical path than the sample/reference arm path, then calculate k0 as the MZI phase
         pdData,mziData,actualSamplesPerTrig=channelShift(ch0_data,ch1_data,dispData)    

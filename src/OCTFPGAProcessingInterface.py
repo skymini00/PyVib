@@ -351,6 +351,10 @@ class LV_DLLInterface:
     # useful when hardware is not present for testing othe program features
     def IsOCTTestingMode(self):
         return self.setupNum<0
+
+    # This returns the actual setupNum so that we can either use Patrick's saved data or JSOraw saved data
+    def OCTTestingMode(self):
+        return self.setupNum
         
     # IsDAQTestingMode: returns True if DAQ hardware is NOT present, otherwise returns False
     # this does not do any detection, but returns based off setup number, to determine if in testing mode
