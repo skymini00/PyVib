@@ -578,7 +578,8 @@ def runBScan(appObj):
                     # calcOCTDataFFT(pdData, mziData, MZI_PD_shift, klinROI_idx, numklinpts, klin, dispCorr_mag, dispCorr_ph):
                     
                     klinROI = [fpgaOpts.klinRoiBegin, fpgaOpts.klinRoiEnd]
-                    oct_data, appObj.klin = JSOraw.calcOCTDataFFT(pd_data, mzi_data, fpgaOpts.Ch0Shift*2, klinROI, fpgaOpts.numKlinPts, appObj.klin, appObj.dispCorr.magWin, appObj.dispCorr.phaseCorr, zROI)
+                    oct_data, appObj.klin = JSOraw.calcOCTDataFFT(pd_data, mzi_data, zROI, appObj) 
+#                    fpgaOpts.Ch0Shift*2, klinROI, fpgaOpts.numKlinPts, appObj.klin, appObj.dispCorr.magWin, appObj.dispCorr.phaseCorr, zROI)
                 else:
                     QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
             

@@ -115,24 +115,6 @@ def channelShift(ch0_data,ch1_data,dispData):
     mziData=ch1_data[:,0:actualSamplesPerTrig]
     return pdData,mziData,actualSamplesPerTrig
 
-def calcOCTDataFFT(pdData, mziData, MZI_PD_shift, klinROI_idx, numklinpts, klin, dispCorr_mag, dispCorr_ph, zROI):
-    DebugLog.log('calcOCTDataFFT: pdData.shape= ' + repr(pdData.shape))
-    pdData,mziData,actualSamplesPerTrig=channelShift(pdData, mziData, MZI_PD_shift)    
-    DebugLog.log('calcOCTDataFFT: after channel Shift pdData.shape= ' + repr(pdData.shape))
-    mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData) 
-    DebugLog.log('calcOCTDataFFT: processed the MZI data pdData.shape= ' + repr(pdData.shape))
-    pd_interpRaw, klin = processPD(pdData, k0, klinROI_idx, numklinpts)   
-    if numklinpts > 2048:  # downsample if over 2048 pts
-        idx = range(0, numklinpts, 2)
-        pd_interpRaw = pd_interpRaw[:, idx]
-    print('processed the PDdata')
-    pd_interpDisp = np.abs(dispCorr_mag * pd_interpRaw * (np.cos(-1*dispCorr_ph) + 1j * np.sin(-1*dispCorr_ph)))
-
-    oct_data = np.fft.fft(pd_interpDisp, 2048)
-    oct_data = oct_data[:, zROI[0]:zROI[1]]
-    oct_data = oct_data / numklinpts   
-    return oct_data, klin
-    
 def processUniqueDispersion(pd_data, dispData, pd_background=None, bg_collect=False):
     numTrigs = pd_data.shape[0]
     numklinpts = pd_data.shape[1]
@@ -257,11 +239,44 @@ def loadDispersion_pushButton_clicked(appObj):
     # Plot the dispersion window functions and update the processing values
     appObj.dispWnfcMag_plot.plot(dispData.magWin, pen='b')
     appObj.dispWnfcPh_plot.plot(dispData.phaseCorr, pen='b')
+    appObj.k0_plot_5.plot(dispData.k0Reference, pen='b') 
     appObj.startSample.setValue(dispData.startSample)
     appObj.endSample.setValue(dispData.endSample)
     appObj.numKlinPts.setValue(dispData.numKlinPts)
     appObj.numShiftPts.setValue(dispData.numShiftPts)
 
+def softwareProcessing(ch0_data,ch1_data,zROI, appObj):
+    # This routine can be called from any other routine to do software processing of the raw data. 
+    # It needs appObj.dispData so you must have loaded a dispersion file already for this to work.
+
+# MZI_PD_shift, klinROI_idx, numklinpts, klin, dispCorr_mag, dispCorr_ph, zROI):
+
+    dispData=appObj.dispData
+    pdData,mziData,actualSamplesPerTrig=channelShift(ch0_data,ch1_data,dispData)    # shift the two channels to account for delays in the sample data compared to the MZI data 
+    mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData, dispData)                # calculate k0 from the phase of the MZI data
+
+    k0Cleaned=cleank0Run(k0,dispData) # Adjust the k0 curves so that the unwrapping all starts at the same phase    
+    pd_interpRaw, klin = processPD(pdData, k0Cleaned, dispData)  # Interpolate the PD data based upon the MZI data
+    pd_interpDispComp = dispData.magWin * pd_interpRaw * (np.cos(-1*dispData.phaseCorr) + 1j * np.sin(-1*dispData.phaseCorr))  # perform dispersion compensation
+    pd_fftDispComp, alineMagDispComp, alinePhaseDispComp = calculateAline(pd_interpDispComp) # calculate the a-line
+    oct_data = pd_fftDispComp[:, zROI[0]:zROI[1]] 
+
+    pdData,mziData,actualSamplesPerTrig=channelShift(pdData, mziData, MZI_PD_shift)    
+    DebugLog.log('calcOCTDataFFT: after channel Shift pdData.shape= ' + repr(pdData.shape))
+    mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData) 
+    DebugLog.log('calcOCTDataFFT: processed the MZI data pdData.shape= ' + repr(pdData.shape))
+    pd_interpRaw, klin = processPD(pdData, k0, klinROI_idx, numklinpts)   
+    if numklinpts > 2048:  # downsample if over 2048 pts
+        idx = range(0, numklinpts, 2)
+        pd_interpRaw = pd_interpRaw[:, idx]
+    print('processed the PDdata')
+    pd_interpDisp = np.abs(dispCorr_mag * pd_interpRaw * (np.cos(-1*dispCorr_ph) + 1j * np.sin(-1*dispCorr_ph)))
+
+    oct_data = np.fft.fft(pd_interpDisp, 2048)
+    oct_data = oct_data[:, zROI[0]:zROI[1]]
+    oct_data = oct_data / numklinpts   
+    return oct_data, klin
+    
 def runJSOraw(appObj):
     DebugLog.log("runJSOraw")
     appObj.tabWidget.setCurrentIndex(7)
