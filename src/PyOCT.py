@@ -33,6 +33,7 @@ import VolumeScan
 import Dispersion
 import SpeakerCalibration
 import JSOraw
+import RawDataTest
 
 #from EndoSpiralScanProtocol import *
 # from ORmicroscopeScanProtocol import *
@@ -296,6 +297,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.SpeakerCalTest_pushButton.clicked.connect(self.SpeakerCalTest_clicked)
         self.specialScan_pushButton.clicked.connect(self.SpecialScan_clicked)  
         self.JSOraw_pushButton.clicked.connect(self.JSOraw_clicked)  
+        self.rawDataTest_pushButton.clicked.connect(self.RawDataTest_clicked)
         
         self.focalPlaneAdj_spinbox.valueChanged.connect(self.focalPlaneChanged)
         self.rotZ_dial.valueChanged.connect(self.rotationZDialChanged)
@@ -640,6 +642,17 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             self.nextProtocol = None
             self.stopCollection()
  
+    def RawDataTest_clicked(self):  # CtoF button event handler
+        if self.rawDataTest_pushButton.isChecked():
+            if self.isCollecting:
+                self.nextProtocol = 'rawDataTest'
+                self.stopCollection()
+            else:
+                RawDataTest.runRawDataTest(self)
+        else:
+            self.nextProtocol = None
+            self.stopCollection()
+            
     def JSOsaveDispersion_pushButton_clicked(self):  # CtoF button event handler
         JSOraw.saveDispersion_pushButton_clicked(self)
         

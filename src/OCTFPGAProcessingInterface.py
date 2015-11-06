@@ -20,6 +20,7 @@ import sys
 import psutil
 import queue # for Queue.ull exception
 import copy
+import time
 
 class FPGAOpts_t(Structure):
     _fields_ = [("Ch0Shift", c_uint16), 
@@ -78,7 +79,7 @@ class FPGAOpts_t(Structure):
         self.FFT16b = c_uint8(0)
         self.Polar = c_uint8(0)
         self.MagOnly = c_uint8(0)
-        self.FFTReImgScale = c_int8(-10)
+        self.FFTReImgScale = c_int8(-8)
         self.InterpDSAvg = c_uint8(55)
         self.OnDutyCycleTrigLast = c_uint16(65535)
         self.OffDutyCycleTrigLast = c_uint16(65535)
@@ -431,7 +432,7 @@ class LV_DLLInterface:
         fpgaOpts.FFT16b = c_uint8(0)
         fpgaOpts.Polar = c_uint8(0)
         fpgaOpts.MagOnly = c_uint8(0)
-
+        
         fpgaOptsOut =  FPGAOpts_t()
         numTrigsOut = c_int32(numTrigs)
         
@@ -461,7 +462,7 @@ class LV_DLLInterface:
         transferTime = c_uint32(0)
         unpackTime = c_uint32(0)
         trigOffset = c_uint32(0)
-        unpackData = True
+        unpackData = c_uint8(55)
         
         # DebugLog.log("OCTDataCollector.startFrameGetData(): isSynchOCT = " + repr(self.protocol.isSynchOCT()))
         err = self.acq_fpga_data(setupNum, c_uint32(numTrigsOut.value), c_uint32(numSamples), trigOffset, unpackData, d_re, d_im, byref(len_data), packedData, byref(len_packed_data), byref(timeElapsed), byref(transferTime), byref(unpackTime))
@@ -510,6 +511,8 @@ class LV_DLLInterface:
         len_data = c_int32(numDataPts)
         len_packed_data = c_int32(numPackedDataPts)
         
+        t1 = time.time()
+        
         d_re = np.zeros((numDataPts), np.float32)
         d_im = np.zeros((numDataPts), np.float32)        
         d_re = np.require(d_re, np.float32, ['C', 'W'])
@@ -517,6 +520,9 @@ class LV_DLLInterface:
         
         packedData = np.zeros((numPackedDataPts), np.uint64)
         packedData = np.require(packedData, np.uint64, ['C', 'W'])
+
+        DebugLog.log("AcquireOCTDataMagOnly: mem alloc time= %0.1f ms " % (1000*(time.time() - t1)))
+
         
         #trigOffset = fpgaOpts.StartTriggerOfffset
         timeElapsed = c_uint32(0)
@@ -526,8 +532,9 @@ class LV_DLLInterface:
         unpackData = c_uint8(0)
         
         # DebugLog.log("OCTDataCollector.startFrameGetData(): isSynchOCT = " + repr(self.protocol.isSynchOCT()))
+        t1 = time.time()
         err = self.acq_fpga_data(setupNum, c_uint32(numTrigsOut.value), c_uint32(numSamples), trigOffset, unpackData, d_re, d_im, byref(len_data), packedData, byref(len_packed_data), byref(timeElapsed), byref(transferTime), byref(unpackTime))
-        DebugLog.log("AcquireOCTDataMagOnly: len_packed_data= " + repr(len_packed_data.value))
+        DebugLog.log("AcquireOCTDataMagOnly: grab time= %0.1f ms len_packed_data= %d" % (1000*(time.time() - t1),  len_packed_data.value))
         
         packedData = packedData.reshape((numTrigsOut.value, roiSizeOut.value))
         return err, packedData
@@ -638,7 +645,7 @@ class LV_DLLInterface:
         pass
         
                     
-def StartOCTInterfaceBGProcess(basePath):
+def StartOCTInterfaceBGProcess(basePath, rawDataQSize=3):
     # check if process exists 
     filePath = os.path.join(basePath, 'collector_PID_tmp.txt')
     if(os.path.isfile(filePath)):
@@ -654,7 +661,7 @@ def StartOCTInterfaceBGProcess(basePath):
             DebugLog.log("StartOCTInterfaceBGProcess():  Exception attempting to kill collection process")
             traceback.print_exc(file=sys.stdout)
 
-    rawDataQ = mproc.Queue(10)
+    rawDataQ = mproc.Queue(rawDataQSize)
     msgQ = mproc.Queue(10)
     statusQ = mproc.Queue(10)
     collectorProcess = mproc.Process(target=_OCTBGLoop, args=[rawDataQ, msgQ, statusQ], daemon=True)
@@ -746,9 +753,9 @@ class LV_DLLInterface_BGProcess:
         while not self.shutdown:
             if self.acquireData and self.acqFunction is not None:
                 try:
-                    DebugLog.log("LV_DLLInterface_BGProcess.loop(): acquiring frame " + repr(self.frameNum))
                     # call the acquire function to get OCT data - this function is set by the user
                     if not putTimeout:
+                        DebugLog.log("LV_DLLInterface_BGProcess.loop(): acquiring frame " + repr(self.frameNum))
                         data, extraOutput = self.acqFunction(self.oct_hw, self.frameNum, self.acqFunctionArgs) 
                         numTimeouts = 0
                     if data is not None:
@@ -795,7 +802,10 @@ class LV_DLLInterface_BGProcess:
                     statusMsg = OCTCommon.StatusMsg(OCTCommon.StatusMsgSource.COLLECTION, OCTCommon.StatusMsgType.ERROR)
                     statusMsg.param = ex
                     traceback.print_exc(file=sys.stdout)
-                    self.statusQ.put(statusMsg)
+                    try:
+                        self.statusQ.put(statusMsg, timeout=0.25)
+                    except Exception as ex:
+                        traceback.print_exc(file=sys.stdout)
                     
             time.sleep(0.005)  # sleep for 5 ms, to avoid saturing CPU
             sys.stdout.flush()
@@ -965,7 +975,7 @@ class LV_DLLInterface_BGProcess_Adaptor:
     def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
         self.ClearDataQ()
         msg = ('acquireRaw', (numTriggers, samplesPerTrig, Ch0Shift, startTrigOffset))
-        t = min((numTrigs*1e-4 + 500e-3, 5))
+        t = min((numTriggers*1e-4 + 500e-3, 5))
         self.collMsgQ.put(msg, timeout=t)
         (err, interp_pd) = self.rawDataQ.get(timeout=self.qTimeout)
         

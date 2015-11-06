@@ -525,6 +525,8 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
         if bscansPerFrame > 1:
             oct_data_tmp = copy.copy(oct_data_mag)
             shp = oct_data_tmp.shape
+            framesPerScan = scanParams.widthSteps // bscansPerFrame
+            frameInScan = np.mod(frameNum, framesPerScan)
             
             # trigsPerBscan = shp[0] // bscansPerFrame
             mirr = mirrorDriver
@@ -542,6 +544,10 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
             
             if DebugLog.isLogging:
                 DebugLog.log("VolumeScan processData(): shp= %s trigsPerBscan= %d exraTrigs= %d" % (repr(shp), trigsPerBscan, extraTrigs))
+                
+            isLogging = DebugLog.isLogging
+            DebugLog.isLogging = False  # turn off loggig for for loop
+                
             for n in range(0, bscansPerFrame):
                 if scanP.pattern == ScanPattern.bidirectional and (np.mod(n, 2) != 0):
                     idx1 = np.floor(trigsPerBscan*n) + procOpts.biDirTrigVolFix
@@ -552,8 +558,8 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
                     idx2 = idx1 + trigsPerBscan - extraTrigs
                     
                     oct_data_mag = oct_data_tmp[idx1:idx2, :]
-                if DebugLog.isLogging:
-                    DebugLog.log("VolumeScan processData(): n= %d idx1= %d idx2= %d" % (n, idx1, idx2))
+#                if DebugLog.isLogging:
+#                    DebugLog.log("VolumeScan processData(): n= %d idx1= %d idx2= %d" % (n, idx1, idx2))
                 
                 img16b, img8b = BScan.makeBscanImage(oct_data_mag, scanParams, procOpts.zRes, procOpts.normLow, procOpts.normHigh, correctAspectRatio=True)
                 if volDataIn is None:
@@ -564,9 +570,11 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
                     volDataIn.xPixSize = img16b.shape[1]/scanParams.length     # x pixel size in um
                     volDataIn.yPixSize = scanParams.widthSteps/scanParams.width     # y pixel size in um 
                 
+                # DebugLog.log("VolumeScan processData(): step= %d img16b max= %d min=%d " % (n + bscansPerFrame*frameInScan, np.max(img16b), np.min(img16b)))
+                volDataIn.volumeImg[n + bscansPerFrame*frameInScan, :, :] = img16b
                 
-                DebugLog.log("VolumeScan processData(): frame= %d img16b max= %d min=%d " % (n + bscanPerFrame*frameNum, np.max(img16b), np.min(img16b)))
-                volDataIn.volumeImg[n + bscanPerFrame*frameNum, :, :] = img16
+            DebugLog.isLogging = isLogging
+
         else:
             img16b, img8b = BScan.makeBscanImage(oct_data_mag, scanParams, procOpts.zRes, procOpts.normLow, procOpts.normHigh, correctAspectRatio=True)
             
@@ -619,6 +627,11 @@ def VolScanCollectFcn(oct_hw, frameNum, extraArgs):
     
     OCTtrigRate = oct_hw.GetTriggerRate()
     
+    bscansPerFrame = scanParams.volBscansPerFrame
+    framesPerScan = scanParams.widthSteps // bscansPerFrame   
+    if frameNum >= framesPerScan and not scanParams.continuousScan:
+        return None, None
+        
     chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
     outputRate = mirrorDriver.DAQoutputRate
     trigChan = mirrorDriver.trig_daqChan
@@ -630,25 +643,38 @@ def VolScanCollectFcn(oct_hw, frameNum, extraArgs):
         mirrorOut = scanDetails.mirrOut
         startTrigOffset = 0
     else:
+        isLogging = DebugLog.isLogging
+        DebugLog.isLogging = False
         mirrorOut = makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, OCTtrigRate)
         startTrigOffset = int(np.round(OCTtrigRate*mirrorDriver.settleTime))
+        DebugLog.isLogging = isLogging
 
+    DebugLog.log("VolScanCollectFcn: setup time= %0.1f ms" % (1000*(time.time() - t1)))
+    
+    t2 = time.time()
     if not oct_hw.IsDAQTestingMode():
         # setup the analog output DAQ device
         daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOut.transpose())        
         daq.startAnalogOutput()
+    
+    DebugLog.log("VolScanCollectFcn: analog output time= %0.1f ms" % (1000*(time.time() - t2)))
     
     # setup and grab the OCT data
     numTrigs = getNumTrigs(scanParams, scanDetails, OCTtrigRate, mirrorDriver)
     if oct_hw.IsOCTTestingMode():
         packedData = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
     else:
+        t3 = time.time()
         err, packedData = oct_hw.AcquireOCTDataMagOnly(numTrigs, zROI, startTrigOffset)
+        DebugLog.log("VolScanCollectFcn: acquire time= %0.1f ms" % (1000*(time.time() - t3)))
     
+    t4 = time.time()
     if not oct_hw.IsDAQTestingMode():
         daq.waitDoneOutput()
         daq.stopAnalogOutput()
         daq.clearAnalogOutput()
+        
+    DebugLog.log("VolScanCollectFcn: analog wait, stop and clear time= %0.1f ms" % (1000*(time.time() - t4)))
         
     rawData = VolumeRawData(packedData, frameNum)
     rawData.collectTime = time.time() - t1
@@ -662,7 +688,7 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
     volData = None
     
     frameNum = 0
-    putTimeout = False  # indicates there was a timeout attempting to send data to 
+    putTimeout = False  # indicates there was a timeout attempting to send data to queue
     while not shutdown:
         try:
             if not putTimeout:
@@ -678,6 +704,9 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
         
                         frameNum = rawData.frameNum
                         (oct_data, mag, phase) = octfpga.unpackData(rawData.packedData)
+                        DebugLog.log("VolScanProcessingProcess(): unpack time = %0.1f ms " % (1000*(time.time() - t1)))
+                        mag = mag*(2**8)
+                        
                         volData = processData(mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
                         volData.frameNum = rawData.frameNum
                         volData.collectTime = rawData.collectTime
@@ -694,6 +723,7 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
                     procDataQ.put(volData, timeout=0.25)   # send this data last because it contains frame number which client uss to detect whether acquisition is complete                                
                     putTimeout = False
                 except queue.Full:
+                    DebugLog.log("VolScanProcessingProcess(): queue.Full exception")
                     putTimeout = True
         except Exception as ex:
             traceback.print_exc(file=sys.stdout)
@@ -711,6 +741,7 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
             if msg == 'shutdown':
                 shutdown = True
                 
+        sys.stdout.flush()  # flush all debugging output to console
         time.sleep(0.005)  # sleep for 5 ms to reduce CPU load
 
 def handleStatusMessage(statusMsg):
@@ -741,7 +772,7 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
     startTime = time.time()    
     DebugLog.log("runVolScanMultiProcess: new acquisiiton")
     oct_hw.NewAcquisition()
-    oct_hw.SetSendExtraInfo(False)   # do not send audio output
+    oct_hw.SetSendExtraInfo(False)   # do not send mirror output
     DebugLog.log("runVolScanMultiProcess: setting acquire function")
     oct_hw.SetAcqFunction(VolScanCollectFcn)
     extraArgs = [scanParams, mirrorDriver, zROI, testDataDir, scanDetails]
@@ -759,7 +790,7 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
         err = handleStatusMessage(statusMsg)
         statusMsg = oct_hw.GetStatus()        
     
-    procDataQ = mproc.Queue(10)
+    procDataQ = mproc.Queue(3)
     procRawDataQ = None
     if saveOpts.saveRaw:   # if saving raw data, create a raw data queue so that volume scan processing process will resned raw data to this function
         procRawDataQ = mproc.Queue(10)
@@ -773,7 +804,7 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
     procProcess.start()
     frameNum = 0
         
-    while not appObj.doneFlag and (frameNum < numFrames or scanParams.continuousScan):
+    while not appObj.doneFlag and frameNum < (numFrames-1):
         # update parameters in background process
         # start the acquisitio on first loop iteration
         # we don't just do this outside the loop because we haven't loaded function args yet
@@ -798,15 +829,15 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
                 if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
                     pass
                 else:
-                    img16b = volData.volumeImg[frameNum*bscansPerFrame, :, :]
+                    framesPerScan = scanParams.widthSteps // bscansPerFrame
+                    frameInScan = np.mod(frameNum, framesPerScan)
+                    img16b = volData.volumeImg[frameInScan*bscansPerFrame, :, :]
                     img8b = np.round(255.0*img16b/65335.0)  # remap image range
                     DebugLog.log("VolumeScan runVolScan(): frame= %d img16b max= %d min=%d " % (frameNum*bscansPerFrame, np.max(img8b), np.min(img8b)))
     
                     img8b = np.require(img8b, dtype=np.uint8)
                     appObj.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
                     rset = False                
-                    
-                appObj.acquisition_progressBar.setValue(round(100*frameNum/framesPerScan))
                     
                 if frameNum % framesPerScan == 0:
                     appObj.volDataLast = volData

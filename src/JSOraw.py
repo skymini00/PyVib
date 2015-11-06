@@ -433,18 +433,22 @@ def runJSOraw(appObj):
             appObj.alineNoInterp_plot.plot(alineMagNoInterp[i,:], pen='r')
             appObj.alineRaw_plot.plot(alineMagRaw[i,:], pen='r')
             appObj.alineDispComp_plot.plot(alineMagDispComp[i,:], pen='r')
-        else:                   
-            for i in range(numTrigs):
-                appObj.pd_plot_2.plot(pdData[i,:], pen=(i,numTrigs))            
-                appObj.mzi_plot_2.plot(mziData[i,:], pen=(i,numTrigs))            
-                appObj.mzi_mag_plot_2.plot(mzi_mag[i,:], pen=(i,numTrigs))            
-                appObj.mzi_phase_plot_2.plot(mzi_ph[i,:], pen=(i,numTrigs))            
-                appObj.k0_plot_2.plot(k0[i,:], pen=(i,numTrigs))                      
-                appObj.interp_pdRaw_plot.plot(pd_interpRaw[i,:], pen=(i,numTrigs))           
-                appObj.interp_pdDispComp_plot.plot(np.abs(pd_interpDispComp[i,:]), pen=(i,numTrigs))           
-                appObj.alineNoInterp_plot.plot(alineMagNoInterp[i,:], pen=(i,numTrigs))
-                appObj.alineRaw_plot.plot(alineMagRaw[i,:], pen=(i,numTrigs))
-                appObj.alineDispComp_plot.plot(alineMagDispComp[i,:], pen=(i,numTrigs))
+        else:
+            # limit plotting to first 10 or so triggers, otherwise this will freeze up
+            nTrigs = min((numTrigs, 10))
+            
+            for i in range(nTrigs):
+                pen=(i,nTrigs)
+                appObj.pd_plot_2.plot(pdData[i,:], pen=pen)            
+                appObj.mzi_plot_2.plot(mziData[i,:], pen=pen)            
+                appObj.mzi_mag_plot_2.plot(mzi_mag[i,:], pen=pen)            
+                appObj.mzi_phase_plot_2.plot(mzi_ph[i,:], pen=pen)            
+                appObj.k0_plot_2.plot(k0[i,:], pen=pen)            
+                appObj.interp_pdRaw_plot.plot(pd_interpRaw[i,:], pen=pen)            
+                appObj.interp_pdDispComp_plot.plot(np.abs(pd_interpDispComp[i,:]), pen=pen)            
+                appObj.alineNoInterp_plot.plot(alineMagNoInterp[i,:], pen=pen)            
+                appObj.alineRaw_plot.plot(alineMagRaw[i,:], pen=pen)            
+                appObj.alineDispComp_plot.plot(alineMagDispComp[i,:], pen=pen)            
             
         appObj.alineRaw_plot.plot(peakXPos1,peakYPos1, pen=None, symbolBrush='k', symbolPen='b')
         appObj.alineDispComp_plot.plot(peakXPos,peakYPos, pen=None, symbolBrush='k', symbolPen='b')
