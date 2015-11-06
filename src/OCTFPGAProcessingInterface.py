@@ -350,7 +350,7 @@ class LV_DLLInterface:
     # this does not do any detection, but returns based off setup number, to determine if in testing mode
     # useful when hardware is not present for testing othe program features
     def IsOCTTestingMode(self):
-        return self.setupNum < 0
+        return self.setupNum<0
         
     # IsDAQTestingMode: returns True if DAQ hardware is NOT present, otherwise returns False
     # this does not do any detection, but returns based off setup number, to determine if in testing mode
