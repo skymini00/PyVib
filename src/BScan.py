@@ -572,15 +572,14 @@ def runBScan(appObj):
                     oct_data = OCTCommon.loadRawData(testDataDir, frameNum % 15, dataType=0)
                 elif appObj.oct_hw.OCTTestingMode()==-2:
                     ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
-                    oct_data, klin= softwareProcessing(ch0_data,ch1_data,zROI,appObj)
+                    oct_data, klin= JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
             else:
                 if processMode == OCTCommon.ProcessMode.FPGA:
                     err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, dispCorr)
                 elif processMode == OCTCommon.ProcessMode.SOFTWARE:
-                    fpgaOpts = appObj.oct_hw.fpgaOpts
-                    err, pd_data, mzi_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, startTrigOffset=startTrigOffset)                    
-                    klinROI = [fpgaOpts.klinRoiBegin, fpgaOpts.klinRoiEnd]
-                    oct_data, appObj.klin = JSOraw.calcOCTDataFFT(pd_data, mzi_data, zROI, appObj) 
+#                    fpgaOpts = appObj.oct_hw.fpgaOpts
+                    err, ch0_data, ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj)
+                    oct_data, klin= JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
                 else:
                     QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
             

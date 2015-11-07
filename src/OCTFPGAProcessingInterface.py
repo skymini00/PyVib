@@ -360,7 +360,7 @@ class LV_DLLInterface:
     # this does not do any detection, but returns based off setup number, to determine if in testing mode
     # useful when hardware is not present for testing othe program features
     def IsDAQTestingMode(self):
-        return self.setupNum == -1
+        return self.setupNum < 0
             
     # grab the output of the FFT 
     def AcquireOCTDataFFT(self, numTriggers, zROI, startTrigOffset=0, dispCorr=True):
