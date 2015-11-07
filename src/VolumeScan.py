@@ -94,9 +94,9 @@ def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
     scanDetails=blankRecord()  #create an empty record to get the spiral scan parameters        if scanMode==0:
     calcuateAngledBScans(plotParam)
     if scanParams.pattern == ScanPattern.spiral:
-        setupSpiralScan(mirrorDriver, scanDetails, plotParam, OCTtrigRate, DAQoutputRate)
+        setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate, DAQoutputRate)
     elif scanParams.pattern == ScanPattern.wagonWheel:
-        setupWagonWheelScan(mirrorDriver, scanDetails, plotParam, OCTtrigRate, DAQoutputRate)
+        setupWagonWheelScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate, DAQoutputRate)
 
     return plotParam, scanDetails
     
@@ -913,8 +913,6 @@ def runVolScan(appObj):
     zROI = appObj.getZROI()
     scanDetails = None
     plotParam = None
-    if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
-        plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts)
     
     bscansPerFrame = scanParams.volBscansPerFrame
     numFrames = scanParams.widthSteps // bscansPerFrame            
@@ -931,6 +929,9 @@ def runVolScan(appObj):
     procOpts.zRes = appObj.octSetupInfo.zRes
     procOpts.biDirTrigVolFix = appObj.volBidirTrigFix_spinBox.value()
     biDirTrigVolAdj = appObj.volBidirTrigAdj_spinBox.value()
+
+    if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
+        plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts)
     
     saveOpts = appObj.getSaveOpts()
     if(appObj.multiProcess):
@@ -940,7 +941,6 @@ def runVolScan(appObj):
     isSaveDirInit = False
 
     try: 
-        
         frameNum = 0
         scanNum = 0
         while not appObj.doneFlag and frameNum < numFrames:

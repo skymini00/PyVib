@@ -62,6 +62,14 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         for btn in self.protocolButtons:
             btn.setEnabled(False)
 
+        self.enableVolViewer = False
+        try:
+            import pyqtgraph.opengl as gl
+            from OCTGLViewWidget import OCTGLViewWidget
+            self.enableVolViewer = True
+        except:
+            DebugLog.log("OCTWindowClass.__init__: could not import pyqtgraph.opengl: volume viewer is disabled ")
+            
         self.isShutdown = False            
         items = ['Single process (slower, simple code)', 'Multiprocess (faster, complex code)']
         itemSelected, okPressed = QtGui.QInputDialog.getItem(self, "QInputDialog.getItem()", "Season:", items, 0, False);
@@ -75,7 +83,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.saveProcessed = False
         self.saveOpts = SaveOpts()
         self.isCollecting = False
-        self.enableVolViewer = False
         
         sysName = platform.system()
 #        if sysName == 'Windows':
@@ -342,6 +349,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         layout = QtGui.QHBoxLayout()
         if self.enableVolViewer:
             import pyqtgraph.opengl as gl
+            from OCTGLViewWidget import OCTGLViewWidget
             self.graphicsView = OCTGLViewWidget()
             layout.addWidget(self.graphicsView)
             self.frame.setLayout(layout)
@@ -511,7 +519,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 self.volumeData = None
                 self.Volume_pushButton.setChecked(True)
                 self.setProtocolButtonSignalsBlocked(False)
-                self.protocol = self.volscanPrtcl
                 VolumeScan.runVolScan(self)
             elif nextProtocol == 'SpeakerCal':
                 self.SpeakerCal_pushButton.setChecked(True)
@@ -1072,7 +1079,9 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
     def displayVolumeImg3D(self, volImg):
         if not self.enableVolViewer:
             return
-            
+
+#        import pyqtgraph.opengl as gl
+#        from OCTGLViewWidget import OCTGLViewWidget            
         view = self.graphicsView
         
         nL = 65535*self.vol_3dnormlow_slider.value() / 100
