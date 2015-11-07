@@ -96,7 +96,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         configBasePath = os.path.join(basePath, 'config')
         self.configPath = configBasePath
         self.settingsPath = configBasePath
-        
+
         fpgaOpts = self._readHardwareConfig(configBasePath)
         DebugLog.log(self.octSetupInfo.__dict__)
         self.dispCorr = Dispersion.DispersionData()
@@ -134,21 +134,17 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
         self.imgDataScanParams = None
         self.connect(self, QtCore.SIGNAL('triggered()'), self.closeEvent)
-
         self._initGraphVars()
         self.widthStepLast = -1
-
         self.scanParamsQuickSets = []
         self.audioParamsQuickSets = []
         self.scanParamsQuickSetsDict = {}   # mapping from set name to index in scanParamsQuickSet
         self.audioParamsQuickSetsDict = {}  # mapping from set name to index in audioParamsQuickSet
         
         self.ignoreValueChanged = False
-        
         self.loadQuickSets()
-        
         self.bscan_img_gv.mainOCTObj = self
-        
+
         defaultSaveDir = 'D:\\Data\\OCT'
         self.saveDir_lineEdit.setText(defaultSaveDir)
         
@@ -203,6 +199,12 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             
         self.klin = None
         DebugLog.log("OCTWindowClass: __init__() done")
+        
+        # load up stuff for JSO routines
+        self.dispData = JSOraw.DispersionData()             # This class holds all the dispersion compensation data, and loads an intial dispersion compensation file
+        self.dispData.loadDisp(self)        
+        self.savedDataBuffer = JSOraw.SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set
+        self.savedDataBuffer.loadData(self)
         
         
     def _readHardwareConfig(self, configBasePath):
@@ -639,7 +641,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
 
     def JSOraw_clicked(self):  # CtoF button event handler
         if self.JSOraw_pushButton.isChecked():
-            self.dispData = JSOraw.DispersionData()             # this class holds all the dispersion compensation data           
             if self.isCollecting:
                 self.nextProtocol = 'JSOraw'
                 self.stopCollection()
@@ -664,7 +665,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         JSOraw.saveDispersion_pushButton_clicked(self)
         
     def JSOloadDispersion_pushButton_clicked(self):  # CtoF button event handler
-        self.dispData = JSOraw.DispersionData()             # this class holds all the dispersion compensation data           
+        self.dispData = JSOraw.DispersionData()             # this should clear the previously-loaded dispersion data         
         JSOraw.loadDispersion_pushButton_clicked(self)
             
     def rotationZDialChanged(self):
