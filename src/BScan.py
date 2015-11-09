@@ -402,7 +402,7 @@ def processAndDisplayBscanData(appObj, oct_data, scanParams, rset, zROI):
     
     return img16b
 
-def saveBScanData(appObj, oct_data, img16b, frameNum, scanParams, saveOpts, isSaveDirInit):
+def saveBScanData(appObj, dataToSave, img16b, frameNum, scanParams, saveOpts, isSaveDirInit, dataIsRaw, saveDir):
     if appObj.getSaveState():
         if not isSaveDirInit:
             saveDir = OCTCommon.initSaveDir(saveOpts, 'BScan', scanParams=scanParams)
@@ -410,9 +410,15 @@ def saveBScanData(appObj, oct_data, img16b, frameNum, scanParams, saveOpts, isSa
     
         saveImage(img16b, saveDir, saveOpts, frameNum)
         if saveOpts.saveRaw:
-            OCTCommon.saveRawData(oct_data, saveDir, frameNum, dataType=0)
+            if dataIsRaw:
+                outfile = os.path.join(saveDir, 'testData.npz')
+                ch0_data = dataToSave[0]
+                ch1_data = dataToSave[1]
+                np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)
+            else:
+                OCTCommon.saveRawData(dataToSave, saveDir, frameNum, dataType=0)
             
-    return isSaveDirInit
+    return isSaveDirInit, saveDir
 
 def loadScanParams(testDataDir):
     filePath = os.path.join(testDataDir, 'ScanParams.pickle')
@@ -440,6 +446,7 @@ def runBScanMultiProcess(appObj, testDataDir):
     rset = True
     saveOpts = appObj.getSaveOpts()
     isSaveDirInit = False
+    saveDir = None
     try: 
         oct_hw.NewAcquisition()
         oct_hw.SetSendExtraInfo(False)   # do not send mirror output
@@ -460,9 +467,10 @@ def runBScanMultiProcess(appObj, testDataDir):
         while not appObj.doneFlag:
             DebugLog.log("runBScanMultiProcess: acquiring")
             # get parameters from GUI
-            if not oct_hw.IsOCTTestingMode():
-                # get the scan paramters tht user has entred 
-                scanParams = appObj.getScanParams()
+            # if not oct_hw.IsOCTTestingMode():
+            # get the scan paramters tht user has entred 
+            scanParams = appObj.getScanParams()
+            
             zROI = appObj.getZROI()
             dispCorr = appObj.dispCorr_pushButton.isChecked()  # whehter or not to do dispersion correction
             
@@ -482,7 +490,7 @@ def runBScanMultiProcess(appObj, testDataDir):
                 oct_data = rawData.oct_data
                 frameNum = rawData.frameNum
                 img16b = processAndDisplayBscanData(appObj, oct_data, scanParams, rset, zROI)
-                isSaveDirInit = saveBScanData(appObj, oct_data, img16b, frameNum, scanParams, saveOpts, isSaveDirInit)
+                isSaveDirInit, saveDir = saveBScanData(appObj, oct_data, img16b, frameNum, scanParams, saveOpts, isSaveDirInit, saveDir)
                 rset = False
             else:
                 DebugLog.log("runBScanMultiProcess: data is None or is not BScanRawData")
@@ -536,6 +544,7 @@ def runBScan(appObj):
     saveOpts = appObj.getSaveOpts()
     isSaveDirInit = False
     frameNum = 0
+    saveDir = None
     # softwareProcess = softwareProcessing_pushButton.isChecked()
     
     try: 
@@ -546,9 +555,9 @@ def runBScan(appObj):
             startTime = time.time()
             processMode = OCTCommon.ProcessMode(appObj.processMode_comboBox.currentIndex())
 
-            if not appObj.oct_hw.IsOCTTestingMode():
-                # get the scan paramters tht user has entred 
-                scanParams = appObj.getScanParams()
+            #if not appObj.oct_hw.IsOCTTestingMode():
+            # get the scan paramters tht user has entred 
+            scanParams = appObj.getScanParams()
             
             # generate the mirrrour output function
             (mirrorOutput, numTrigs) = makeBscanMirrorOutput(scanParams, mirrorDriver, trigRate)
@@ -567,21 +576,29 @@ def runBScan(appObj):
             zROI = appObj.getZROI()
             startTrigOffset = int(np.round(trigRate*mirrorDriver.settleTime))
             dispCorr = appObj.dispCorr_pushButton.isChecked() # whehter or not to do dispersion correction
-            if appObj.oct_hw.IsOCTTestingMode():
-                if appObj.oct_hw.OCTTestingMode()==-1:
+            
+            if processMode == OCTCommon.ProcessMode.FPGA:
+                if appObj.oct_hw.IsOCTTestingMode():
                     oct_data = OCTCommon.loadRawData(testDataDir, frameNum % 15, dataType=0)
-                elif appObj.oct_hw.OCTTestingMode()==-2:
-                    ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
-                    oct_data, klin= JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
-            else:
-                if processMode == OCTCommon.ProcessMode.FPGA:
-                    err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, dispCorr)
-                elif processMode == OCTCommon.ProcessMode.SOFTWARE:
-#                    fpgaOpts = appObj.oct_hw.fpgaOpts
-                    err, ch0_data, ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj)
-                    oct_data, klin= JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
                 else:
-                    QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
+                    err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, dispCorr)
+                    
+                dataToSave = oct_data
+                dataIsRaw = False
+            elif processMode == OCTCommon.ProcessMode.SOFTWARE:
+                if appObj.oct_hw.IsOCTTestingMode():
+                    ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
+                else:
+                    # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
+                    samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
+                    err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset)
+                    
+                dataToSave = (ch0_data, ch1_data)
+                dataIsRaw = True
+                oct_data, klin = JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
+
+            else:
+                QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
             
             img16b = processAndDisplayBscanData(appObj, oct_data, scanParams, rset, zROI)
             rset = False  # turn off reset after first loop
@@ -590,8 +607,8 @@ def runBScan(appObj):
                 daq.waitDoneOutput()
                 daq.stopAnalogOutput()
                 daq.clearAnalogOutput()
-
-            isSaveDirInit = saveBScanData(appObj, oct_data, img16b, frameNum, scanParams, saveOpts, isSaveDirInit)
+                
+            isSaveDirInit, saveDir = saveBScanData(appObj, dataToSave, img16b, frameNum, scanParams, saveOpts, isSaveDirInit, dataIsRaw, saveDir)
 
             frameNum += 1
             # check for GUI events, particularly the "done" flag

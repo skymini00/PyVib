@@ -352,10 +352,6 @@ class LV_DLLInterface:
     def IsOCTTestingMode(self):
         return self.setupNum<0
 
-    # This returns the actual setupNum so that we can either use Patrick's saved data or JSOraw saved data
-    def OCTTestingMode(self):
-        return self.setupNum
-        
     # IsDAQTestingMode: returns True if DAQ hardware is NOT present, otherwise returns False
     # this does not do any detection, but returns based off setup number, to determine if in testing mode
     # useful when hardware is not present for testing othe program features
@@ -981,7 +977,7 @@ class LV_DLLInterface_BGProcess_Adaptor:
         msg = ('acquireRaw', (numTriggers, samplesPerTrig, Ch0Shift, startTrigOffset))
         t = min((numTriggers*1e-4 + 500e-3, 5))
         self.collMsgQ.put(msg, timeout=t)
-        (err, interp_pd) = self.rawDataQ.get(timeout=self.qTimeout)
+        (err, pd_data, mzi_data) = self.rawDataQ.get(timeout=self.qTimeout)
         
         return err, pd_data, mzi_data        
     
