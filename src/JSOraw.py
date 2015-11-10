@@ -174,7 +174,7 @@ def dispersionCorrection(pd,dispData):
     
 def calculateAline(pd):
     numPts=pd.shape[1] 
-    pd_fft = np.fft.fft(pd, n=2048,axis=-1)/numPts
+    pd_fft = (np.fft.fft(pd, n=2048,axis=-1)/numPts)/100
     alineMag = 20*np.log10(np.abs(pd_fft) + 1)
     alinePhase=np.unwrap(np.angle(pd_fft),axis=-1)
     return pd_fft, alineMag, alinePhase
@@ -347,6 +347,10 @@ def runJSOraw(appObj):
         from DAQHardware import DAQHardware
         daq = DAQHardware()
         daq.writeValues(chanNames, data)
+    else:
+        testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
+        appObj.savedDataBuffer = SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set
+        appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData3.npz')
 
     peakXPos=np.array([0],dtype=int)       
     peakYPos=np.array([0],dtype=float)       
