@@ -10,6 +10,8 @@ from DebugLog import DebugLog
 import VolumeScan
 import AudioHardware
 import BScan
+import JSOraw
+
 # import OCTFPGAProcessingInterface as octfpga
 
 from PyQt4 import QtCore, QtGui, uic
@@ -1543,12 +1545,19 @@ def runMScan(appObj, multiProcess=False):
             f = open(filePath, 'rb')
             scanParams = pickle.load(f)
             f.close()
-            filePath = os.path.join(testDataDir, 'AudioParams.pickle')
+            
+            processMode = OCTCommon.ProcessMode(appObj.processMode_comboBox.currentIndex())
+            if processMode == OCTCommon.ProcessMode.SOFTWARE:
+                filePath = os.path.join(testDataDir, 'AudioParams-raw.pickle')
+                zROIIndices = [198]
+            else:
+                filePath = os.path.join(testDataDir, 'AudioParams.pickle')
+                zROIIndices = [85]
             f = open(filePath, 'rb')
             audioParams = pickle.load(f)
             f.close()
             trigRate = 49.9598e3
-            zROIIndices = [85]
+            
             
         procOpts = MscanProcOpts()
         procOpts.bscanNormLow = appObj.normLow_spinBox.value()
@@ -1561,7 +1570,6 @@ def runMScan(appObj, multiProcess=False):
         if multiProcess:
             runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataDir, regionMscan)
             return
-            
         
         rset = True
         
@@ -1603,7 +1611,6 @@ def runMScan(appObj, multiProcess=False):
         mscanRegionData = None
         volData = None
         
-        
         while not appObj.doneFlag and posWidthStep < numWidthSteps:
             # set mirror position
             (xPos, yPos) = getXYPos(posLenStep, posWidthStep, scanParams)
@@ -1612,7 +1619,9 @@ def runMScan(appObj, multiProcess=False):
             mirrOutData[1] = y_cmd
             if not oct_hw.IsDAQTestingMode():
                 daq.writeValues(mirrChanNames, mirrOutData)
-            
+        
+            processMode = OCTCommon.ProcessMode(appObj.processMode_comboBox.currentIndex())
+        
             # set up audio output
             freq = audioParams.freq[spkNum, freqStep]
             amp = audioParams.amp[ampStep]
@@ -1663,13 +1672,29 @@ def runMScan(appObj, multiProcess=False):
                 # setup and grab the OCT data
                 startTrigOffset = 0
                 numTrigs = int(np.floor(trigRate*numOutputSamples/outputRate))
-                if oct_hw.IsOCTTestingMode():
-                    oct_data_tmp = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
-                    oct_data_tmp = oct_data_tmp[:, :, 0]
-#                    shp = oct_data_tmp.shape
-#                    oct_data_tmp = np.reshape(oct_data_tmp, (shp[0], shp[1]))
+                oct_data_tmp = None
+                if processMode == OCTCommon.ProcessMode.FPGA:
+                    if appObj.oct_hw.IsOCTTestingMode():
+                        oct_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
+                        oct_data_tmp = oct_data_tmp[:, :, 0]
+                    else:
+                        err, oct_data_tmp = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
+                        
+                    dataIsRaw = False
+                elif processMode == OCTCommon.ProcessMode.SOFTWARE:
+                    if appObj.oct_hw.IsOCTTestingMode():
+                        appObj.savedDataBuffer = JSOraw.SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set
+                        appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData %d.npz' % frameNum)
+                        ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
+                    else:
+                        # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
+                        samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
+                        err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset)
+                    dataIsRaw = True
+                    oct_data_tmp, klin = JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
                 else:
-                    err, oct_data_tmp = oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
+                    QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
+                    break
                 
                 if oct_data == None:
                     shp = oct_data_tmp.shape
@@ -1693,8 +1718,9 @@ def runMScan(appObj, multiProcess=False):
                 if appObj.doneFlag:
                     break
 
-            if appObj.doneFlag:
+            if appObj.doneFlag or oct_data == None:
                 break
+            
             mscanPosAndStim.ampIdx = ampStep
             mscanPosAndStim.freqIdx = freqStep
             mscanPosAndStim.posLenStep = posLenStep
@@ -1757,7 +1783,13 @@ def runMScan(appObj, multiProcess=False):
                         saveMscanTuningCurve(tuningCurve, audioParams, posLenStep, saveDir)                        
                         
                 if saveOpts.saveRaw:
-                    OCTCommon.saveRawData(oct_data, saveDir, frameNum-1, dataType=0)
+                    if dataIsRaw:
+                        outfile = os.path.join(saveDir, 'testData %d.npz' % (frameNum-1))
+                        np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)
+                    else:
+                        OCTCommon.saveRawData(oct_data, saveDir, frameNum-1, dataType=0)
+                    
+                        
                     OCTCommon.saveRawData(mic_data, saveDir, frameNum-1, dataType=3)
 
     

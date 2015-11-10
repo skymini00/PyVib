@@ -203,8 +203,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         # load up stuff for JSO routines
         self.dispData = JSOraw.DispersionData()             # This class holds all the dispersion compensation data, and loads an intial dispersion compensation file
         self.dispData.loadDisp(self)        
-        self.savedDataBuffer = JSOraw.SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set
-        self.savedDataBuffer.loadData(self)
         
         
     def _readHardwareConfig(self, configBasePath):
@@ -346,6 +344,17 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
         self.roiBeginSlider.valueChanged.connect(self.ZROIChanged)
         self.roiEndSlider.valueChanged.connect(self.ZROIChanged)
+        
+        sliders = (self.length_horizontalSlider, self.lengthOffset_horizontalSlider, self.width_horizontalSlider, self.widthOffset_horizontalSlider)
+        spinBoxes = (self.length_dblSpinBox, self.lengthOffset_dblSpinBox, self.width_dblSpinBox, self.widthOffset_dblSpinBox)
+        
+        for i in range(0, 4):
+            slider = sliders[i]
+            spinBox = spinBoxes[i]
+            cb = self.scanParamSliderChanged(spinBox, slider)
+            slider.valueChanged.connect(cb)
+            cb = self.scanParamSpinBoxChanged(spinBox, slider)
+            spinBox.valueChanged.connect(cb)
 
     def _initGraphVars(self):
         layout = QtGui.QHBoxLayout()
@@ -402,8 +411,31 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
         self.brushArray = brushArray
         self.penArray = penArray
-
+        
+    """
+        Call back for scan paratmer sliders
+        Outer function returns a closure because callbacks all have same form
+        We can just write one and reuse for all parameter types (length, width, offsets)
+    """    
+    def scanParamSliderChanged(self, spinBox, slider):
+        def dimChanged(self):
+            spinBox.setValue(slider.value()/1000)
+            
+        return dimChanged
     
+    """
+        Call back for scan paratmer spinboxes
+        Outer function returns a closure because callbacks all have same form
+        We can just write one and reuse for all parameter types (length, width, offsets)
+    """    
+    def scanParamSpinBoxChanged(self, spinBox, slider):
+        def dimChanged(self):
+            slider.blockSignals(True)   # block the signals so the scanParam
+            slider.setValue(spinBox.value*1000)
+            slider.blockSignals(False)
+            
+        return dimChanged
+        
     def focalPlaneChanged(self):
         """
         If the user changes the focal plane of the OCT beam on the OR microscope

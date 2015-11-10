@@ -550,7 +550,9 @@ def runBScan(appObj):
     try: 
         if appObj.oct_hw.IsOCTTestingMode():
             scanParams = loadScanParams(testDataDir)
-                    
+            appObj.savedDataBuffer = JSOraw.SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set
+            appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData.npz')
+            
         while not appObj.doneFlag:
             startTime = time.time()
             processMode = OCTCommon.ProcessMode(appObj.processMode_comboBox.currentIndex())
@@ -587,6 +589,7 @@ def runBScan(appObj):
                 dataIsRaw = False
             elif processMode == OCTCommon.ProcessMode.SOFTWARE:
                 if appObj.oct_hw.IsOCTTestingMode():
+                    print("numTrigs= ", numTrigs)
                     ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
                 else:
                     # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):

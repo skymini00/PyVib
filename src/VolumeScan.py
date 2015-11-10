@@ -8,6 +8,7 @@ Created on Wed Oct  7 12:22:44 2015
 import OCTCommon
 import OCTFPGAProcessingInterface as octfpga
 import BScan
+import JSOraw
 
 from DebugLog import DebugLog
 from scipy import stats
@@ -943,6 +944,7 @@ def runVolScan(appObj):
     try: 
         frameNum = 0
         scanNum = 0
+        processMode = OCTCommon.ProcessMode(appObj.processMode_comboBox.currentIndex())
         while not appObj.doneFlag and frameNum < numFrames:
             # reinitialize volume data on first frame
             if frameNum % framesPerScan == 0:
@@ -974,10 +976,26 @@ def runVolScan(appObj):
             
             # setup and grab the OCT data
             numTrigs = getNumTrigs(scanParams, scanDetails, OCTtrigRate, mirrorDriver)
-            if appObj.oct_hw.IsOCTTestingMode():
-                oct_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
+            if processMode == OCTCommon.ProcessMode.FPGA:
+                if appObj.oct_hw.IsOCTTestingMode():
+                    oct_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
+                else:
+                    err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
+            elif processMode == OCTCommon.ProcessMode.SOFTWARE:
+                if appObj.oct_hw.IsOCTTestingMode():
+                    appObj.savedDataBuffer = JSOraw.SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set
+                    #appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData %d.npz' % frameNum)
+                    appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData.npz')
+
+                    ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
+                else:
+                    # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
+                    samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
+                    err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset)
+
+                oct_data, klin = JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
             else:
-                err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
+                QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
                 
             # process the data
             oct_data_mag = np.abs(oct_data)
@@ -1005,8 +1023,11 @@ def runVolScan(appObj):
                     saveDir = OCTCommon.initSaveDir(saveOpts, 'Volume', scanParams)
                     isSaveDirInit = True
                 if saveOpts.saveRaw:
-                    OCTCommon.saveRawData(oct_data, saveDir, frameNum-1, dataType=0)
-                
+                    if processMode == OCTCommon.ProcessMode.FPGA:
+                        OCTCommon.saveRawData(oct_data, saveDir, frameNum-1, dataType=0)
+                    elif processMode == OCTCommon.ProcessMode.SOFTWARE:
+                        outfile = os.path.join(saveDir, 'testData %d.npz' % (frameNum-1))
+                        np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)
             if frameNum % framesPerScan == 0:
                 if appObj.getSaveState():
                     saveVolumeData(volData, saveDir, saveOpts, scanNum)

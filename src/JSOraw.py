@@ -92,9 +92,10 @@ class SavedDataBuffer:
         self.count=0
         self.saveRawData=0
         
-    def loadData(self,appObj):
-        testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
-        outfile=os.path.join(testDataDir,'testData.npz')
+    def loadData(self,appObj, testDataDir, fileName):
+        #testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
+        #outfile=os.path.join(testDataDir,'testData.npz')
+        outfile=os.path.join(testDataDir, fileName)
         x=np.load(outfile)                    
         self.ch0_data_file=x['ch0_data']
         self.ch1_data_file=x['ch1_data']
