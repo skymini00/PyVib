@@ -31,6 +31,7 @@ import multiprocessing as mproc
 import queue 
 from OCTProtocolParams import *
 
+
 # Mscan processing options
 class MscanProcOpts:
     def __init__(self):
@@ -734,7 +735,112 @@ def saveMscanDataTimeDomain(mscanData, freq, amp, frameNum, saveDir):
     # pickle.dump(spCal, f)
     f.close()
 
-# save the mscan tuning curve
+def writeExcelFreqAmpHeader(ws, freq, amp, row=0, col=1):
+    # write amplitude header in first row
+    r = row
+    c = col
+    for a in amp:
+        c += 1
+        ws.write(r, c, a)
+
+
+    #write frequency header down col
+    c = col
+    for f in freq:
+        r += 1
+        ws.write(r, c, f)
+        
+def writeExcel2DData(ws, data, row=1, col=1):
+    for r in range(0, data.shape[0]):
+        for c in range(0, data.shape[1]):
+            ws.write(r+row, c+col, data[r, c])
+
+"""
+    saveMscanTuningExcel
+        save mscan tuning curve data as Excel workbook (XLSX format)
+"""
+        
+def saveMscanTuningCurveExcel(mscanTuningCurve, audioParams, ptNum, saveDir):
+    try: 
+        import xlsxwriter
+    except:
+        DebugLog.log("could not import xlsxwriter, not saving in Excel")
+        return
+        
+    fileName = 'Mscan Tuning PtNum %d.xlsx' % (ptNum)
+    filepath = os.path.join(saveDir, fileName)
+    tcurve = mscanTuningCurve
+    
+    amp = audioParams.amp
+    freq = audioParams.freq[0, :]
+    numFreq = audioParams.getNumFrequencies()
+    numAmp = len(amp)
+
+    row = 0
+    col = 0
+    workbook = xlsxwriter.Workbook(filepath)
+    ws = workbook.add_worksheet('Mag')
+    ws.write(row, col, 'Stim Mag Resp')
+    writeExcelFreqAmpHeader(ws, freq, amp, row+1, col)
+    writeExcel2DData(ws, tcurve.magResp, row+2, col+1)
+    
+    chart = workbook.add_chart({'type' :'scatter', 'subtype' : 'straight_with_markers'})
+    catStr = '=Mag!$A$3:$A$' + str(numFreq+2)
+    # Configure the chart. In simplest case we add one or more data series.
+    for a_i in range(0, numAmp):
+        colStr = chr(ord('B') + a_i)
+        rngStr = colStr + '3:' + colStr + str(2+numFreq)
+        valStr = '=Mag!' + rngStr
+        print("saveMscanTuningCurveExcel(): valStr= ", valStr)
+        chart.add_series({'values': valStr, 'name' : str(amp[a_i]), 'categories': catStr})
+    
+    chart.set_title({'name' : 'Magnitude Response at Stim Frequency'})
+    chart.set_x_axis({'name' : 'Stim Frequency (kHz)'})
+    chart.set_y_axis({'name' : 'Response (nm)'})
+    
+    # create the location string where chart will be located
+    locStr = chr(ord('B') + numAmp + 1) + '1'
+    # Insert the chart into the worksheet.
+    ws.insert_chart(locStr, chart)
+
+    ws = workbook.add_worksheet('Phase')
+    ws.write(row, col, 'Phase Resp Unwrapped')
+    writeExcelFreqAmpHeader(ws, freq, amp, row+1, col)
+    writeExcel2DData(ws, tcurve.phaseRespUnwrapped, row+2, col+1)
+
+    row = row + numFreq + 3
+    ws.write(row, col, 'Phase Resp Raw')
+    writeExcelFreqAmpHeader(ws, freq, amp, row+1, col)
+    writeExcel2DData(ws, tcurve.phaseResp, row+2, col+1)
+    
+    ws = workbook.add_worksheet('Mag Noise')
+    row = 0
+    ws.write(row, col, 'Mean Above Stim Freq')
+    writeExcelFreqAmpHeader(ws, freq, amp, row+1, col)
+    writeExcel2DData(ws, tcurve.phaseRespUnwrapped, row+2, col+1)
+    
+    row = row + numFreq + 3
+    ws.write(row, col, 'St. dev. Above Stim Freq')
+    writeExcelFreqAmpHeader(ws, freq, amp, row+1, col)
+    writeExcel2DData(ws, tcurve.phaseRespUnwrapped, row+2, col+1)
+ 
+    col = numAmp + 2
+    row = 0
+    ws.write(row, col, 'Mean Below Stim Freq')
+    writeExcelFreqAmpHeader(ws, freq, amp, row+1, col)
+    writeExcel2DData(ws, tcurve.phaseRespUnwrapped, row+2, col+1)
+    
+    row = row + numFreq + 3
+    ws.write(row, col, 'St. dev. Below Stim Freq')
+    writeExcelFreqAmpHeader(ws, freq, amp, row+1, col)
+    writeExcel2DData(ws, tcurve.phaseRespUnwrapped, row+2, col+1)
+    
+    workbook.close()
+
+"""
+    saveMscanTuningCurve
+        save mscan tuning curve data as CSV and Excel if import is successful
+"""
 def saveMscanTuningCurve(mscanTuningCurve, audioParams, ptNum, saveDir):
     tcurve = mscanTuningCurve
     fileName = 'Mscan Tuning PtNum %d.csv' % (ptNum)
@@ -743,7 +849,7 @@ def saveMscanTuningCurve(mscanTuningCurve, audioParams, ptNum, saveDir):
     amp = audioParams.amp
     freq = audioParams.freq[0, :]
 
-    datafmt = '%0.3f'
+    datafmt = '%0.4f'
     rowfmt = '%0.2f'
     colfmt = '%0.1f'
     f.write('Stim Mag Resp\n')
@@ -775,6 +881,13 @@ def saveMscanTuningCurve(mscanTuningCurve, audioParams, ptNum, saveDir):
     f.write(makeCSVTableString(tcurve.FDnoiseBelowStimFreqSD, datafmt, amp, colfmt, freq, rowfmt))
     
     f.close()
+    
+    try: 
+        saveMscanTuningCurveExcel(mscanTuningCurve, audioParams, ptNum, saveDir)
+    except:
+        DebugLog.log("exception attempting to save as Excel file")
+        traceback.print_exc()
+    
         
 # save vibratorery response images
 def saveMscanRegionData(mscanRegionData, volData, saveDir):

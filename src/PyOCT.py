@@ -54,6 +54,9 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         except Exception as ex:
             print(format(ex))
 
+        # this is a flag which indicated the initialized failed in some critical wy to prevent program from being run
+        # if this is true, application will exit without being shown
+        self.initFailed = False
         #QtGui.QMessageBox.critical (self, "Test", "This is a test")
 
         self.protocolButtons = [self.Mscan_pushButton, self.Bscan_pushButton, self.Volume_pushButton, self.Dispersion_pushButton,
@@ -74,7 +77,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         items = ['Single process (slower, simple code)', 'Multiprocess (faster, complex code)']
         itemSelected, okPressed = QtGui.QInputDialog.getItem(self, "QInputDialog.getItem()", "Season:", items, 0, False);
         if not okPressed:
-            self.multiProcess = False
+            self.initFailed = True
+            return
         else:
             self.multiProcess = (itemSelected == items[1])
         DebugLog.log("OCTWindowClass.__init__: itemSelected= %s okPressed= %s multiProcess= %s" % (repr(itemSelected), repr(okPressed), repr(self.multiProcess)))
@@ -1209,5 +1213,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
     myWindow = OCTWindowClass(None)
-    myWindow.show()
-    app.exec_()
+    if not myWindow.initFailed:
+        myWindow.show()
+        app.exec_()

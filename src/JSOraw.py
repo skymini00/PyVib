@@ -350,7 +350,7 @@ def runJSOraw(appObj):
     else:
         testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
         appObj.savedDataBuffer = SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set
-        appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData3.npz')
+        appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData.npz')
 
     peakXPos=np.array([0],dtype=int)       
     peakYPos=np.array([0],dtype=float)       
