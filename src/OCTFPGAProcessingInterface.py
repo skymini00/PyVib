@@ -550,7 +550,9 @@ class LV_DLLInterface:
         fpgaOpts.DispCorr = c_uint8(0) # False
         fpgaOpts.FFT = c_uint8(0)  # False
         fpgaOpts.klinRoiBegin = c_uint16(0) 
-        fpgaOpts.SampleOffset = c_int16(0) 
+        fpgaOpts.SampleOffset = c_int16(1)   # sample offset must be at least 1 for 200 khz system
+        fpgaOpts.Ch0Shift = c_uint16(0)
+        
         if Ch0Shift < 0:
             Ch0Shift = fpgaOpts.Ch0Shift
         else:
@@ -573,6 +575,7 @@ class LV_DLLInterface:
         roiSize = samplesPerTrig * 2
         roiSizeOut = c_int32(roiSize)
         err = self.config_fpga_acq(setupNum, c_uint32(numTriggers), byref(fpgaOpts), byref(roiSizeOut), byref(numTrigsOut), byref(fpgaOptsOut))
+        DebugLog.log("AcquireOCTDataRaw  config_fpga_acq err= %d" % err)
         DebugLog.log("AcquireOCTDataRaw  roiSizeout= %d numTrigsOut=  %d" % (roiSizeOut.value,  numTrigsOut.value))
         if err < 0:
             return err, None, None
@@ -600,14 +603,18 @@ class LV_DLLInterface:
         unpackData = c_uint8(55)
         
         # DebugLog.log("OCTDataCollector.startFrameGetData(): isSynchOCT = " + repr(self.protocol.isSynchOCT()))
+        DebugLog.log("AcquireOCTDataRaw numSamples= " + repr(numSamples))
         err = self.acq_fpga_data(setupNum, c_uint32(numTrigsOut.value), c_uint32(numSamples), trigOffset, unpackData, d_re, d_im, byref(len_data), packedData, byref(len_packed_data), byref(timeElapsed), byref(transferTime), byref(unpackTime))
-        DebugLog.log("AcquireOCTDataRaw len_data= " + repr(len_data.value))
+        DebugLog.log("AcquireOCTDataRaw len_data= " + repr(len_data.value) + " transferTime= " + repr(transferTime.value))
         pd_data = np.zeros(len_data.value, np.float32)
         mzi_data = np.zeros(len_data.value, np.float32)
         pd_data[:] = d_re
         pd_data = pd_data.reshape((numTrigsOut.value, roiSizeOut.value))
+        pd_data = pd_data[:, 0:samplesPerTrig*2]
+        DebugLog.log("AcquireOCTDataRaw pd_data.shape= %s" % repr(pd_data.shape)) 
         mzi_data[:] = d_im
         mzi_data = mzi_data.reshape((numTrigsOut.value, roiSizeOut.value))
+        mzi_data = mzi_data[:, 0:samplesPerTrig*2]
         
         return err, pd_data, mzi_data
     
@@ -1070,15 +1077,16 @@ import time
 
 if __name__ == "__main__":
     import msvcrt
+
     # 50 kHz
     setup = 4
     samplesPerTrig = 1024
     klinROI = [15, 1600]
 
     # 200 kHz
-    #setup = 3
-    #samplesPerTrig = 1200
-    #klinROI = [15, 1175]
+    setup = 3
+    samplesPerTrig = 650
+    klinROI = [15, 1175]
     
     sampleOffset = 13
     Ch0Shift = 20
@@ -1114,8 +1122,9 @@ if __name__ == "__main__":
                     plt.show()
                     
             elif dataToGet == 'raw': # interpolated PD
-                err, pd_data, mzi_data = oct_hw.AcquireOCTDataRaw(10)
-                print("AcquireOCTDataRaw err=", err)
+                for n in range(0, 5):
+                    err, pd_data, mzi_data = oct_hw.AcquireOCTDataRaw(10, samplesPerTrig*2)
+                    print("AcquireOCTDataRaw err=", err)
                 
                 if pd_data is not None:
                     #pd_data = np.mean(pd_data, 0)

@@ -1,10 +1,10 @@
-OCTsetup=-1
+OCTsetup=3
 DispersionFilename=dispersionLast.pickle
 zResolution=5.9
 imgNorms=[30, 95]
 ZROI=[61, 948]
 DefaultScanQuickSet=Fast Scan 5mm
 DefaultAudioQuickSet=   
-MirrorConfigFile=OIM 50kHz.txt
+MirrorConfigFile=OIM 200kHz.txt
 AudioConfigFile=AudioHardware.txt
-FPGAOptsFile=FPGA Opts 50kHz.txt
+FPGAOptsFile=FPGA Opts 200kHz.txt

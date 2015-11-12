@@ -770,7 +770,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>7</number>
         </property>
         <widget class="QWidget" name="bscan_tab">
          <attribute name="title">
@@ -3935,9 +3935,9 @@
           <property name="geometry">
            <rect>
             <x>920</x>
-            <y>752</y>
+            <y>790</y>
             <width>300</width>
-            <height>100</height>
+            <height>141</height>
            </rect>
           </property>
           <property name="backgroundBrush">
@@ -4023,7 +4023,7 @@
           <property name="geometry">
            <rect>
             <x>20</x>
-            <y>842</y>
+            <y>910</y>
             <width>81</width>
             <height>16</height>
            </rect>
@@ -4041,7 +4041,7 @@
           <property name="geometry">
            <rect>
             <x>20</x>
-            <y>861</y>
+            <y>925</y>
             <width>721</width>
             <height>21</height>
            </rect>
@@ -4227,7 +4227,7 @@
           <property name="geometry">
            <rect>
             <x>300</x>
-            <y>612</y>
+            <y>600</y>
             <width>301</width>
             <height>21</height>
            </rect>
@@ -4245,9 +4245,9 @@
           <property name="geometry">
            <rect>
             <x>300</x>
-            <y>632</y>
+            <y>620</y>
             <width>611</width>
-            <height>100</height>
+            <height>141</height>
            </rect>
           </property>
           <property name="backgroundBrush">
@@ -4354,7 +4354,7 @@
           <property name="geometry">
            <rect>
             <x>300</x>
-            <y>732</y>
+            <y>758</y>
             <width>301</width>
             <height>21</height>
            </rect>
@@ -4393,7 +4393,7 @@
             <x>300</x>
             <y>511</y>
             <width>611</width>
-            <height>100</height>
+            <height>91</height>
            </rect>
           </property>
           <property name="backgroundBrush">
@@ -4410,7 +4410,7 @@
           <property name="geometry">
            <rect>
             <x>920</x>
-            <y>732</y>
+            <y>770</y>
             <width>331</width>
             <height>21</height>
            </rect>
@@ -4523,7 +4523,7 @@
             <x>920</x>
             <y>632</y>
             <width>300</width>
-            <height>100</height>
+            <height>141</height>
            </rect>
           </property>
           <property name="backgroundBrush">
@@ -4622,9 +4622,9 @@
           <property name="geometry">
            <rect>
             <x>300</x>
-            <y>752</y>
+            <y>778</y>
             <width>611</width>
-            <height>100</height>
+            <height>141</height>
            </rect>
           </property>
           <property name="backgroundBrush">

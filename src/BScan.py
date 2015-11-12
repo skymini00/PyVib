@@ -593,7 +593,8 @@ def runBScan(appObj):
                     ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
                 else:
                     # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
-                    samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
+                    # samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
+                    samplesPerTrig = appObj.requestedSamplesPerTrig.value()
                     err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset)
                     
                 dataToSave = (ch0_data, ch1_data)
