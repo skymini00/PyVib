@@ -1,7 +1,5 @@
 # PyOCT.py
 #  main file and  GUI interface
-# comment 2
-
 
 from ctypes import *
 from matplotlib import *
