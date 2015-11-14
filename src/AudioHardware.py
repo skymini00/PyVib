@@ -31,6 +31,9 @@ class AudioHardware:
          # the speaker calibration, 2D array of dB responses, first index is left speaker, second idex is right speaker 
         self.speakerCal = np.array([[60, 60], [60, 60]]) 
         
+         # the speaker calibration, 2D array of dB responses, first index is left speaker, second idex is right speaker 
+        self.speakerCalPhase = np.array([[0, 0], [0, 0]]) 
+        
         self.DAQdevice = 'Dev1'
 
     # load in the speaker callibration from the processsed data - check OCTProcessing.SpeakerCalData for format
@@ -38,6 +41,10 @@ class AudioHardware:
         self.speakerCalVolts = spCal.voltsOut
         self.speakerCalFreq = spCal.freq
         self.speakerCal = spCal.magResp
+        try:
+            self.speakerCalPhase = spCal.phaseResp
+        except:
+            self.speakerCalPhase = None
         
     def getCalibratedOutputVoltageAndAttenLevel(self, freq, ampdB, speakerNum):
         freqArray = self.speakerCalFreq[speakerNum]
@@ -62,6 +69,15 @@ class AudioHardware:
    
         return (outV, attenLevel)
        
+    def getCalibratedOutputPhase(self, freq, speakerNum):
+        if self.speakerCalPhase is None:
+            return 0
+            
+        freqArray = self.speakerCalFreq[speakerNum]
+        phaseArray = self.speakerCal[speakerNum]
+        phaseArr = np.interp([freq], freqArray, phaseArray)
+        return phaseArr[0]
+        
     def encodeToString(self, prefix=''):
         s = ""
         s = s + "\n" + prefix + "Speaker Output Range= %f %f" % (self.speakerOutputRng[0], self.speakerOutputRng[1]) 
@@ -124,7 +140,7 @@ class AudioHardware:
         right_freq = self.speakerCalFreq[1, :]
         left_resp = self.speakerCal[0, :]
         right_resp = self.speakerCal[1, :]
-
+        
         # build the frequency and response strings
         left_freq_str = ''
         right_freq_str = ''
@@ -135,7 +151,16 @@ class AudioHardware:
             right_freq_str = right_freq_str + " " + repr(right_freq[n])
             left_resp_str = left_resp_str + " " + repr(left_resp[n])
             right_resp_str = right_resp_str + " " + repr(right_resp[n])
-
+            
+        left_ph_str = ''
+        right_ph_str = ''
+        if self.speakerCalPhase is not None:
+            left_phase = self.speakerCalPhase[0, :]
+            right_phase = self.speakerCalPhase[1, :]
+            for n in range(0, numPts):
+                left_ph_str = left_ph_str + " " + repr(left_phase[n])
+                right_ph_str = right_ph_str + " " + repr(right_phase[n])
+                
         f = open(filename, 'w')            
         f.write('\nCalibration Volts= %f' % (self.speakerCalVolts))
         f.write('\nNum points= %d' % (numPts))
@@ -143,6 +168,9 @@ class AudioHardware:
         f.write("\nRight freq= %s" % (right_freq_str))
         f.write("\nLeft resp dB= %s" % (left_freq_str))
         f.write("\nRight resp dB= %s" % (right_freq_str))
+        if left_ph_str != '':
+            f.write("\nLeft phase (rad)= %s" % (left_ph_str))
+            f.write("\nRight phase (rad)= %s" % (right_ph_str))
         f.close()
         
 
@@ -187,6 +215,16 @@ class AudioHardware:
                 v = v[1:]  # get rid of leading whitespace character
                 for n in range(0, numPts):
                     self.speakerCal[1, n] = v[n]
+            elif(fld == 'Left phase'):
+                v = rep.split(" ", val)
+                v = v[1:]  # get rid of leading whitespace character
+                for n in range(0, numPts):
+                    self.speakerCalPhase[0, n] = v[n]
+            elif(fld == 'Right phase'):
+                v = rep.split(" ", val)
+                v = v[1:]  # get rid of leading whitespace character
+                for n in range(0, numPts):
+                    self.speakerCalPhase[1, n] = v[n]                    
                     
                     
 def readAudioHWConfig(filepath):    
