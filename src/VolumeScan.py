@@ -67,20 +67,17 @@ class VolumeRawData:
         
 def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
     """
-    This function should be called to setup the output and reconstructur parameters prior to starting the protocol,
+    This function should be called to setup the output and reconstruction parameters prior to starting the protocol,
     so that the getMirrorOutput(), processData() functions will return correct values
     """
     yAdjust_val = scanParams.xskew
     phaseAdjust = scanParams.phaseAdjust
-    DAQoutputRate = mirrorDriver.DAQoutputRate
+    DAQoutputRate = mirrorDriver.DAQoutputRate    
     
-    #scanMode = self.scanMode_comboBox.currentIndex() + 1
-    #scanMode=1 
     DebugLog.log("VolumeScan.setupScan() zROI=%s OCTtrigRate=%d DAQoutputRate=%d" % (repr(zROI), OCTtrigRate, DAQoutputRate))
     # define plotting parameters and then setup plotting algorithms
     plotParam=blankRecord() # create an empty record to pass the plotting parameters in
     plotParam.zROI = zROI
-    # plotParam.zROI=(250,275)
     plotParam.zPixel=plotParam.zROI[1]-plotParam.zROI[0]+1              
     plotParam.zPixelsize=procOpts.zRes    
     plotParam.depth=30    # depth of pixels to sum for summed voxel projection
@@ -88,11 +85,11 @@ def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
     plotParam.yPixel=scanParams.widthSteps   # number of pixels in y dimension        
     plotParam.xCenter=np.int(plotParam.xPixel/2)
     plotParam.yCenter=np.int(plotParam.yPixel/2)            
-    plotParam.rangeCenter=((plotParam.xCenter+plotParam.yCenter)//2)//4
+    plotParam.rangeCenter=((plotParam.xCenter+plotParam.yCenter)//2)//4   
     
-    DebugLog.log("EndoSpiralScanProtocol.setupScan() plotParam xPixel= %d yPixel= %d zPixel= %d xCenter= %d yCenter= %d rangeCenter= %d" % (plotParam.xPixel, plotParam.yPixel, plotParam.zPixel, plotParam.xCenter, plotParam.yCenter, plotParam.rangeCenter))
+    DebugLog.log("VolumeScan.setupScan() plotParam xPixel= %d yPixel= %d zPixel= %d xCenter= %d yCenter= %d rangeCenter= %d" % (plotParam.xPixel, plotParam.yPixel, plotParam.zPixel, plotParam.xCenter, plotParam.yCenter, plotParam.rangeCenter))
     #  setup galvo voltages and calculate which samples fit into which pixels                 
-    scanDetails=blankRecord()  #create an empty record to get the spiral scan parameters        if scanMode==0:
+    scanDetails=blankRecord()  #create an empty record to get the spiral scan parameter
     calcuateAngledBScans(plotParam)
     if scanParams.pattern == ScanPattern.spiral:
         setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate, DAQoutputRate)
@@ -112,36 +109,27 @@ def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     into the proper 3D format(scanDetails.c,scanDetails.cTile, and scanDetails.c3)
     """
     # make mirror output signals
+    xAdjust = 1    
     yAdjust = scanParams.xskew
     phaseShift = scanParams.phaseAdjust
-    fr = scanParams.angularScanFreq
-    
-#            yAdjust=self.yAdjust_spinBox.value()
-#            phaseShift=self.eccentricity_spinBox.value() 
+    fr = scanParams.angularScanFreq  # angular scan rate (frequency of one rotation)
+    fv=5     # plotParam scan frequency, which scans in and then out, which is actually two volumes
+    DebugLog.log("VolumeScan.setupSpiralScan(): freq of one rotation (fr)= %d; scan frequency (fv)= %d" % (fr, fv))
     diameter = scanParams.length
     plotParam.xPixelsize=(diameter/plotParam.xPixel)*1000  # size on one pixel in the x dimension in microns
     plotParam.yPixelsize=(diameter/plotParam.yPixel)*1000  # size on one pixel in the y dimension in microns         
-        
-    fv=5     # plotParam scan frequency, which scans in and then out, which is actually two volumes
-#        fr=280  # angular scan rate (frequency of one rotation)
-    rate=2
     voltsPerMM = mirrorDriver.voltsPerMillimeter
-    xAdjust = 1
-    
-    A=voltsPerMM*diameter/2
-       
+    A=voltsPerMM*diameter/2     
     fs=DAQoutputRate   # galvo output sampling rate
-    trigRate = OCTtrigRate
-    scanDetails.numTrigs=np.int32(trigRate/fv)     # calculate how many laser sweeps will occur during one plotParam scan               
     t=np.arange(0,np.around(fs/fv))*1/fs
     r=1/2*(1-np.cos(2*np.pi*fv*t))            
     x=xAdjust*A*r*np.cos(2*np.pi*fr*t)
     y=yAdjust*A*r*np.sin(2*np.pi*fr*t+phaseShift*np.pi/180)
-    DebugLog.log("EndoSpiralScanProtocol.setupSpiralScan() len(t)= %d len(x)= %d" % (len(t), len(x)))
-
     scanDetails.mirrOut= np.vstack((x,y))
+    DebugLog.log("VolumeScan.setupSpiralScan() len(t)= %d len(x)= %d" % (len(t), len(x)))
   
     # reconstruct the image from the array of A-lines
+    scanDetails.numTrigs=np.int32(OCTtrigRate/fv)     # calculate how many laser sweeps will occur during one plotParam scan               
     tReconstruct=np.linspace(0,np.max(t),scanDetails.numTrigs)
     rReconstruct=1/2*(1-np.cos(2*np.pi*fv*tReconstruct))
     theta=2*np.pi*fr*tReconstruct
@@ -352,11 +340,11 @@ def calcuateAngledBScans(plotParam):
 def reformatScan(scanDetails,plotParam,oct_dataMag):   
     """
     This function takes the incoming block of Alines and reformats them into a 3D array (data3D).
-    reformatMode 1 uses the dot product, which averages overlapping Alines, but takes longer
+    reformatMode 0 uses the dot product, which averages overlapping Alines, but takes longer
         scanDetails.c is an array of size numTrigs by xPixels*yPixels containing 0's and 1's.
         scanDetails.cTile is an array of size xPixels*yPixels by zPixels. 
         Each zPixel column contains the number of Alines that are being averaged for that column.
-    reformatMode 2 uses an index which is a lot faster, but doesn't do averaging.
+    reformatMode 1 uses an index which is a lot faster, but doesn't do averaging.
         scanDetails.c3 is an array of size xPixels*yPixels by 1, that indexes each Aline to an Aline in the collected OCT data array
     """
     reformatMode=1
@@ -477,9 +465,9 @@ def plotScan(plotParam,data3D, spiralScanThresholdVal, normLow, normHigh):
 
 
 def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
-    DebugLog.log("SpiralScanProtocol.processData()")
+    DebugLog.log("VolumeScan.processDataSpiralScan(): oct_data_mag.shape=(%d, %d)" % (oct_data_mag.shape))
 
-    data3D=self.reformatScan(scanDetails,plotParam,oct_data_mag) # convert 2D array of A-lines in to 3D dataset with the proper orientation
+    data3D=reformatScan(scanDetails,plotParam,oct_data_mag) # convert 2D array of A-lines in to 3D dataset with the proper orientation
    
     [surfacePlot,bScanPlot, bScanPlot16b]= plotScan(plotParam,data3D, procOpts)  # generate the surface views and b-scan slice images           
 
@@ -892,23 +880,32 @@ def runVolScan(appObj):
     appObj.doneFlag = False
     appObj.isCollecting = True
     OCTtrigRate = appObj.oct_hw.GetTriggerRate()
+
+    OCTtrigRate = 1000  # make this slower for testing purposes
+
     mirrorDriver = appObj.mirrorDriver
     rset = True
     
     chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
     trigChan = mirrorDriver.trig_daqChan
     outputRate = mirrorDriver.DAQoutputRate
+    processMode = OCTCommon.ProcessMode(appObj.processMode_comboBox.currentIndex())
 
     # if in testing mode, load proper paramaeters instead of getting them from GUI
     testDataDir = '' 
     if appObj.oct_hw.IsOCTTestingMode():
         testDataDir = os.path.join(appObj.basePath, 'exampledata', 'VolumeScan')
-        filePath = os.path.join(testDataDir, 'ScanParams.pickle')
-        f = open(filePath, 'rb')
-        scanParams = pickle.load(f)
-        f.close()
+        if processMode == OCTCommon.ProcessMode.FPGA:
+            filePath = os.path.join(testDataDir, 'ScanParams.pickle')
+            f = open(filePath, 'rb')
+            scanParams = pickle.load(f)
+            f.close()
+        elif processMode == OCTCommon.ProcessMode.SOFTWARE:        
+            appObj.savedDataBuffer = JSOraw.SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set (for software processing)
+            appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData.npz')
+            scanParams = appObj.getScanParams()
     else:
-        # get the scan paramters tht user has entred 
+        # get the scan paramters that the user has entred 
         scanParams = appObj.getScanParams()
         
     zROI = appObj.getZROI()
@@ -923,7 +920,7 @@ def runVolScan(appObj):
     elif scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
         numFrames = 1
         framesPerScan = 1
-    
+        
     procOpts = ProcOpts()
     procOpts.normLow = appObj.normLow_spinBox.value()
     procOpts.normHigh = appObj.normHigh_spinBox.value()
@@ -933,7 +930,7 @@ def runVolScan(appObj):
 
     if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
         plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts)
-    
+   
     saveOpts = appObj.getSaveOpts()
     if(appObj.multiProcess):
         runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, scanDetails, procOpts, saveOpts, numFrames, framesPerScan)
@@ -944,7 +941,7 @@ def runVolScan(appObj):
     try: 
         frameNum = 0
         scanNum = 0
-        processMode = OCTCommon.ProcessMode(appObj.processMode_comboBox.currentIndex())
+        
         while not appObj.doneFlag and frameNum < numFrames:
             # reinitialize volume data on first frame
             if frameNum % framesPerScan == 0:
@@ -983,10 +980,6 @@ def runVolScan(appObj):
                     err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
             elif processMode == OCTCommon.ProcessMode.SOFTWARE:
                 if appObj.oct_hw.IsOCTTestingMode():
-                    appObj.savedDataBuffer = JSOraw.SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set
-                    #appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData %d.npz' % frameNum)
-                    appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData.npz')
-
                     ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
                 else:
                     # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):

@@ -106,7 +106,7 @@
          </rect>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="tab_2">
          <attribute name="title">
@@ -666,6 +666,9 @@
             <width>69</width>
             <height>22</height>
            </rect>
+          </property>
+          <property name="currentIndex">
+           <number>1</number>
           </property>
           <item>
            <property name="text">
@@ -4773,7 +4776,7 @@
             <x>10</x>
             <y>50</y>
             <width>271</width>
-            <height>248</height>
+            <height>298</height>
            </rect>
           </property>
           <layout class="QGridLayout" name="gridLayout_2">
@@ -6990,7 +6993,7 @@ focal plane adjust</string>
      <x>0</x>
      <y>0</y>
      <width>1912</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
   </widget>

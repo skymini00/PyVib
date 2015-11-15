@@ -550,7 +550,7 @@ def runBScan(appObj):
     try: 
         if appObj.oct_hw.IsOCTTestingMode():
             scanParams = loadScanParams(testDataDir)
-            appObj.savedDataBuffer = JSOraw.SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set
+            appObj.savedDataBuffer = JSOraw.SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set (for software processing)
             appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData.npz')
             
         while not appObj.doneFlag:
