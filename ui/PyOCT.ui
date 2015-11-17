@@ -106,7 +106,7 @@
          </rect>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="tab_2">
          <attribute name="title">
@@ -667,6 +667,9 @@
             <height>22</height>
            </rect>
           </property>
+          <property name="currentIndex">
+           <number>1</number>
+          </property>
           <item>
            <property name="text">
             <string>FPGA</string>
@@ -770,7 +773,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>7</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="bscan_tab">
          <attribute name="title">
@@ -2121,6 +2124,123 @@
           </property>
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+         <widget class="QSlider" name="thresholdEnFace_verticalSlider">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>684</y>
+            <width>20</width>
+            <height>161</height>
+           </rect>
+          </property>
+          <property name="maximum">
+           <number>100</number>
+          </property>
+          <property name="pageStep">
+           <number>10</number>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="invertedAppearance">
+           <bool>false</bool>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_151">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>850</y>
+            <width>61</width>
+            <height>41</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>EnFace Threshold</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <widget class="QSpinBox" name="normHigh_spinBox_2">
+          <property name="geometry">
+           <rect>
+            <x>94</x>
+            <y>916</y>
+            <width>61</width>
+            <height>22</height>
+           </rect>
+          </property>
+          <property name="keyboardTracking">
+           <bool>false</bool>
+          </property>
+          <property name="maximum">
+           <number>180</number>
+          </property>
+          <property name="value">
+           <number>120</number>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_152">
+          <property name="geometry">
+           <rect>
+            <x>4</x>
+            <y>896</y>
+            <width>91</width>
+            <height>19</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>12</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Norm Low:</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_153">
+          <property name="geometry">
+           <rect>
+            <x>4</x>
+            <y>916</y>
+            <width>91</width>
+            <height>19</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>12</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Norm High:</string>
+          </property>
+         </widget>
+         <widget class="QSpinBox" name="normLow_spinBox_2">
+          <property name="geometry">
+           <rect>
+            <x>94</x>
+            <y>896</y>
+            <width>61</width>
+            <height>22</height>
+           </rect>
+          </property>
+          <property name="maximum">
+           <number>120</number>
+          </property>
+          <property name="value">
+           <number>20</number>
           </property>
          </widget>
         </widget>
@@ -4773,7 +4893,7 @@
             <x>10</x>
             <y>50</y>
             <width>271</width>
-            <height>248</height>
+            <height>298</height>
            </rect>
           </property>
           <layout class="QGridLayout" name="gridLayout_2">
@@ -7076,6 +7196,102 @@ focal plane adjust</string>
     <hint type="destinationlabel">
      <x>341</x>
      <y>46</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>normLow_slider</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>normLow_spinBox_2</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1602</x>
+     <y>899</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>572</x>
+     <y>979</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>normHigh_slider</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>normHigh_spinBox_2</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1602</x>
+     <y>961</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>572</x>
+     <y>999</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>normLow_spinBox_2</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>normLow_slider</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>572</x>
+     <y>979</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1602</x>
+     <y>899</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>normHigh_spinBox_2</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>normHigh_slider</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>572</x>
+     <y>999</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1602</x>
+     <y>961</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>normLow_spinBox</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>normLow_slider</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1502</x>
+     <y>871</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1602</x>
+     <y>899</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>normHigh_spinBox</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>normHigh_slider</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1502</x>
+     <y>931</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1602</x>
+     <y>961</y>
     </hint>
    </hints>
   </connection>

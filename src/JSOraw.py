@@ -128,7 +128,6 @@ def cleank0Run(k0,dispData):  # for Runtime: use the cleaned k0Reference data an
     
 def processPD(pd_data, k0, dispData, klin=None):
     if klin is None:
-        print(k0.shape,dispData.startSample,dispData.endSample,dispData.numKlinPts)
         klin = np.linspace(k0[0,dispData.startSample], k0[0,dispData.endSample], dispData.numKlinPts)
     pd_interp=np.zeros([pd_data.shape[0],dispData.numKlinPts])
     for i in range(pd_data.shape[0]):
@@ -218,7 +217,7 @@ def getSavedRawData(numTrigs,requestedSamplesPerTrig,JSOrawSavedData):
     # Photodiode data (interferogram from the sample) is encoded as imaginary part 
     # MZI data (interferogram from MZI) is encoded as imaginary part        print(self.count,self.oct_data_all.shape[0])
 #        print('size/numTrigs',self.oct_data_file.shape[0],numTrigs)        
-    print('getting saved raw data',JSOrawSavedData.count)
+    DebugLog.log("JSOraw.getSavedRawData(): data file count= %d " % (JSOrawSavedData.count))
     ch0_data=np.zeros([numTrigs,JSOrawSavedData.ch1_data_file.shape[1]])        
     ch1_data=np.zeros([numTrigs,JSOrawSavedData.ch1_data_file.shape[1]])        
    
@@ -309,6 +308,7 @@ def softwareProcessing(ch0_data,ch1_data,zROI,appObj):
     dispData=appObj.dispData
     pdData,mziData,actualSamplesPerTrig=channelShift(ch0_data,ch1_data,dispData)    # shift the two channels to account for delays in the sample data compared to the MZI data 
     mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData, dispData)                # calculate k0 from the phase of the MZI data
+    DebugLog.log("JSOraw.softwareProcessing(): numTriggers collected= %d" % (k0.shape[0]))
 
     k0Cleaned=cleank0Run(k0,dispData) # Adjust the k0 curves so that the unwrapping all starts at the same phase    
     pd_interpRaw, klin = processPD(pdData, k0Cleaned, dispData)  # Interpolate the PD data based upon the MZI data

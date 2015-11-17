@@ -1,9 +1,9 @@
-OCTsetup=3
+OCTsetup=-1
 DispersionFilename=dispersionLast.pickle
 zResolution=5.9
 imgNorms=[30, 95]
 ZROI=[61, 948]
-DefaultScanQuickSet=Fast Scan 5mm
+DefaultScanQuickSet=spiralscan
 DefaultAudioQuickSet=   
 MirrorConfigFile=OIM 200kHz.txt
 AudioConfigFile=AudioHardware.txt

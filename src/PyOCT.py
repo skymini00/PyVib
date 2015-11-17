@@ -202,7 +202,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.klin = None
         DebugLog.log("OCTWindowClass: __init__() done")
         
-        # load up stuff for JSO routines
+        # load up stuff for software processing (JSO) routines
         self.dispData = JSOraw.DispersionData()             # This class holds all the dispersion compensation data, and loads an intial dispersion compensation file
         self.dispData.loadDisp(self)        
         
