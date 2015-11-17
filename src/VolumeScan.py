@@ -353,24 +353,22 @@ def reformatScan(scanDetails,plotParam,oct_dataMag):
         datasum22=np.reshape(datasum21,(plotParam.xPixel,plotParam.yPixel,plotParam.zPixel))
         data3D=np.nan_to_num(np.divide(datasum22,scanDetails.cTile))+1     
     else:
+        DebugLog.log("VolumeScan.reformatScan() plotParam xPixel= %d yPixel= %d zPixel= %d xCenter= %d yCenter= %d rangeCenter= %d" % (plotParam.xPixel, plotParam.yPixel, plotParam.zPixel, plotParam.xCenter, plotParam.yCenter, plotParam.rangeCenter))
+        
         plotParam.zPixel=oct_dataMag.shape[1]
         datasum23=oct_dataMag[scanDetails.c3,:]
         datasum24=np.reshape(datasum23,(plotParam.xPixel,plotParam.yPixel,plotParam.zPixel))
         data3D=np.nan_to_num(datasum24)+1     
     return data3D
         
-def plotScan(plotParam,data3D, spiralScanThresholdVal, normLow, normHigh):
+def plotScan(plotParam,data3D, procOpts):
+
     """
     This simply takes the 3D data set and creates two images (surfacePlot,bScanPlot).               
     """
     # create surface plot
     v21_log=np.log10(data3D)
-#            threshold=np.mean(v21_log,axis=2) 
-#            v21Mean1=np.transpose(np.tile(threshold,(oct_data.shape[1],1,1)),(1,2,0))             
-#            v21Diff1=v21_log-v21Mean1
-    tSlider= spiralScanThresholdVal/100
-    print('tSlider',tSlider)       
-    threshold=tSlider*np.log10(2**16)
+    threshold=(procOpts.thresholdEnFace/100)*np.log10(2**16)
     print('threshold',threshold,np.min(v21_log),np.max(v21_log),np.mean(v21_log))        
     v21Diff1=v21_log-threshold
     v21Diff2=stats.threshold(v21Diff1,threshmin=0, newval=2**63)
@@ -450,8 +448,8 @@ def plotScan(plotParam,data3D, spiralScanThresholdVal, normLow, normHigh):
         
 #        plotParam.bScanArray1=plotParam.bScanArray
  
-    nL = normLow
-    nH = normHigh
+    nL = procOpts.normLow
+    nH = procOpts.normHigh
     
     plotParam.bScanArray1 = 20 * plotParam.bScanArray1
     plotParam.bScanArray1 = (plotParam.bScanArray1 - nL) / (nH- nL)
@@ -466,6 +464,7 @@ def plotScan(plotParam,data3D, spiralScanThresholdVal, normLow, normHigh):
 
 def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
     DebugLog.log("VolumeScan.processDataSpiralScan(): oct_data_mag.shape=(%d, %d)" % (oct_data_mag.shape))
+    DebugLog.log("VolumeScan.processDataSpiralScan() plotParam xPixel= %d yPixel= %d zPixel= %d xCenter= %d yCenter= %d rangeCenter= %d" % (plotParam.xPixel, plotParam.yPixel, plotParam.zPixel, plotParam.xCenter, plotParam.yCenter, plotParam.rangeCenter))
 
     data3D=reformatScan(scanDetails,plotParam,oct_data_mag) # convert 2D array of A-lines in to 3D dataset with the proper orientation
    
@@ -872,7 +871,7 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
 def runVolScan(appObj):
     DebugLog.log("runVolScan")
     appObj.tabWidget.setCurrentIndex(2)
-    
+   
     if not appObj.oct_hw.IsOCTTestingMode():
         from DAQHardware import DAQHardware
         daq = DAQHardware()
@@ -907,11 +906,10 @@ def runVolScan(appObj):
     else:
         # get the scan paramters that the user has entred 
         scanParams = appObj.getScanParams()
-        
-    zROI = appObj.getZROI()
+
     scanDetails = None
     plotParam = None
-    
+    zROI = appObj.getZROI()    
     bscansPerFrame = scanParams.volBscansPerFrame
     numFrames = scanParams.widthSteps // bscansPerFrame            
     framesPerScan = scanParams.widthSteps // bscansPerFrame        
@@ -946,6 +944,11 @@ def runVolScan(appObj):
             # reinitialize volume data on first frame
             if frameNum % framesPerScan == 0:
                 volData = None
+            
+            procOpts.normLow = appObj.normLow_spinBox.value()
+            procOpts.normHigh = appObj.normHigh_spinBox.value()
+            procOpts.thresholdEnFace=appObj.thresholdEnFace_verticalSlider.value()
+            procOpts.enFace_avgDepth=appObj.enFace_avgDepth_verticalSlider.value()
                 
             if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
                 mirrorOut = scanDetails.mirrOut
@@ -992,7 +995,7 @@ def runVolScan(appObj):
                 
             # process the data
             oct_data_mag = np.abs(oct_data)
-            volData = processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum)
+            volData = processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
                 
             if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
                 pass
