@@ -11,8 +11,7 @@ import BScan
 import JSOraw
 
 from DebugLog import DebugLog
-from scipy import stats
-from scipy import signal
+import scipy
 
 from OCTProtocolParams import *
 from PyQt4 import QtCore, QtGui, uic
@@ -353,8 +352,6 @@ def reformatScan(scanDetails,plotParam,oct_dataMag):
         datasum22=np.reshape(datasum21,(plotParam.xPixel,plotParam.yPixel,plotParam.zPixel))
         data3D=np.nan_to_num(np.divide(datasum22,scanDetails.cTile))+1     
     else:
-        DebugLog.log("VolumeScan.reformatScan() plotParam xPixel= %d yPixel= %d zPixel= %d xCenter= %d yCenter= %d rangeCenter= %d" % (plotParam.xPixel, plotParam.yPixel, plotParam.zPixel, plotParam.xCenter, plotParam.yCenter, plotParam.rangeCenter))
-        
         plotParam.zPixel=oct_dataMag.shape[1]
         datasum23=oct_dataMag[scanDetails.c3,:]
         datasum24=np.reshape(datasum23,(plotParam.xPixel,plotParam.yPixel,plotParam.zPixel))
@@ -371,7 +368,7 @@ def plotScan(plotParam,data3D, procOpts):
     threshold=(procOpts.thresholdEnFace/100)*np.log10(2**16)
     print('threshold',threshold,np.min(v21_log),np.max(v21_log),np.mean(v21_log))        
     v21Diff1=v21_log-threshold
-    v21Diff2=stats.threshold(v21Diff1,threshmin=0, newval=2**63)
+    v21Diff2=scipy.stats.threshold(v21Diff1,threshmin=0, newval=2**63)
     v3=np.argmin(v21Diff2,axis=2)
     v3_sumAll=np.sum(v21_log,axis=2)           
     
@@ -381,7 +378,7 @@ def plotScan(plotParam,data3D, procOpts):
         cutoffDepth=plotParam.zPixel
     else:
         cutoffDepth=centerDepth+plotParam.depth
-    v22=stats.threshold(v21Diff1,threshmin=0, newval=0)
+    v22=scipy.stats.threshold(v21Diff1,threshmin=0, newval=0)
     
     v4=np.sum(v22[:,:,0:cutoffDepth],axis=2)
 
@@ -464,10 +461,8 @@ def plotScan(plotParam,data3D, procOpts):
 
 def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
     DebugLog.log("VolumeScan.processDataSpiralScan(): oct_data_mag.shape=(%d, %d)" % (oct_data_mag.shape))
-    DebugLog.log("VolumeScan.processDataSpiralScan() plotParam xPixel= %d yPixel= %d zPixel= %d xCenter= %d yCenter= %d rangeCenter= %d" % (plotParam.xPixel, plotParam.yPixel, plotParam.zPixel, plotParam.xCenter, plotParam.yCenter, plotParam.rangeCenter))
 
     data3D=reformatScan(scanDetails,plotParam,oct_data_mag) # convert 2D array of A-lines in to 3D dataset with the proper orientation
-   
     [surfacePlot,bScanPlot, bScanPlot16b]= plotScan(plotParam,data3D, procOpts)  # generate the surface views and b-scan slice images           
 
     # paste the different plots together
@@ -481,7 +476,7 @@ def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
         bScanPlot1=np.vstack((bScanPlot,addZeros))         
         bothPlots=np.hstack((surfacePlot,bScanPlot1))                    
     
-    procData = ProcessedData()
+    procData = VolumeData()
     SpiralData = SpiralScanData()
     
     SpiralData.bothPlots = bothPlots
