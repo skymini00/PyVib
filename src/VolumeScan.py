@@ -79,7 +79,6 @@ def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
     plotParam.zROI = zROI
     plotParam.zPixel=plotParam.zROI[1]-plotParam.zROI[0]+1              
     plotParam.zPixelsize=procOpts.zRes    
-    plotParam.depth=30    # depth of pixels to sum for summed voxel projection
     plotParam.xPixel=scanParams.lengthSteps   # number of pixels in x dimension  
     plotParam.yPixel=scanParams.widthSteps   # number of pixels in y dimension        
     plotParam.xCenter=np.int(plotParam.xPixel/2)
@@ -112,7 +111,7 @@ def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     yAdjust = scanParams.xskew
     phaseShift = scanParams.phaseAdjust
     fr = scanParams.angularScanFreq  # angular scan rate (frequency of one rotation)
-    fv=5     # plotParam scan frequency, which scans in and then out, which is actually two volumes
+    fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
     DebugLog.log("VolumeScan.setupSpiralScan(): freq of one rotation (fr)= %d; scan frequency (fv)= %d" % (fr, fv))
     diameter = scanParams.length
     plotParam.xPixelsize=(diameter/plotParam.xPixel)*1000  # size on one pixel in the x dimension in microns
@@ -364,9 +363,9 @@ def plotScan(plotParam,data3D, procOpts):
     This simply takes the 3D data set and creates two images (surfacePlot,bScanPlot).               
     """
     # create surface plot
-    v21_log=np.log10(data3D)
-    threshold=(procOpts.thresholdEnFace/100)*np.log10(2**16)
-    print('threshold',threshold,np.min(v21_log),np.max(v21_log),np.mean(v21_log))        
+    v21_log=20*np.log10(np.clip(data3D, 1, np.inf))
+    threshold=(procOpts.thresholdEnFace/100)*20*np.log10(2**16)
+#    print('threshold',threshold,np.min(v21_log),np.max(v21_log),np.mean(v21_log))        
     v21Diff1=v21_log-threshold
     v21Diff2=scipy.stats.threshold(v21Diff1,threshmin=0, newval=2**63)
     v3=np.argmin(v21Diff2,axis=2)
@@ -374,10 +373,10 @@ def plotScan(plotParam,data3D, procOpts):
     
     # create summed voxel projection
     centerDepth=np.mean(v3[plotParam.xCenter-plotParam.rangeCenter:plotParam.xCenter+plotParam.rangeCenter,plotParam.yCenter-plotParam.rangeCenter:plotParam.yCenter+plotParam.rangeCenter])
-    if centerDepth+plotParam.depth>plotParam.zPixel:
+    if centerDepth+procOpts.enFace_avgDepth>plotParam.zPixel:
         cutoffDepth=plotParam.zPixel
     else:
-        cutoffDepth=centerDepth+plotParam.depth
+        cutoffDepth=centerDepth+procOpts.enFace_avgDepth
     v22=scipy.stats.threshold(v21Diff1,threshmin=0, newval=0)
     
     v4=np.sum(v22[:,:,0:cutoffDepth],axis=2)
@@ -410,8 +409,8 @@ def plotScan(plotParam,data3D, procOpts):
     scaleWidthNumPix=int(yOut/60)+1
     scaleXstart=int(xOut*(7/8))
     scaleYstart=int(yOut*(19/20))     
-    print('Scale Bar = ',scaleLength, ' um')
-    print(scaleLengthNumPix,scaleWidthNumPix,scaleXstart,scaleYstart)
+#    print('Scale Bar = ',scaleLength, ' um')
+#    print(scaleLengthNumPix,scaleWidthNumPix,scaleXstart,scaleYstart)
  
     # normalize the surface and summed voxel projection plots            
     surfacePlot=np.uint8((v3A-np.min(v3A))/(np.max(v3A)-np.min(v3A))*255) # normalize the range of the surface
@@ -448,7 +447,6 @@ def plotScan(plotParam,data3D, procOpts):
     nL = procOpts.normLow
     nH = procOpts.normHigh
     
-    plotParam.bScanArray1 = 20 * plotParam.bScanArray1
     plotParam.bScanArray1 = (plotParam.bScanArray1 - nL) / (nH- nL)
     plotParam.bScanArray1 = np.clip(plotParam.bScanArray1, 0, 1)
     bscan1= plotParam.bScanArray1*255
@@ -463,7 +461,14 @@ def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
     DebugLog.log("VolumeScan.processDataSpiralScan(): oct_data_mag.shape=(%d, %d)" % (oct_data_mag.shape))
 
     data3D=reformatScan(scanDetails,plotParam,oct_data_mag) # convert 2D array of A-lines in to 3D dataset with the proper orientation
-    [surfacePlot,bScanPlot, bScanPlot16b]= plotScan(plotParam,data3D, procOpts)  # generate the surface views and b-scan slice images           
+    volDataIn = VolumeData()
+#    volDataIn.scanParams = scanParams
+    volDataIn.volumeImg = np.uint16(data3D)                
+    volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
+    volDataIn.xPixSize = plotParam.xPixelsize    # x pixel size in um
+    volDataIn.yPixSize = plotParam.yPixelsize    # y pixel size in um 
+        
+    [surfacePlot,bScanPlot,bScanPlot16b]= plotScan(plotParam,data3D, procOpts)  # generate the surface views and b-scan slice images           
 
     # paste the different plots together
     heightDiff=surfacePlot.shape[0]-bScanPlot.shape[0]
@@ -476,23 +481,14 @@ def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
         bScanPlot1=np.vstack((bScanPlot,addZeros))         
         bothPlots=np.hstack((surfacePlot,bScanPlot1))                    
     
-    procData = VolumeData()
-    SpiralData = SpiralScanData()
-    
+    SpiralData = SpiralScanData()   
     SpiralData.bothPlots = bothPlots
     SpiralData.surfacePlot = surfacePlot
     SpiralData.bscanPlot = bScanPlot
     SpiralData.bscanPlot_16b = bScanPlot16b
-    procData.SpiralScanData = SpiralData
-    # procData.data3D = data3D
-    
-    data3D = 20*np.log10(data3D[:,:,::-1])
-    nL = procOpts.normLow
-    nH = procOpts.normHigh
-    data3D = np.clip(data3D, nL, nH)
-    data3D = np.uint16(65535*(data3D - nL)/(nH - nL))
-    
-    return procData
+    volDataIn.SpiralData = SpiralData
+  
+    return volDataIn
 
 def processDataWagonWheelScan(rawData, procOpts, scanDetails, plotParam):
     pass
@@ -875,7 +871,7 @@ def runVolScan(appObj):
     appObj.isCollecting = True
     OCTtrigRate = appObj.oct_hw.GetTriggerRate()
 
-    OCTtrigRate = 1000  # make this slower for testing purposes
+#    OCTtrigRate = 1000  # make this slower for testing purposes
 
     mirrorDriver = appObj.mirrorDriver
     rset = True
@@ -919,6 +915,7 @@ def runVolScan(appObj):
     procOpts.normHigh = appObj.normHigh_spinBox.value()
     procOpts.zRes = appObj.octSetupInfo.zRes
     procOpts.biDirTrigVolFix = appObj.volBidirTrigFix_spinBox.value()
+    procOpts.enFace_avgDepth=appObj.enFace_avgDepth_verticalSlider.value()
     biDirTrigVolAdj = appObj.volBidirTrigAdj_spinBox.value()
 
     if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
@@ -993,7 +990,14 @@ def runVolScan(appObj):
             volData = processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
                 
             if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
-                pass
+#                img8b = np.transpose(np.round(255.0*20*np.log10(oct_data_mag)/65335.0))  # remap image range
+#                DebugLog.log("VolumeScan runVolScan(): img8b max= %d min=%d " % (np.max(img8b), np.min(img8b)))
+#
+#                img8b = np.require(img8b, dtype=np.uint8)
+
+                appObj.vol_bscan_gv.setImage(volData.SpiralData.surfacePlot, ROIImageGraphicsView.COLORMAP_HOT, rset)
+                appObj.vol_plane_proj_gv.setImage(volData.SpiralData.bscanPlot, ROIImageGraphicsView.COLORMAP_HOT, rset)
+                rset = False                
             else:
                 img16b = volData.volumeImg[frameNum*bscansPerFrame, :, :]
                 img8b = np.round(255.0*img16b/65335.0)  # remap image range

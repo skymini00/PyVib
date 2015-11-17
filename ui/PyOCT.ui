@@ -1755,6 +1755,9 @@
           <property name="pageStep">
            <number>10</number>
           </property>
+          <property name="value">
+           <number>30</number>
+          </property>
           <property name="orientation">
            <enum>Qt::Vertical</enum>
           </property>
@@ -6871,7 +6874,7 @@
           <double>100000.000000000000000</double>
          </property>
          <property name="value">
-          <double>80.000000000000000</double>
+          <double>280.000000000000000</double>
          </property>
         </widget>
         <widget class="QDoubleSpinBox" name="volScanFreq_spinBox">
