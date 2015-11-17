@@ -773,7 +773,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>2</number>
+         <number>7</number>
         </property>
         <widget class="QWidget" name="bscan_tab">
          <attribute name="title">
@@ -4101,7 +4101,7 @@
            </rect>
           </property>
           <property name="currentIndex">
-           <number>3</number>
+           <number>0</number>
           </property>
           <item>
            <property name="text">
@@ -4121,6 +4121,11 @@
           <item>
            <property name="text">
             <string>Unique</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Brian's routine</string>
            </property>
           </item>
          </widget>
