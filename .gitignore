@@ -55,6 +55,6 @@ docs/_build/
 
 # PyBuilder
 target/
+
 collector_PID_tmp.txt
-config/oct.txt
-config/
+config/local

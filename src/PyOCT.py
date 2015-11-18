@@ -11,6 +11,7 @@ import traceback
 import os
 import copy
 import platform  # for differentiating platforms
+import shutil # for copytree
 
 from PyQt4 import QtCore, QtGui, uic
 import pyqtgraph as pg
@@ -96,7 +97,12 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         basePath = os.path.abspath("..")
             
         self.basePath = basePath
-        configBasePath = os.path.join(basePath, 'config')
+        defaultConfigPath = os.path.join(basePath, 'config', 'defaults')
+        configBasePath = os.path.join(basePath, 'config', 'local')
+        if not os.path.isdir(configBasePath):
+            DebugLog.log("'%s' does not exist, copying from '%s'" % (configBasePath, defaultConfigPath))
+            shutil.copytree(defaultConfigPath, configBasePath)
+        
         self.configPath = configBasePath
         self.settingsPath = configBasePath
 
@@ -1198,9 +1204,14 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             
     def shutdown(self):
         DebugLog.log("OCTWindowClass.shutdown(): closing FPGA")
-        self.oct_hw.CloseFPGA()
-        DebugLog.log("OCTWindowClass.shutdown(): shutting down")
-        self.oct_hw.Shutdown()
+        try:
+            self.oct_hw.CloseFPGA()
+            DebugLog.log("OCTWindowClass.shutdown(): shutting down")
+            self.oct_hw.Shutdown()
+        except Exception as ex:
+            DebugLog.log("OCTWindowClass.shutdown(): exception while attempting to close/shutdown FPGA")
+            traceback.print_exc(file=sys.stdout)            
+            
         self.isShutdown = True
         DebugLog.log("OCTWindowClass.shutdown(): done")
 
