@@ -239,7 +239,7 @@ def readAudioHWConfig(filepath):
 
 # make the digital signal to set the attenuator level for given dB level
 def makeLM1972AttenSig(attenLvl):
-    numpts = 16 + 16 + 2
+    numpts = 16 + 16 + 3
     loadSig = np.zeros(numpts, dtype=np.uint8)
     
     # load signal 
@@ -249,12 +249,13 @@ def makeLM1972AttenSig(attenLvl):
     dataSig =  np.zeros(numpts, dtype=np.uint8)
     
     for n in range(0, 16):
-        clkSig[n*2 + 1] = 1
+        clkSig[n*2 + 2] = 1
         
+    # generate number in binary by repeated divinsion by 2
     for n in range(7, -1, -1):
-        idx = 16 + 1 + n*2
+        idx = 16 + 2 + n*2
         r = attenLvl % 2
-        dataSig[idx:idx+1] = r
+        dataSig[idx:idx+2] = r
         attenLvl = attenLvl // 2
         
     # generate signal output as 32-bit number because thats what NIDAQ uses for writing digital 
@@ -273,7 +274,7 @@ if __name__ == "__main__":
     
     sig = makeLM1972AttenSig(30)
     for n in range(0, len(sig)):
-        print("%8x" % sig[n])    
+        print("%10x" % sig[n])    
         
     daqHW = DAQHardware()
     audioHW = AudioHardware()

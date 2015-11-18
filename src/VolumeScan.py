@@ -27,6 +27,7 @@ import tifffile
 import pickle
 import time
 import multiprocessing as mproc
+import queue
 
 class blankRecord():
     pass
@@ -49,6 +50,7 @@ class VolumeData:
         self.xPixSize = np.NaN     # x pixel size in um
         self.yPixSize = np.NaN     # y pixel size in um 
         self.scanNum = 0
+        self.spiralScanData = None
 
 class SpiralScanData():
     def __init__(self):
@@ -59,8 +61,10 @@ class SpiralScanData():
 
 # raw data used for multi processing
 class VolumeRawData:
-    def __init__(self, packedData, frameNum):
+    def __init__(self, frameNum, packedData=None, oct_data=None, isPackedMagOnly=True):
         self.packedData = packedData
+        self.isPackedMagOnly = isPackedMagOnly
+        self.oct_data = oct_data
         self.frameNum = frameNum
 
         
@@ -237,7 +241,7 @@ def makeEnfaceImgSliceFromVolume(volData, zStep, zDepth, projType=EnFaceProjType
     # imgData = np.transpose(imgData)
     
     
-# return command for entire volume 
+# return command for raster volume scan of given frame number
 def makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, OCTtriggerRate):
     bscansPerFrame = scanParams.volBscansPerFrame
     framesPerScan = scanParams.widthSteps // bscansPerFrame
@@ -476,14 +480,14 @@ def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
         bScanPlot1=np.vstack((bScanPlot,addZeros))         
         bothPlots=np.hstack((surfacePlot,bScanPlot1))                    
     
-    procData = VolumeData()
+    volData = VolumeData()
     SpiralData = SpiralScanData()
     
     SpiralData.bothPlots = bothPlots
     SpiralData.surfacePlot = surfacePlot
     SpiralData.bscanPlot = bScanPlot
     SpiralData.bscanPlot_16b = bScanPlot16b
-    procData.SpiralScanData = SpiralData
+    volData.spiralScanData = SpiralData
     # procData.data3D = data3D
     
     data3D = 20*np.log10(data3D[:,:,::-1])
@@ -491,8 +495,9 @@ def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
     nH = procOpts.normHigh
     data3D = np.clip(data3D, nL, nH)
     data3D = np.uint16(65535*(data3D - nL)/(nH - nL))
+    volData.volumeImg = data3D
     
-    return procData
+    return volData
 
 def processDataWagonWheelScan(rawData, procOpts, scanDetails, plotParam):
     pass
@@ -648,7 +653,13 @@ def VolScanCollectFcn(oct_hw, frameNum, extraArgs):
         packedData = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
     else:
         t3 = time.time()
-        err, packedData = oct_hw.AcquireOCTDataMagOnly(numTrigs, zROI, startTrigOffset)
+        if oct_hw.setupNum == 4:
+            err, packedData = oct_hw.AcquireOCTDataMagOnly(numTrigs, zROI, startTrigOffset)
+            rawData = VolumeRawData(frameNum, packedData=packedData)
+        else:
+            err, oct_data = oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
+            rawData = VolumeRawData(frameNum, oct_data=oct_data)
+            
         DebugLog.log("VolScanCollectFcn: acquire time= %0.1f ms" % (1000*(time.time() - t3)))
     
     t4 = time.time()
@@ -659,7 +670,6 @@ def VolScanCollectFcn(oct_hw, frameNum, extraArgs):
         
     DebugLog.log("VolScanCollectFcn: analog wait, stop and clear time= %0.1f ms" % (1000*(time.time() - t4)))
         
-    rawData = VolumeRawData(packedData, frameNum)
     rawData.collectTime = time.time() - t1
     return rawData, mirrorOut
 
@@ -686,9 +696,14 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
                         t1 = time.time()
         
                         frameNum = rawData.frameNum
-                        (oct_data, mag, phase) = octfpga.unpackData(rawData.packedData)
-                        DebugLog.log("VolScanProcessingProcess(): unpack time = %0.1f ms " % (1000*(time.time() - t1)))
-                        mag = mag*(2**8)
+                        if rawData.packedData is not None:
+                            (oct_data, mag, phase) = octfpga.unpackData(rawData.packedData)
+                            DebugLog.log("VolScanProcessingProcess(): unpack time = %0.1f ms " % (1000*(time.time() - t1)))
+                            mag = mag*(2**8)
+                        else:
+                            oct_data = rawData.oct_data
+                            mag = np.abs(oct_data)
+                            phase = None
                         
                         volData = processData(mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
                         volData.frameNum = rawData.frameNum
@@ -709,7 +724,7 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
                     DebugLog.log("VolScanProcessingProcess(): queue.Full exception")
                     putTimeout = True
         except Exception as ex:
-            traceback.print_exc(file=sys.stdout)
+            traceback.print_exc(file=sys.stdout) 
             statusMsg = OCTCommon.StatusMsg(OCTCommon.StatusMsgSource.PROCESSING, OCTCommon.StatusMsgType.ERROR)
             statusMsg.param = ex
             try:
@@ -719,10 +734,13 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
             shutdown = True
         
         # chedk for shutdown messages 
-        if not msgQ.empty():
+        while not msgQ.empty():
             msg = msgQ.get()
-            if msg == 'shutdown':
+            msgType = msg[0]
+            if msgType == 'shutdown':
                 shutdown = True
+            elif msgType == 'procOpts':
+                procOpts = msg[1]
                 
         sys.stdout.flush()  # flush all debugging output to console
         time.sleep(0.005)  # sleep for 5 ms to reduce CPU load
@@ -798,7 +816,7 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
         
         if not procDataQ.empty():
             DebugLog.log("runVolScanMultiProcess: grabbing data")
-
+            
             data = procDataQ.get()      
             volData = None
             if isinstance(data, VolumeData):
@@ -809,7 +827,24 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
                 appObj.volCollectionTime_label.setText("%0.1f ms" % (volData.collectTime * 1000))
                 appObj.volProcessTime_label.setText("%0.1f ms" % (volData.processTime * 1000))
                     
-                if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
+                if scanParams.pattern == ScanPattern.spiral:
+                    spiralData = volData.spiralScanData
+                    img8b = spiralData.bscanPlot
+                    img8b = np.require(img8b, dtype=np.uint8)
+                    appObj.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
+                    img8b = spiralData.surfacePlot
+                    img8b = np.require(img8b, dtype=np.uint8)
+                    appObj.vol_plane_proj_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
+                    if rset:
+                        gvs = (appObj.vol_bscan_gv, appObj.vol_plane_proj_gv)
+                        for gv in gvs:
+                            hscroll = gv.horizontalScrollBar()
+                            hscroll.setSliderPosition(-500)
+                            vscroll = gv.verticalScrollBar()
+                            vscroll.setSliderPosition(-500)
+                            
+                    rset = False
+                elif scanParams.pattern == ScanPattern.wagonWheel:
                     pass
                 else:
                     framesPerScan = scanParams.widthSteps // bscansPerFrame
@@ -845,7 +880,14 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
                 if err:
                     appObj.doneFlag = True  # if error occured, stop pcollecting
                 statusMsg = oct_hw.GetStatus()
-            
+                
+        procOpts.normLow = appObj.normLow_spinBox.value()
+        procOpts.normHigh = appObj.normHigh_spinBox.value()
+        procOpts.biDirTrigVolFix = appObj.volBidirTrigFix_spinBox.value()
+        procOpts.thresholdEnFace = appObj.thresholdEnFace_verticalSlider.value()
+        procOpts.enFace_avgDepth = appObj.enFace_avgDepth_verticalSlider.value()
+
+        msgQ.put(('procOpts', procOpts))  # update processing options
 
         tElapsed = time.time() - startTime
         tMins = int(np.floor(tElapsed / 60))
@@ -856,7 +898,7 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
         QtGui.QApplication.processEvents() 
         time.sleep(0.005)
     
-    msgQ.put('shutdown')  # tell processing process to stop
+    msgQ.put(('shutdown'))  # tell processing process to stop
     DebugLog.log("runBScanMultiProcess: finishd acquiring data")        
     oct_hw.PauseAcquisition()        
     appObj.isCollecting = False
@@ -919,6 +961,9 @@ def runVolScan(appObj):
     procOpts.normHigh = appObj.normHigh_spinBox.value()
     procOpts.zRes = appObj.octSetupInfo.zRes
     procOpts.biDirTrigVolFix = appObj.volBidirTrigFix_spinBox.value()
+    procOpts.thresholdEnFace=appObj.thresholdEnFace_verticalSlider.value()
+    procOpts.enFace_avgDepth=appObj.enFace_avgDepth_verticalSlider.value()
+
     biDirTrigVolAdj = appObj.volBidirTrigAdj_spinBox.value()
 
     if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
@@ -992,7 +1037,24 @@ def runVolScan(appObj):
             oct_data_mag = np.abs(oct_data)
             volData = processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
                 
-            if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
+            if scanParams.pattern == ScanPattern.spiral :
+                spiralData = volData.spiralScanData
+                img8b = spiralData.bscanPlot
+                img8b = np.require(img8b, dtype=np.uint8)
+                appObj.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
+                img8b = spiralData.surfacePlot
+                img8b = np.require(img8b, dtype=np.uint8)
+                appObj.vol_plane_proj_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
+                if rset:
+                    gvs = (appObj.vol_bscan_gv, appObj.vol_plane_proj_gv)
+                    for gv in gvs:
+                        hscroll = gv.horizontalScrollBar()
+                        hscroll.setSliderPosition(-500)
+                        vscroll = gv.verticalScrollBar()
+                        vscroll.setSliderPosition(-500)
+                        
+                rset = False
+            elif scanParams.pattern == ScanPattern.wagonWheel:
                 pass
             else:
                 img16b = volData.volumeImg[frameNum*bscansPerFrame, :, :]
@@ -1019,12 +1081,14 @@ def runVolScan(appObj):
                     elif processMode == OCTCommon.ProcessMode.SOFTWARE:
                         outfile = os.path.join(saveDir, 'testData %d.npz' % (frameNum-1))
                         np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)
+            
             if frameNum % framesPerScan == 0:
                 if appObj.getSaveState():
                     saveVolumeData(volData, saveDir, saveOpts, scanNum)
 
                 appObj.volDataLast = volData
                 appObj.displayVolumeImg3D(volData.volumeImg)  # update the volume image
+                    
                 scanNum += 1
                 if scanParams.continuousScan:
                     frameNum = 0

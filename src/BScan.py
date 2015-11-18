@@ -340,9 +340,10 @@ def saveImage(bscanImg, saveDir, saveOpts, frameNum):
     tifffile.imsave(filePath, bscanImg)    
     
 class BScanRawData():
-    def __init__(self, oct_data=None, frameNum=-1):
+    def __init__(self, oct_data=None, frameNum=-1, dataIsRaw=False):
         self.oct_data = oct_data
         self.frameNum = frameNum
+        self.dataIsRaw = dataIsRaw
         
 def BscanCollectFunction(oct_hw, frameNum, extraArgs)    :
     scanParams = extraArgs[0]
@@ -490,7 +491,7 @@ def runBScanMultiProcess(appObj, testDataDir):
                 oct_data = rawData.oct_data
                 frameNum = rawData.frameNum
                 img16b = processAndDisplayBscanData(appObj, oct_data, scanParams, rset, zROI)
-                isSaveDirInit, saveDir = saveBScanData(appObj, oct_data, img16b, frameNum, scanParams, saveOpts, isSaveDirInit, saveDir)
+                isSaveDirInit, saveDir = saveBScanData(appObj, oct_data, img16b, frameNum, scanParams, saveOpts, isSaveDirInit, rawData.dataIsRaw, saveDir)
                 rset = False
             else:
                 DebugLog.log("runBScanMultiProcess: data is None or is not BScanRawData")

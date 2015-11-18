@@ -18,9 +18,9 @@ import sys
 import traceback
 import SpeakerCalibration
 
-def makeSpkCalTestOutput(freq, amp, audioHW, audioParams):
+def makeSpkCalTestOutput(freq, amp, audioHW, audioParams, spkNum):
     #outV = 100e-3
-    (outV, attenLvl) = audioHW.getCalibratedOutputVoltageAndAttenLevel(f, a, spkNum)
+    (outV, attenLvl) = audioHW.getCalibratedOutputVoltageAndAttenLevel(freq, amp, spkNum)
 
     outputRate = audioHW.DAQOutputRate
     trialDur = 1e-3*audioParams.getTrialDuration(80)
@@ -34,9 +34,9 @@ def makeSpkCalTestOutput(freq, amp, audioHW, audioParams):
     envFcn[trialPts-envPts:] = np.linspace(1, 0, envPts)
     sig = sig*envFcn
     
-    return sig
+    return sig, attenLvl
    
-def processSpkCalTestData(mic_data, freq, freq_idx, audioParams, inputRate, spkNum):
+def processSpkCalTestData(mic_data, freq, freq_idx, amp_idx, audioParams, inputRate, magRespIn, phaseRespIn):
     # print("SpeakerCalProtocol: processData: mic_data=" + repr(mic_data))
     # ensure data is 1D
     if len(mic_data.shape) > 1:
@@ -84,16 +84,19 @@ def processSpkCalTestData(mic_data, freq, freq_idx, audioParams, inputRate, spkN
     micData.stim_freq_mag = stim_freq_mag
     micData.stim_freq_phase = stim_freq_phase
 
-    speakerCalIn.magResp[spkNum, freq_idx] = stim_freq_mag
-    speakerCalIn.phaseResp[spkNum, freq_idx] = stim_freq_phase
+    magRespIn[freq_idx, amp_idx] = stim_freq_mag
+    phaseRespIn[freq_idx, amp_idx] = stim_freq_phase
         
-    return micData, speakerCalIn
+    return micData, magRespIn, phaseRespIn
     
         
 def GetTestData(frameNum):
+    mic_data = None
+    # TODO load mic_data here
+    
     return mic_data
     
-def runSpeakerCalTest(appObj, testMode=False):
+def runSpeakerCalTest(appObj):
     DebugLog.log("runSpeakerCal")
     appObj.tabWidget.setCurrentIndex(1)
     appObj.doneFlag = False
@@ -109,125 +112,137 @@ def runSpeakerCalTest(appObj, testMode=False):
     chanNamesIn= [ audioHW.mic_daqChan]
     micVoltsPerPascal = audioHW.micVoltsPerPascal
 
-    spCal = SpeakerCalData(audioParams)
+    # spCal = SpeakerCalData(audioParams)
     try:
+        testMode = appObj.oct_hw.IsDAQTestingMode()
         frameNum = 0
         isSaveDirInit = False
         saveOpts = appObj.getSaveOpts()
-        for spkNum in range(0, numSpk):
-            chanNameOut = audioHW.speakerL_daqChan 
+        
+        if audioParams.speakerSel == Speaker.LEFT:
+            chanNameOut = audioHW.speakerL_daqChan
             attenLines = audioHW.attenL_daqChan
             spkIdx = 0
-                
-            if (numSpk == 1 and audioParams.speakerSel == Speaker.RIGHT) or spkNum == 2:
-                chanNameOut = audioHW.speakerR_daqChan
-                attenLines = audioHW.attenR_daqChan
-                spkIdx = 1
-    
-            freq_array = audioParams.freq[spkIdx, :]
-            DebugLog.log("freq_array=" + repr(freq_array))
-            freq_idx = 0
-            amp_array = audioParams.amp
-            for freq in freq_array:
-                for amp in amp_array:
-                    spkOut = makeSpeakerCalTestOutput(freq, amp, audioHW, audioParams)    
-                    npts = len(spkOut)
-                    t = np.linspace(0, npts/outputRate, npts)
-                    
-                    pl = appObj.plot_spkOut
-                    pl.clear()
-                    endIdx = int(5e-3 * outputRate)        # only plot first 5 ms
-                    pl.plot(t[0:endIdx], spkOut[0:endIdx], pen='b')
-                            
-                    attenSig = AudioHardware.makeLM1972AttenSig(0)
-                    numInputSamples = int(inputRate*len(spkOut)/outputRate) 
-                    
-                    if not testMode:
-                        daq.sendDigOutCmd(attenLines, attenSig)
-                        # setup the output task
-                        daq.setupAnalogOutput([chanNameOut], audioHW.daqTrigChanIn, int(outputRate), spkOut)
-                        daq.startAnalogOutput()
-                        
-                        # setup the input task
-                        daq.setupAnalogInput(chanNamesIn, audioHW.daqTrigChanIn, int(inputRate), numInputSamples) 
-                        daq.startAnalogInput()
-                    
-                        # trigger the acquiisiton by sending ditital pulse
-                        daq.sendDigTrig(audioHW.daqTrigChanOut)
-                        
-                        mic_data = daq.readAnalogInput()
-                        mic_data = mic_data/micVoltsPerPascal
-                        
-                    else:
-                        mic_data = GetTestData(frameNum)
-                    
-                    if not testMode:
-                        daq.stopAnalogInput()
-                        daq.stopAnalogOutput()
-                        daq.clearAnalogInput()
-                        daq.clearAnalogOutput()
-                    
-                    npts = len(mic_data)
-                    t = np.linspace(0, npts/inputRate, npts)
-                    pl = appObj.plot_micRaw
-                    pl.clear()
-                    pl.plot(t, mic_data, pen='b')
-                    
-                    labelStyle = appObj.xLblStyle
-                    pl.setLabel('bottom', 'Time', 's', **labelStyle)
-                    labelStyle = appObj.yLblStyle
-                    pl.setLabel('left', 'Response', 'Pa', **labelStyle)
-                    
-                    micData, spCal = processSpkCalTestData(mic_data, freq*1000, freq_idx, audioParams, inputRate, spCal, spkIdx)
-                    
-                    pl = appObj.plot_micFFT
-                    pl.clear()
-                    df = micData.fft_freq[1] - micData.fft_freq[0]
-                    nf = len(micData.fft_freq)
-                    i1 = int(1000*freq_array[0]*0.9/df)
-                    i2 = int(1000*freq_array[-1]*1.1/df)
-                    DebugLog.log("SpeakerCalibration: df= %0.3f i1= %d i2= %d nf= %d" % (df, i1, i2, nf))
-                    pl.plot(micData.fft_freq[i1:i2], micData.fft_mag[i1:i2], pen='b')
-                    labelStyle = appObj.xLblStyle
-                    pl.setLabel('bottom', 'Frequency', 'Hz', **labelStyle)
-                    labelStyle = appObj.yLblStyle
-                    pl.setLabel('left', 'Magnitude', 'db SPL', **labelStyle)
-                    
-                    pl = appObj.plot_micMagResp
-                    pl.clear()
-                    pl.plot(1000*spCal.freq[spkIdx, :], spCal.magResp[spkIdx, :], pen="b", symbol='o')
-                    labelStyle = appObj.xLblStyle
-                    pl.setLabel('bottom', 'Frequency', 'Hz', **labelStyle)
-                    labelStyle = appObj.yLblStyle
-                    pl.setLabel('left', 'Magnitude', 'db SPL', **labelStyle)
-                    
-                    freq_idx += 1
-                    
-                    if appObj.getSaveState():
-                        if not isSaveDirInit:
-                            saveDir = OCTCommon.initSaveDir(saveOpts, 'Speaker Cal Test', audioParams=audioParams)
-                            isSaveDirInit = True
+        else:
+            chanNameOut = audioHW.speakerR_daqChan
+            attenLines = audioHW.attenR_daqChan
+            spkIdx = 1
+
+        freq_array = audioParams.freq[spkIdx, :]
+        DebugLog.log("freq_array=" + repr(freq_array))
+        amp_array = audioParams.amp
+        numAmp = len(amp_array)
+        numFreq = len(freq_array)
+        magResp = np.zeros((numFreq, numAmp))
+        magResp[:, :] = np.nan
+        phaseResp = np.zeros((numFreq, numAmp))
+        phaseResp[:, :] = np.nan
         
-                        if saveOpts.saveRaw:
-                            OCTCommon.saveRawData(mic_data, saveDir, frameNum, dataType=3)
-                        
-                    QtGui.QApplication.processEvents() # check for GUI events, such as button presses
-                    
-                    # if done flag, break out of loop
-                    if appObj.doneFlag:
-                        break
-                    
-                    frameNum += 1
+        for freq_idx in range(0, numFreq):
+            for amp_idx in range(0, numAmp):
+                freq = freq_array[freq_idx]
+                amp = amp_array[amp_idx]
                 
+                spkOut, attenLvl = makeSpkCalTestOutput(freq, amp, audioHW, audioParams, spkIdx)    
+                DebugLog.log('runSpeakerCalTest freq= %0.3f kHz amp= %d attenLvl= %d' % (freq, amp, attenLvl))
+                
+                if spkOut is None:
+                    DebugLog.log('runSpeakerCalTest freq= %0.3f kHz cannot output %d dB' % (freq, amp))
+                    continue
+                
+                npts = len(spkOut)
+                t = np.linspace(0, npts/outputRate, npts)
+                
+                pl = appObj.plot_spkOut
+                pl.clear()
+                endIdx = int(5e-3 * outputRate)        # only plot first 5 ms
+                pl.plot(t[0:endIdx], spkOut[0:endIdx], pen='b')
+                
+                attenSig = AudioHardware.makeLM1972AttenSig(attenLvl)
+                numInputSamples = int(inputRate*len(spkOut)/outputRate) 
+                
+                if not testMode:
+                    daq.sendDigOutCmd(attenLines, attenSig)
+                    # setup the output task
+                    daq.setupAnalogOutput([chanNameOut], audioHW.daqTrigChanIn, int(outputRate), spkOut)
+                    daq.startAnalogOutput()
+                    
+                    # setup the input task
+                    daq.setupAnalogInput(chanNamesIn, audioHW.daqTrigChanIn, int(inputRate), numInputSamples) 
+                    daq.startAnalogInput()
+                
+                    # trigger the acquiisiton by sending ditital pulse
+                    daq.sendDigTrig(audioHW.daqTrigChanOut)
+                    
+                    mic_data = daq.readAnalogInput()
+                    mic_data = mic_data/micVoltsPerPascal
+                    
+                    daq.waitDoneInput()
+                    daq.waitDoneOutput()
+                    daq.stopAnalogInput()
+                    daq.stopAnalogOutput()
+                    daq.clearAnalogInput()
+                    daq.clearAnalogOutput()
+                else:
+                    mic_data = GetTestData(frameNum)
+                
+                npts = len(mic_data)
+                t = np.linspace(0, npts/inputRate, npts)
+                pl = appObj.plot_micRaw
+                pl.clear()
+                pl.plot(t, mic_data, pen='b')
+                
+                labelStyle = appObj.xLblStyle
+                pl.setLabel('bottom', 'Time', 's', **labelStyle)
+                labelStyle = appObj.yLblStyle
+                pl.setLabel('left', 'Response', 'Pa', **labelStyle)
+                
+                micData, magResp, phaseResp = processSpkCalTestData(mic_data, freq*1000, freq_idx, amp_idx, audioParams, inputRate, magResp, phaseResp)
+                     
+                pl = appObj.plot_micFFT
+                pl.clear()
+                df = micData.fft_freq[1] - micData.fft_freq[0]
+                nf = len(micData.fft_freq)
+                i1 = int(1000*freq_array[0]*0.9/df)
+                i2 = int(1000*freq_array[-1]*1.1/df)
+                DebugLog.log("SpeakerCalibration: df= %0.3f i1= %d i2= %d nf= %d" % (df, i1, i2, nf))
+                pl.plot(micData.fft_freq[i1:i2], micData.fft_mag[i1:i2], pen='b')
+                labelStyle = appObj.xLblStyle
+                pl.setLabel('bottom', 'Frequency', 'Hz', **labelStyle)
+                labelStyle = appObj.yLblStyle
+                pl.setLabel('left', 'Magnitude', 'db SPL', **labelStyle)
+                
+                pl = appObj.plot_micMagResp
+                pl.clear()
+                
+                for a_idx in range(0, numAmp):
+                    pen=(a_idx, numAmp)
+                    pl.plot(1000*freq_array, magResp[:, a_idx], pen=pen, symbol='o')
+                        
+                labelStyle = appObj.xLblStyle
+                pl.setLabel('bottom', 'Frequency', 'Hz', **labelStyle)
+                labelStyle = appObj.yLblStyle
+                pl.setLabel('left', 'Magnitude', 'db SPL', **labelStyle)
+                
+                if appObj.getSaveState():
+                    if not isSaveDirInit:
+                        saveDir = OCTCommon.initSaveDir(saveOpts, 'Speaker Cal Test', audioParams=audioParams)
+                        isSaveDirInit = True
+    
+                    if saveOpts.saveRaw:
+                        OCTCommon.saveRawData(mic_data, saveDir, frameNum, dataType=3)
+                    
+                QtGui.QApplication.processEvents() # check for GUI events, such as button presses
+                
+                # if done flag, break out of loop
+                if appObj.doneFlag:
+                    break
+            
             # if done flag, break out of loop
             if appObj.doneFlag:
                 break
                 
-        if not appObj.doneFlag:
-            saveDir = appObj.configPath
-            saveSpeakerCal(spCal, saveDir)
-            appObj.audioHW.loadSpeakerCalFromProcData(spCal)
-            appObj.spCal = spCal            
+
             
     except Exception as ex:
         traceback.print_exc(file=sys.stdout)

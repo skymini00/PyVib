@@ -32,6 +32,7 @@ import Dispersion
 import SpeakerCalibration
 import JSOraw
 import RawDataTest
+import SpeakerCalTest
 
 #from EndoSpiralScanProtocol import *
 # from ORmicroscopeScanProtocol import *
@@ -668,7 +669,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 self.nextProtocol = 'SpeakerCalTest'
                 self.stopCollection()
             else:
-                pass  # TODO include special scan code here
+                SpeakerCalTest.runSpeakerCalTest(self)
         else:
             self.nextProtocol = None
             self.stopCollection()   
