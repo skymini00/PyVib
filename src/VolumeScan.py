@@ -461,58 +461,58 @@ def plotScan(plotParam,data3D, procOpts):
     return surfacePlot,bScanPlot,bScanPlot16b
 
 
-def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
-    DebugLog.log("VolumeScan.processDataSpiralScan(): oct_data_mag.shape=(%d, %d)" % (oct_data_mag.shape))
-
-    data3D=reformatScan(scanDetails,plotParam,oct_data_mag) # convert 2D array of A-lines in to 3D dataset with the proper orientation
-    volDataIn = VolumeData()
-#    volDataIn.scanParams = scanParams
-    volDataIn.volumeImg = np.uint16(data3D)                
-    volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
-    volDataIn.xPixSize = plotParam.xPixelsize    # x pixel size in um
-    volDataIn.yPixSize = plotParam.yPixelsize    # y pixel size in um 
-        
-    [surfacePlot,bScanPlot,bScanPlot16b]= plotScan(plotParam,data3D, procOpts)  # generate the surface views and b-scan slice images           
-
-    # paste the different plots together
-    heightDiff=surfacePlot.shape[0]-bScanPlot.shape[0]
-    if heightDiff<0:
-        addZeros=np.uint8(np.zeros((-heightDiff,surfacePlot.shape[1])))
-        surfacePlot1=np.vstack((surfacePlot,addZeros))
-        bothPlots=np.hstack((surfacePlot1,bScanPlot))                    
-    else:
-        addZeros=np.uint8(np.zeros((heightDiff,bScanPlot.shape[1])))
-        bScanPlot1=np.vstack((bScanPlot,addZeros))         
-        bothPlots=np.hstack((surfacePlot,bScanPlot1))                    
-    
-<<<<<<< HEAD
-    volData = VolumeData()
-    SpiralData = SpiralScanData()
-    
-=======
-    SpiralData = SpiralScanData()   
->>>>>>> 5014568e12c445c25bc1f77e197980ad25827ea7
-    SpiralData.bothPlots = bothPlots
-    SpiralData.surfacePlot = surfacePlot
-    SpiralData.bscanPlot = bScanPlot
-    SpiralData.bscanPlot_16b = bScanPlot16b
-<<<<<<< HEAD
-    volData.spiralScanData = SpiralData
-    # procData.data3D = data3D
-    
-    data3D = 20*np.log10(data3D[:,:,::-1])
-    nL = procOpts.normLow
-    nH = procOpts.normHigh
-    data3D = np.clip(data3D, nL, nH)
-    data3D = np.uint16(65535*(data3D - nL)/(nH - nL))
-    volData.volumeImg = data3D
-    
-    return volData
-=======
-    volDataIn.SpiralData = SpiralData
-  
-    return volDataIn
->>>>>>> 5014568e12c445c25bc1f77e197980ad25827ea7
+#def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
+#    DebugLog.log("VolumeScan.processDataSpiralScan(): oct_data_mag.shape=(%d, %d)" % (oct_data_mag.shape))
+#
+#    data3D=reformatScan(scanDetails,plotParam,oct_data_mag) # convert 2D array of A-lines in to 3D dataset with the proper orientation
+#    volDataIn = VolumeData()
+##    volDataIn.scanParams = scanParams
+#    volDataIn.volumeImg = np.uint16(data3D)                
+#    volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
+#    volDataIn.xPixSize = plotParam.xPixelsize    # x pixel size in um
+#    volDataIn.yPixSize = plotParam.yPixelsize    # y pixel size in um 
+#        
+#    [surfacePlot,bScanPlot,bScanPlot16b]= plotScan(plotParam,data3D, procOpts)  # generate the surface views and b-scan slice images           
+#
+#    # paste the different plots together
+#    heightDiff=surfacePlot.shape[0]-bScanPlot.shape[0]
+#    if heightDiff<0:
+#        addZeros=np.uint8(np.zeros((-heightDiff,surfacePlot.shape[1])))
+#        surfacePlot1=np.vstack((surfacePlot,addZeros))
+#        bothPlots=np.hstack((surfacePlot1,bScanPlot))                    
+#    else:
+#        addZeros=np.uint8(np.zeros((heightDiff,bScanPlot.shape[1])))
+#        bScanPlot1=np.vstack((bScanPlot,addZeros))         
+#        bothPlots=np.hstack((surfacePlot,bScanPlot1))                    
+#    
+#<<<<<<< HEAD
+#    volData = VolumeData()
+#    SpiralData = SpiralScanData()
+#    
+#=======
+#    SpiralData = SpiralScanData()   
+#>>>>>>> 5014568e12c445c25bc1f77e197980ad25827ea7
+#    SpiralData.bothPlots = bothPlots
+#    SpiralData.surfacePlot = surfacePlot
+#    SpiralData.bscanPlot = bScanPlot
+#    SpiralData.bscanPlot_16b = bScanPlot16b
+#<<<<<<< HEAD
+#    volData.spiralScanData = SpiralData
+#    # procData.data3D = data3D
+#    
+#    data3D = 20*np.log10(data3D[:,:,::-1])
+#    nL = procOpts.normLow
+#    nH = procOpts.normHigh
+#    data3D = np.clip(data3D, nL, nH)
+#    data3D = np.uint16(65535*(data3D - nL)/(nH - nL))
+#    volData.volumeImg = data3D
+#    
+#    return volData
+#=======
+#    volDataIn.SpiralData = SpiralData
+#  
+#    return volDataIn
+#>>>>>>> 5014568e12c445c25bc1f77e197980ad25827ea7
 
 def processDataWagonWheelScan(rawData, procOpts, scanDetails, plotParam):
     pass
@@ -976,13 +976,13 @@ def runVolScan(appObj):
     procOpts.normHigh = appObj.normHigh_spinBox.value()
     procOpts.zRes = appObj.octSetupInfo.zRes
     procOpts.biDirTrigVolFix = appObj.volBidirTrigFix_spinBox.value()
-<<<<<<< HEAD
+#<<<<<<< HEAD
     procOpts.thresholdEnFace=appObj.thresholdEnFace_verticalSlider.value()
     procOpts.enFace_avgDepth=appObj.enFace_avgDepth_verticalSlider.value()
 
-=======
+#=======
     procOpts.enFace_avgDepth=appObj.enFace_avgDepth_verticalSlider.value()
->>>>>>> 5014568e12c445c25bc1f77e197980ad25827ea7
+#>>>>>>> 5014568e12c445c25bc1f77e197980ad25827ea7
     biDirTrigVolAdj = appObj.volBidirTrigAdj_spinBox.value()
 
     if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
@@ -1056,7 +1056,7 @@ def runVolScan(appObj):
             oct_data_mag = np.abs(oct_data)
             volData = processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
                 
-<<<<<<< HEAD
+#<<<<<<< HEAD
             if scanParams.pattern == ScanPattern.spiral :
                 spiralData = volData.spiralScanData
                 img8b = spiralData.bscanPlot
@@ -1076,7 +1076,7 @@ def runVolScan(appObj):
                 rset = False
             elif scanParams.pattern == ScanPattern.wagonWheel:
                 pass
-=======
+#=======
             if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
 #                img8b = np.transpose(np.round(255.0*20*np.log10(oct_data_mag)/65335.0))  # remap image range
 #                DebugLog.log("VolumeScan runVolScan(): img8b max= %d min=%d " % (np.max(img8b), np.min(img8b)))
@@ -1086,7 +1086,7 @@ def runVolScan(appObj):
                 appObj.vol_bscan_gv.setImage(volData.SpiralData.surfacePlot, ROIImageGraphicsView.COLORMAP_HOT, rset)
                 appObj.vol_plane_proj_gv.setImage(volData.SpiralData.bscanPlot, ROIImageGraphicsView.COLORMAP_HOT, rset)
                 rset = False                
->>>>>>> 5014568e12c445c25bc1f77e197980ad25827ea7
+#>>>>>>> 5014568e12c445c25bc1f77e197980ad25827ea7
             else:
                 img16b = volData.volumeImg[frameNum*bscansPerFrame, :, :]
                 img8b = np.round(255.0*img16b/65335.0)  # remap image range
