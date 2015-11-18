@@ -773,7 +773,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>2</number>
+         <number>7</number>
         </property>
         <widget class="QWidget" name="bscan_tab">
          <attribute name="title">
@@ -1754,6 +1754,9 @@
           </property>
           <property name="pageStep">
            <number>10</number>
+          </property>
+          <property name="value">
+           <number>30</number>
           </property>
           <property name="orientation">
            <enum>Qt::Vertical</enum>
@@ -4098,7 +4101,7 @@
            </rect>
           </property>
           <property name="currentIndex">
-           <number>3</number>
+           <number>0</number>
           </property>
           <item>
            <property name="text">
@@ -4118,6 +4121,11 @@
           <item>
            <property name="text">
             <string>Unique</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Brian's routine</string>
            </property>
           </item>
          </widget>
@@ -6871,7 +6879,7 @@
           <double>100000.000000000000000</double>
          </property>
          <property name="value">
-          <double>80.000000000000000</double>
+          <double>280.000000000000000</double>
          </property>
         </widget>
         <widget class="QDoubleSpinBox" name="volScanFreq_spinBox">
