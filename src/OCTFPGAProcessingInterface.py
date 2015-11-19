@@ -628,7 +628,11 @@ class LV_DLLInterface:
             err = self.load_dispersion(setupNum, magWin_d, phaseCorr_d, len_data)
             
         return err
-        
+    
+    def SetAttenLevel(self, attenLvl, outLines):
+        err = self.daqio_set_attenlevel(c_uint8(attenLvl), outLines.encode("ASCII"))
+        return err
+        #err1 = self._octhw.daqio_set_attenlevel(c_uint8(attenLevels[0]), self.audioHW.attenL_daqChan.encode("ASCII"))
     
     def CloseFPGA(self):
         err = 0
@@ -720,6 +724,9 @@ class LV_DLLInterface_BGProcess:
             self.acqFunction = param
         elif msgType == 'setAcqFunctionArgs':
             self.acqFunctionArgs = param
+        elif msgType == 'setAttenLvl':
+            err = self.oct_hw.SetAttenLevel(param[0], param[1])
+            self.statusQ.put(err)
         elif msgType == 'loadDispersion':
             magWin = param[0]
             phaseCorr = param[1]
@@ -987,7 +994,17 @@ class LV_DLLInterface_BGProcess_Adaptor:
         (err, pd_data, mzi_data) = self.rawDataQ.get(timeout=self.qTimeout)
         
         return err, pd_data, mzi_data        
-    
+        
+    def SetAttenLevel(self, attenLvl, outLines):
+        msg = ('setAttenLvl', (attenLvl, outLines))
+        self.collMsgQ.put(msg, timeout=self.qTimeout)
+        err = -1
+        time.sleep(1e-3)
+        if not self.statusQ.empty():
+            err = self.statusQ.get(timeout=self.qTimeout)
+            
+        return err
+        
 def readFPGAOptsConfig(filepath):    
     opts = FPGAOpts_t()
     

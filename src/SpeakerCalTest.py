@@ -162,7 +162,9 @@ def runSpeakerCalTest(appObj):
                 numInputSamples = int(inputRate*len(spkOut)/outputRate) 
                 
                 if not testMode:
-                    daq.sendDigOutCmd(attenLines, attenSig)
+                    # daq.sendDigOutCmd(attenLines, attenSig)
+                    appObj.oct_hw.SetAttenLevel(attenLvl, attenLines)
+                    
                     # setup the output task
                     daq.setupAnalogOutput([chanNameOut], audioHW.daqTrigChanIn, int(outputRate), spkOut)
                     daq.startAnalogOutput()

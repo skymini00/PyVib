@@ -239,7 +239,7 @@ def readAudioHWConfig(filepath):
 
 # make the digital signal to set the attenuator level for given dB level
 def makeLM1972AttenSig(attenLvl):
-    numpts = 16 + 16 + 3
+    numpts = 16*3 + 3
     loadSig = np.zeros(numpts, dtype=np.uint8)
     
     # load signal 
@@ -249,20 +249,20 @@ def makeLM1972AttenSig(attenLvl):
     dataSig =  np.zeros(numpts, dtype=np.uint8)
     
     for n in range(0, 16):
-        clkSig[n*2 + 2] = 1
+        clkSig[n*3 + 2] = 1
         
     # generate number in binary by repeated divinsion by 2
     for n in range(7, -1, -1):
-        idx = 16 + 2 + n*2
+        idx = n*3 + 2
         r = attenLvl % 2
-        dataSig[idx:idx+2] = r
+        dataSig[idx-1:idx+2] = r
         attenLvl = attenLvl // 2
         
     # generate signal output as 32-bit number because thats what NIDAQ uses for writing digital 
     sig = np.zeros(numpts, dtype=np.uint32)
-    loadMask = 1 << 31   
-    dataMask = 1 << 30
-    clkMask = 1 << 29
+    loadMask = 1 << 2
+    dataMask = 1 << 1
+    clkMask = 1 << 0
     for n in range(0, numpts):
         sig[n] = (loadMask*loadSig[n]) | (dataMask*dataSig[n]) | (clkMask*clkSig[n])
         
@@ -278,6 +278,9 @@ if __name__ == "__main__":
         
     daqHW = DAQHardware()
     audioHW = AudioHardware()
-    outLines = audioHW.attenL_daqChan
+    
+    # outLines = audioHW.attenL_daqChan
+    # lf.attenL_daqChan = "Dev1/line1:3"
+    outLines = "PXI1Slot2/port0/line1:3"
     daqHW.sendDigOutCmd(outLines, sig)
     

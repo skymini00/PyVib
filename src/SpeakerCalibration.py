@@ -183,7 +183,8 @@ def runSpeakerCal(appObj, testMode=False):
                 if testMode:
                     mic_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=3)                    
                 else:
-                    daq.sendDigOutCmd(attenLines, attenSig)
+                    # daq.sendDigOutCmd(attenLines, attenSig)
+                    appObj.oct_hw.SetAttenLevel(0, attenLines)
                     # setup the output task
                     daq.setupAnalogOutput([chanNameOut], audioHW.daqTrigChanIn, int(outputRate), spkOut)
                     daq.startAnalogOutput()

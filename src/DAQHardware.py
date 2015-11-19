@@ -125,15 +125,18 @@ class DAQHardware:
         
         return data
         
-    def sendDigOutCmd(self, outLines, outCmd):
+    def sendDigOutCmd(self, outLines, outCmd, timeBetweenPts=0.0001):
         dig_out = daqmx.Task()
         dig_out.CreateDOChan(outLines, "", daqmx.DAQmx_Val_ChanForAllLines)
         # print(dig_out)
         numpts = len(outCmd)
         doSamplesWritten = daqmx.c_int32()
-        dig_out.WriteDigitalU32(numSampsPerChan=numpts, autoStart=True, timeout=1.0, dataLayout=daqmx.DAQmx_Val_GroupByChannel, writeArray=outCmd, reserved=None, sampsPerChanWritten=byref(doSamplesWritten))
-        DebugLog.log("Digital output: Wrote %d samples" % doSamplesWritten.value)
-
+        # dig_out.WriteDigitalU32(numSampsPerChan=numpts, autoStart=True, timeout=1.0, dataLayout=daqmx.DAQmx_Val_GroupByChannel, writeArray=outCmd, reserved=None, sampsPerChanWritten=byref(doSamplesWritten))
+        # DebugLog.log("Digital output: Wrote %d samples" % doSamplesWritten.value)
+        for n in range(0, numpts):
+            outCmd_n = np.array(outCmd[n])
+            dig_out.WriteDigitalU32(numSampsPerChan=1, autoStart=True, timeout=0.01, dataLayout=daqmx.DAQmx_Val_GroupByChannel, writeArray=outCmd_n, reserved=None, sampsPerChanWritten=byref(doSamplesWritten))            
+            time.sleep(timeBetweenPts)
 
     def waitDoneTask(task, timeout):
         err = 0
@@ -175,15 +178,10 @@ class DAQHardware:
 import matplotlib.pyplot as plt
 import copy
 
-if __name__ == "__main__":
-    sig = makeLM1972AttenSig(30)
-    for n in range(0, len(sig)):
-        print("%8x" % sig[n])
-    
+def runAOTest(daqHW,):
     chanNames = ['Dev1/ao0', 'Dev1/ao3']    
     chanNames = ['PXI1Slot2/ao0', 'PXI1Slot2/ao1']    
 
-    daqHW = DAQHardware()
     data = np.zeros(2)
     daqHW.writeValues(chanNames, data)
     
@@ -248,3 +246,16 @@ if __name__ == "__main__":
         
 #    analog_output.ClearTask()
     daqHW.clearAnalogOutput()
+    
+if __name__ == "__main__":
+
+    daqHW = DAQHardware()
+    digOutLines = 'PXI1Slot2/port0/line1:2'    
+    numpts = 100
+    digSig = np.zeros(numpts, dtype=np.uint32)
+    digSig[0::2] = 1
+    digSig[1::2] = 2
+    
+    daqHW.sendDigOutCmd(digOutLines, digSig)
+
+    # runAOTest(daqHW)
