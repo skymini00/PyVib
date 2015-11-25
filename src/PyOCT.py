@@ -108,7 +108,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
 
         fpgaOpts = self._readHardwareConfig(configBasePath)
         DebugLog.log(self.octSetupInfo.__dict__)
-        self.dispCorr = Dispersion.DispersionData()
+        self.dispData = Dispersion.DispersionData(fpgaOpts)
         
         self._initOCTHardware(fpgaOpts)
         
@@ -133,13 +133,15 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
 
         self.isUpdating = False
         
-        magWin = self.dispCorr.magWin
-        phCorr = self.dispCorr.phaseCorr
+        magWin = self.dispData.magWin
+        phCorr = self.dispData.phaseCorr
 
-        pl = self.plot_disp_magwin
-        pl.plot(magWin, pen='b')
-        pl = self.plot_disp_phasecorr
-        pl.plot(phCorr, pen='b')
+        if magWin is not None:
+            pl = self.plot_disp_magwin
+            pl.plot(magWin, pen='b')
+        if phCorr is not None:
+            pl = self.plot_disp_phasecorr
+            pl.plot(phCorr, pen='b')
         
         self.imgDataScanParams = None
         self.connect(self, QtCore.SIGNAL('triggered()'), self.closeEvent)
@@ -188,10 +190,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             except:
                 DebugLog.log("OCTWindowClass: __init__() could not load quickset '%s'" % defaultScanQuickSetName)
             
-
-        # start a dispersion
-#        self.Dispersion_pushButton.setChecked(True)
-#        self.Dispersion_clicked()  
         
         for btn in self.protocolButtons:
             btn.setEnabled(True)
@@ -210,8 +208,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         DebugLog.log("OCTWindowClass: __init__() done")
         
         # load up stuff for software processing (JSO) routines
-        self.dispData = JSOraw.DispersionData()             # This class holds all the dispersion compensation data, and loads an intial dispersion compensation file
-        self.dispData.loadDisp(self)        
+        self.dispData = JSOraw.DispersionData()  # This class holds all the dispersion compensation data, and loads an intial dispersion compensation file
         
         
     def _readHardwareConfig(self, configBasePath):
@@ -293,10 +290,12 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         dispFilePath = os.path.join(dispFilePath, self.octSetupInfo.dispFilename)
         self.oct_hw = oct_hw
         
+        # read in dispersion data
         try:
-            dispCorr = readDispersionFile(dispFilePath)
-            oct_hw.LoadOCTDispersion(dispCorr.magWin, -dispCorr.phaseCorr)
-            self.dispCorr = dispCorr
+            # dispCorr = readDispersionFile(dispFilePath)
+            dispData = Dispersion.loadDispData(self, dispFilePath)
+            oct_hw.LoadOCTDispersion(dispData.magWin, -dispData.phaseCorr)
+            self.dispData = dispData
         except Exception as ex:
             print("Could not load dispersion file '%s'" % dispFilePath)
             traceback.print_exc(file=sys.stdout)
@@ -1198,6 +1197,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         zroi = (roiBegin, roiEnd)            
         self.zROILast = zroi
         self.ZROI_size_spinBox.setValue(roiEnd - roiBegin + 1)
+        self.bscan_img_gv.centerOn(0, 0)
         
 #        if not self.singleProcess:
 #            self.collMsgQ.put(CollProcMsg(CollProcMsgType.CHANGE_ZROI, zroi))        

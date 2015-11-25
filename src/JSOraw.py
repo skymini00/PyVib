@@ -127,11 +127,24 @@ def cleank0Run(k0,dispData):  # for Runtime: use the cleaned k0Reference data an
     return k0Cleaned
     
 def processPD(pd_data, k0, dispData, klin=None):
+    numklinpts = dispData.numKlinPts
     if klin is None:
-        klin = np.linspace(k0[0,dispData.startSample], k0[0,dispData.endSample], dispData.numKlinPts)
-    pd_interp=np.zeros([pd_data.shape[0],dispData.numKlinPts])
-    for i in range(pd_data.shape[0]):
-        pd_interp[i,:] = np.interp(klin, k0[i,:], pd_data[i,:])    
+        klin = np.linspace(k0[0,dispData.startSample], k0[0,dispData.endSample], numklinpts)
+
+    # if num klinpts is > 2048, need to use downsampling to get interp points below 2048
+    if numklinpts > 2048:
+        dsf = numklinpts // 2048 + 1
+        pd_interp = np.zeros((pd_data.shape[0], numklinpts // dsf))
+        for i in range(pd_data.shape[0]):
+            interp_pd = np.interp(klin, k0[i,:], pd_data[i,:])    
+            interp_pd = np.reshape(interp_pd, (numklinpts // dsf, dsf))
+            interp_pd = np.mean(interp_pd, 1)
+            pd_interp[i,:] = interp_pd
+    else:
+        pd_interp=np.zeros((pd_data.shape[0], numklinpts))
+        for i in range(pd_data.shape[0]):
+            pd_interp[i,:] = np.interp(klin, k0[i,:], pd_data[i,:])    
+        
     return pd_interp, klin  
 
 def dispersionCorrection(pd,dispData):

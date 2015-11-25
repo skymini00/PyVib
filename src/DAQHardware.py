@@ -131,11 +131,11 @@ class DAQHardware:
         # print(dig_out)
         numpts = len(outCmd)
         doSamplesWritten = daqmx.c_int32()
-        # dig_out.WriteDigitalU32(numSampsPerChan=numpts, autoStart=True, timeout=1.0, dataLayout=daqmx.DAQmx_Val_GroupByChannel, writeArray=outCmd, reserved=None, sampsPerChanWritten=byref(doSamplesWritten))
+        # dig_out.WriteDigitalU32(numSampsPerChan=numpts, autoStart=True, timeout=1.0, dataLayout=daqmx.DAQmx_Val_GroupByScanNumber, writeArray=outCmd, reserved=None, sampsPerChanWritten=byref(doSamplesWritten))
         # DebugLog.log("Digital output: Wrote %d samples" % doSamplesWritten.value)
         for n in range(0, numpts):
             outCmd_n = np.array(outCmd[n])
-            dig_out.WriteDigitalU32(numSampsPerChan=1, autoStart=True, timeout=0.01, dataLayout=daqmx.DAQmx_Val_GroupByChannel, writeArray=outCmd_n, reserved=None, sampsPerChanWritten=byref(doSamplesWritten))            
+            dig_out.WriteDigitalU32(numSampsPerChan=1, autoStart=True, timeout=0.01, dataLayout=daqmx.DAQmx_Val_GroupByScanNumber, writeArray=outCmd_n, reserved=None, sampsPerChanWritten=byref(doSamplesWritten))            
             time.sleep(timeBetweenPts)
 
     def waitDoneTask(task, timeout):
@@ -250,11 +250,11 @@ def runAOTest(daqHW,):
 if __name__ == "__main__":
 
     daqHW = DAQHardware()
-    digOutLines = 'PXI1Slot2/port0/line1:2'    
-    numpts = 100
+    digOutLines = 'PXI1Slot2/port0/line2:6'    
+    numpts = 10
     digSig = np.zeros(numpts, dtype=np.uint32)
     digSig[0::2] = 1
-    digSig[1::2] = 2
+    digSig[1::2] = 0
     
     daqHW.sendDigOutCmd(digOutLines, digSig)
 
