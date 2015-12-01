@@ -144,6 +144,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             pl.plot(phCorr, pen='b')
         
         self.imgDataScanParams = None
+        self.imgdata_zROI = None
         self.connect(self, QtCore.SIGNAL('triggered()'), self.closeEvent)
         self._initGraphVars()
         self.widthStepLast = -1

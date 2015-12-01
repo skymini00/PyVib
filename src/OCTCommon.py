@@ -214,7 +214,7 @@ def initSaveDir(saveOpts, protocolName, scanParams=None, audioParams=None):
     if saveOpts.notes != '':     # write notes 
         filepath = os.path.join(saveDir, 'notes.txt')
         f = open(filepath, 'w')
-        f.write(notes)
+        f.write(saveOpts.notes)
         f.close()
     if scanParams is not None:      # write scan parameters to text file
         scanParamsStr = repr(scanParams)

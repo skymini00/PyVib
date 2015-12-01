@@ -50,6 +50,9 @@ class ScanParams:
         s = s + '\nptList= %s' % ptsListStr
         return s
         
+    def sameDim(self, scanP):
+        return self.length == scanP.length and self.width == scanP.width
+        
 from enum import Enum
 
 class ScanPattern(Enum):

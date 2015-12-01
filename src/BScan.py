@@ -395,8 +395,15 @@ def processAndDisplayBscanData(appObj, oct_data, scanParams, rset, zROI):
     appObj.imgView.setImage(img8b.transpose())    
     lut = appObj.HOT_LUT
     appObj.imgView.getImageItem().setLookupTable(lut) 
+    if appObj.imgDataScanParams == None:
+        rset = True
+    else:
+        if not scanParams.length == appObj.imgDataScanParams.length or zROI != appObj.imgdata_zROI:
+            rset = True
+        
     appObj.bscan_img_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
-    rset = False
+    
+    
     appObj.imgDataScanParams = copy.copy(scanParams)
     appObj.imgdata_8b = img8b
     appObj.imgdata_zROI = zROI
@@ -444,7 +451,7 @@ def runBScanMultiProcess(appObj, testDataDir):
     oct_hw = appObj.oct_hw
     trigRate = appObj.oct_hw.GetTriggerRate()
     mirrorDriver = appObj.mirrorDriver
-    rset = True
+    rset = appObj.imgDataScanParams is None
     saveOpts = appObj.getSaveOpts()
     isSaveDirInit = False
     saveDir = None
@@ -541,7 +548,8 @@ def runBScan(appObj):
         
     trigRate = appObj.oct_hw.GetTriggerRate()
     mirrorDriver = appObj.mirrorDriver
-    rset = True
+    rset = appObj.imgDataScanParams is None
+        
     saveOpts = appObj.getSaveOpts()
     isSaveDirInit = False
     frameNum = 0

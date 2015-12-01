@@ -462,10 +462,10 @@ class ROIImageGraphicsView(QtGui.QGraphicsView):
         if imgData is None:
             self.qImage = None
             self.qPixmap = None
-            self.pixMapItem = None
             if self.pixMapItem != None:
                 self.scene().removeItem(self.pixMapItem)
-                
+
+            self.pixMapItem = None
             self.imgData = None
         else:
             if not isinstance(imgData, np.ndarray):
@@ -506,16 +506,20 @@ class ROIImageGraphicsView(QtGui.QGraphicsView):
                 pixMapItem = self.scene().addPixmap(qPixMap)
                 pixMapItem.setZValue(-10)
                 # center item on center of view
-                pixMapItem.translate(-h/2, -w/2)
                 self.pixMapItem = pixMapItem
             else:
                 self.pixMapItem.setPixmap(qPixMap)
+
+            # ensure item is centered in the coordinate system            
+            self.pixMapItem.setPos(-h/2, -w/2)
             
             self.qImage = qImg
             self.qPixmap = qPixMap
             
             if resetTransform:
-                # reset transform to identity 
+                
+
+                # reset transform to identity with scale factor
                 tForm = QtGui.QTransform()
                 w_g = self.width()
                 h_g = self.height()
@@ -523,7 +527,7 @@ class ROIImageGraphicsView(QtGui.QGraphicsView):
                 tForm.scale(s, s)
                 self.setTransform(tForm)
                 
-                # self.circ1_start.
+                # reset line positions
                 qpt1 = QtCore.QPoint(0, h // 2)
                 qpt2 = QtCore.QPoint(w, h // 2)
                 pt1f = self.mapToScene(qpt1)
@@ -545,6 +549,9 @@ class ROIImageGraphicsView(QtGui.QGraphicsView):
                 self.line2.setLine(l)
                 self.line2_cap_start.setPos(pt1f)
                 self.line2_cap_end.setRect(rct)
+                
+                # center the image in the view
+                self.centerOn(0, 0)
             
             # self.line1_cap_end.setPos(pt2f)
             
