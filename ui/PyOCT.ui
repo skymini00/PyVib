@@ -668,7 +668,7 @@
            </rect>
           </property>
           <property name="currentIndex">
-           <number>0</number>
+           <number>1</number>
           </property>
           <item>
            <property name="text">
@@ -4101,7 +4101,7 @@
            </rect>
           </property>
           <property name="currentIndex">
-           <number>0</number>
+           <number>3</number>
           </property>
           <item>
            <property name="text">
@@ -4120,12 +4120,12 @@
           </item>
           <item>
            <property name="text">
-            <string>Unique</string>
+            <string>Mirror</string>
            </property>
           </item>
           <item>
            <property name="text">
-            <string>Brian's routine</string>
+            <string>Brian</string>
            </property>
           </item>
          </widget>
@@ -4608,6 +4608,9 @@
           </property>
          </widget>
          <widget class="QPushButton" name="JSOsaveDispersion_pushButton">
+          <property name="enabled">
+           <bool>true</bool>
+          </property>
           <property name="geometry">
            <rect>
             <x>20</x>
@@ -6118,7 +6121,7 @@
           <number>12000</number>
          </property>
          <property name="value">
-          <number>500</number>
+          <number>200</number>
          </property>
         </widget>
         <widget class="QSpinBox" name="widthSteps_spinBox">

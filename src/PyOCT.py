@@ -108,8 +108,14 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
 
         fpgaOpts = self._readHardwareConfig(configBasePath)
         DebugLog.log(self.octSetupInfo.__dict__)
-        self.dispData = Dispersion.DispersionData(fpgaOpts)
+
+
+        # load up stuff for software processing (JSO) routines
+        self.dispData = JSOraw.DispersionData()  # This class holds all the dispersion compensation data, and loads an intial dispersion compensation file
+        JSOraw.loadDispersion_onStartup(self)
+        self.JSOsaveDispersion_pushButton.setEnabled(False)
         
+#        self.dispData = Dispersion.DispersionData(fpgaOpts)        
         self._initOCTHardware(fpgaOpts)
         
         imgNorms = self.octSetupInfo.imgNorms
@@ -208,9 +214,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.klin = None
         DebugLog.log("OCTWindowClass: __init__() done")
         
-        # load up stuff for software processing (JSO) routines
-        self.dispData = JSOraw.DispersionData()  # This class holds all the dispersion compensation data, and loads an intial dispersion compensation file
-        
         
     def _readHardwareConfig(self, configBasePath):
         self.octSetupInfo = OCTSetupInfo()
@@ -294,9 +297,10 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         # read in dispersion data
         try:
             # dispCorr = readDispersionFile(dispFilePath)
-            dispData = Dispersion.loadDispData(self, dispFilePath)
-            oct_hw.LoadOCTDispersion(dispData.magWin, -dispData.phaseCorr)
-            self.dispData = dispData
+#            dispData = Dispersion.loadDispData(self, dispFilePath)
+#            oct_hw.LoadOCTDispersion(dispData.magWin, -dispData.phaseCorr)
+            oct_hw.LoadOCTDispersion(self.dispData.magWin, -self.dispData.phaseCorr)
+#            self.dispData = dispData
         except Exception as ex:
             print("Could not load dispersion file '%s'" % dispFilePath)
             traceback.print_exc(file=sys.stdout)

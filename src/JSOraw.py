@@ -17,10 +17,6 @@ import traceback
 from DebugLog import DebugLog
 import pickle
 
-class blankClass:
-    def __init__(self):
-        pass
-    
 class DispersionData:  # this class holds all the dispersion compensation data
     def __init__(self):
         self.magWin =[]
@@ -30,36 +26,14 @@ class DispersionData:  # this class holds all the dispersion compensation data
         self.startSample=[]
         self.endSample=[]
         self.numKlinPts=[]
+        self.Klin=[]
         self.numShiftPts=[]
         self.filterWidth=[]
         self.PDfilterCutoffs=[]
         self.mziFilter=[]
         self.magWin_LPfilterCutoff=[]
         self.k0Reference=[]
-        
-    def loadDisp(self,appObj):
-        infile=os.path.join(appObj.configPath, 'Dispersion','dispComp-initial.pickle')  
-        file2=open(infile,'rb')
-        x=pickle.load(file2)
-        #self = pickle.load(file2)
-        file2.close()
-        appObj.dispCompFilename_label.setText(infile) 
-        self.magWin =x.magWin
-        self.requestedSamplesPerTrig=x.requestedSamplesPerTrig
-#        self.requestedSamplesPerTrig=3000
-        self.phaseCorr = x.phaseCorr
-        self.phDiode_background = x.phDiode_background
-        self.startSample=x.startSample
-        self.endSample=x.endSample
-        self.numKlinPts=x.numKlinPts
-        self.numShiftPts=x.numShiftPts
-        self.filterWidth=x.filterWidth
-        self.PDfilterCutoffs=x.PDfilterCutoffs
-        self.mziFilter=x.mziFilter
-        self.magWin_LPfilterCutoff=x.magWin_LPfilterCutoff
-        self.k0Reference=x.k0Reference
-        loadDispersion(appObj, self)
-        
+                
 class SavedDataBuffer: 
     def __init__(self):
         self.ch0_data_file=[]
@@ -79,7 +53,6 @@ class SavedDataBuffer:
         appObj.requestedSamplesPerTrig.setValue(self.ch1_data_file.shape[1])
         print('loaded saved data into buffer from :',outfile)
        
-        
 def processMZI(mzi_data, dispData):
     # filtering seems to reduce sidebands created during the interpolation process
     (b, a) = scipy.signal.butter(2, dispData.mziFilter, 'highpass')
@@ -128,7 +101,7 @@ def cleank0Run(k0,dispData):  # for Runtime: use the cleaned k0Reference data an
     
 def processPD(pd_data, k0, dispData, klin=None):
     numklinpts = dispData.numKlinPts
-    if klin is None:
+    if klin is None:        # this section is only run during the dispersion compensation algorithm. Then, klin is saved with the dispersion file and used from there on
         klin = np.linspace(k0[0,dispData.startSample], k0[0,dispData.endSample], numklinpts)
 
     # if num klinpts is > 2048, need to use downsampling to get interp points below 2048
@@ -154,8 +127,12 @@ def dispersionCorrection(pd,dispData):
     elif dispData.dispMode=='Hamming':
         dispData.magWin = 2*np.hamming(dispData.numKlinPts)
         dispData.phaseCorr = np.zeros(dispData.numKlinPts)
-    elif dispData.dispMode=='Unique':
-        processUniqueDispersion(pd,dispData)
+    elif dispData.dispMode=='Mirror': 
+        # this routine is based upon the concept that a mirror should give a single sharp peak with the phase of the Hilbert transform being a linear ramp 
+        processMirrorDispersion(pd,dispData)
+    elif dispData.dispMode=='Brian':
+        #Brian put a call in to your dispersion subroutine here
+        pass
     else:
         dispData.magWin = np.ones(dispData.numKlinPts)
         dispData.phaseCorr = np.zeros(dispData.numKlinPts)
@@ -173,7 +150,7 @@ def channelShift(ch0_data,ch1_data,dispData):
     mziData=ch1_data[:,0:actualSamplesPerTrig]
     return pdData,mziData,actualSamplesPerTrig
 
-def processUniqueDispersion(pd_data, dispData, pd_background=None, bg_collect=False):
+def processMirrorDispersion(pd_data, dispData, pd_background=None, bg_collect=False):
     numTrigs = pd_data.shape[0]
     numklinpts = pd_data.shape[1]
     winFcn = np.hanning(numklinpts)
@@ -268,7 +245,7 @@ def saveDispersion_pushButton_clicked(appObj):
     appObj.dispCompFilename_label.setText(outfile)
     
     
-def loadDispersion(appObj, dispData):
+def updateDispersionGUI(appObj, dispData):
         # Clear all of the plots
     appObj.mzi_plot_2.clear() 
     appObj.pd_plot_2.clear()
@@ -301,6 +278,7 @@ def loadDispersion(appObj, dispData):
     appObj.filterWidth.setValue(dispData.filterWidth)
     appObj.mziFilter.setValue(dispData.mziFilter)
     appObj.dispMagWindowFilter.setValue(dispData.magWin_LPfilterCutoff)
+    appObj.dispersionCompAlgorithm_comboBox.setCurrentIndex(dispData.dispCode) 
     
 def loadDispersion_pushButton_clicked(appObj):
     loadpath=os.path.join(appObj.configPath, 'Dispersion')  
@@ -311,9 +289,17 @@ def loadDispersion_pushButton_clicked(appObj):
     file2.close()
     appObj.dispData=dispData
     appObj.dispCompFilename_label.setText(infile) 
-    loadDispersion(appObj, appObj.dispData)
+    updateDispersionGUI(appObj, appObj.dispData)
+    
+def loadDispersion_onStartup(appObj):   
+    infile=os.path.join(appObj.configPath, 'Dispersion','dispComp-initial.pickle')  
+    file2=open(infile,'rb')
+    dispData=pickle.load(file2)
+    file2.close()
+    appObj.dispData=dispData
+    appObj.dispCompFilename_label.setText(infile)
+    updateDispersionGUI(appObj, appObj.dispData)
 
-  
 def softwareProcessing(ch0_data,ch1_data,zROI,appObj):
     # This routine can be called from any other routine to do software processing of the raw data. 
     # It needs appObj.dispData so you must have loaded a dispersion file already for this to work.
@@ -324,7 +310,8 @@ def softwareProcessing(ch0_data,ch1_data,zROI,appObj):
     DebugLog.log("JSOraw.softwareProcessing(): numTriggers collected= %d" % (k0.shape[0]))
 
     k0Cleaned=cleank0Run(k0,dispData) # Adjust the k0 curves so that the unwrapping all starts at the same phase    
-    pd_interpRaw, klin = processPD(pdData, k0Cleaned, dispData)  # Interpolate the PD data based upon the MZI data
+    Klin=dispData.Klin
+    pd_interpRaw, klin = processPD(pdData, k0Cleaned, dispData, Klin)  # Interpolate the PD data based upon the MZI data    
     pd_interpDispComp = dispData.magWin * pd_interpRaw * (np.cos(-1*dispData.phaseCorr) + 1j * np.sin(-1*dispData.phaseCorr))  # perform dispersion compensation
     pd_fftDispComp, alineMagDispComp, alinePhaseDispComp = calculateAline(pd_interpDispComp) # calculate the a-line
     oct_data = pd_fftDispComp[:, zROI[0]:zROI[1]] 
@@ -336,7 +323,8 @@ def runJSOraw(appObj):
         appObj.tabWidget.setCurrentIndex(7)
         appObj.doneFlag = False
         appObj.isCollecting = True
-        
+        appObj.JSOsaveDispersion_pushButton.setEnabled(True)
+        appObj.JSOloadDispersion_pushButton.setEnabled(False)
         dispData = appObj.dispData             # this class holds all the dispersion compensation data    
         laserSweepFreq=appObj.oct_hw.GetTriggerRate()
         mirrorDriver = appObj.mirrorDriver
@@ -365,22 +353,14 @@ def runJSOraw(appObj):
             dispData.startSample=appObj.startSample.value()
             dispData.endSample=appObj.endSample.value()
             dispData.numKlinPts=appObj.numKlinPts.value()
+            dispData.Klin=np.zeros(dispData.numKlinPts)         
             dispData.numShiftPts=appObj.numShiftPts.value()
             dispData.filterWidth=appObj.filterWidth.value()
             dispData.mziFilter=appObj.mziFilter.value()
             dispData.magWin_LPfilterCutoff=appObj.dispMagWindowFilter.value()
             dispData.PDfilterCutoffs=[0,0]
-            dispCode=appObj.dispersionCompAlgorithm_comboBox.currentIndex()            
-            if dispCode==0:
-                dispData.dispMode='None'
-            elif dispCode==1:
-                dispData.dispMode='Hanning'
-            elif dispCode==2:
-                dispData.dispMode='Hamming'
-            elif dispCode==3:
-                dispData.dispMode='Unique'
-            else:
-                dispData.dispMode='None'
+            dispData.dispCode=appObj.dispersionCompAlgorithm_comboBox.currentIndex() 
+            dispData.dispMode=appObj.dispersionCompAlgorithm_comboBox.currentText()
                      
             # Get data using one of several methods
             if appObj.oct_hw.IsOCTTestingMode():
@@ -412,6 +392,7 @@ def runJSOraw(appObj):
             
             # Interpolate the PD data based upon the MZI data and calculate the a-lines before dispersion compensation      
             pd_interpRaw, klin = processPD(pdData, k0, dispData)
+            dispData.Klin=klin
             pd_fftNoInterp, alineMagNoInterp, alinePhaseNoInterp = calculateAline(pdData[:,dispData.startSample:dispData.endSample])
             pd_fftRaw, alineMagRaw, alinePhaseRaw = calculateAline(pd_interpRaw)
             
@@ -554,3 +535,5 @@ def runJSOraw(appObj):
     appObj.isCollecting = False
     QtGui.QApplication.processEvents() # check for GUI events
     appObj.finishCollection()
+    appObj.JSOsaveDispersion_pushButton.setEnabled(False)    
+    appObj.JSOloadDispersion_pushButton.setEnabled(True)
