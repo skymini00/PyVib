@@ -27,6 +27,7 @@ class MirrorDriver:
         self.DAQoutputRate = 500e3
         self.DAQdevice = 'Dev1'
         self.fastScanMaxFreq = 80e3
+        self.newField = ''
         
     # return the  move the mirro to a single (x,y) point, where x and y in millimeters
     def makeMirrorCommand(self, x, y):
@@ -85,6 +86,8 @@ class MirrorDriver:
                 self.fastScanMaxFreq = float(val)
             elif(fld == "Type"):
                 self.mirrorType = MirrorType(int(val))
+            elif(fld == "new field"):
+                self.newField = val
                 
     def __repr__(self):        
         return self.encodeToString()

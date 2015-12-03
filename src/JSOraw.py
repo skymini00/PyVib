@@ -292,7 +292,8 @@ def loadDispersion_pushButton_clicked(appObj):
     updateDispersionGUI(appObj, appObj.dispData)
     
 def loadDispersion_onStartup(appObj):   
-    infile=os.path.join(appObj.configPath, 'Dispersion','dispComp-initial.pickle')  
+#    infile=os.path.join(appObj.configPath, 'Dispersion','dispComp-initial.pickle')  
+    infile=os.path.join(appObj.configPath, 'Dispersion',appObj.octSetupInfo.dispFilename)  
     file2=open(infile,'rb')
     dispData=pickle.load(file2)
     file2.close()

@@ -73,11 +73,7 @@ def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
     This function should be called to setup the output and reconstruction parameters prior to starting the protocol,
     so that the getMirrorOutput(), processData() functions will return correct values
     """
-    yAdjust_val = scanParams.xskew
-    phaseAdjust = scanParams.phaseAdjust
-    DAQoutputRate = mirrorDriver.DAQoutputRate    
-    
-    DebugLog.log("VolumeScan.setupScan() zROI=%s OCTtrigRate=%d DAQoutputRate=%d" % (repr(zROI), OCTtrigRate, DAQoutputRate))
+    DebugLog.log("VolumeScan.setupScan() zROI=%s OCTtrigRate=%d " % (repr(zROI), OCTtrigRate))
     # define plotting parameters and then setup plotting algorithms
     plotParam=blankRecord() # create an empty record to pass the plotting parameters in
     plotParam.zROI = zROI
@@ -94,9 +90,9 @@ def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
     scanDetails=blankRecord()  #create an empty record to get the spiral scan parameter
     calcuateAngledBScans(plotParam)
     if scanParams.pattern == ScanPattern.spiral:
-        setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate, DAQoutputRate)
+        setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate)
     elif scanParams.pattern == ScanPattern.wagonWheel:
-        setupWagonWheelScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate, DAQoutputRate)
+        setupWagonWheelScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate)
 
     return plotParam, scanDetails
     
@@ -104,7 +100,7 @@ def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
 def setupWagonWheelScan(scanParams, mirrorDriver, scanDetails,plotParam, OCTtrigRate, DAQoutputRate):
     pass
 
-def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate, DAQoutputRate):
+def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate):
     """ 
     This function builds the spiral scan voltages (scanDetails.mirrOut) 
     and the variables that are used when reformatting the collected A-lines
@@ -122,13 +118,13 @@ def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     plotParam.yPixelsize=(diameter/plotParam.yPixel)*1000  # size on one pixel in the y dimension in microns         
     voltsPerMM = mirrorDriver.voltsPerMillimeter
     A=voltsPerMM*diameter/2     
-    fs=DAQoutputRate   # galvo output sampling rate
-    t=np.arange(0,np.around(fs/fv))*1/fs
+    fs=mirrorDriver.DAQoutputRate   # galvo output sampling rate
+    t=np.arange(0,np.around(fs/fv))*1/fs  # t is the array of times for the DAQ output to the mirrors
     r=1/2*(1-np.cos(2*np.pi*fv*t))            
-    x=xAdjust*A*r*np.cos(2*np.pi*fr*t)
+    x=xAdjust*A*r*np.cos(2*np.pi*fr*t) # x and y are the coordinates of the laser at each point in time
     y=yAdjust*A*r*np.sin(2*np.pi*fr*t+phaseShift*np.pi/180)
     scanDetails.mirrOut= np.vstack((x,y))
-    DebugLog.log("VolumeScan.setupSpiralScan() len(t)= %d len(x)= %d" % (len(t), len(x)))
+    DebugLog.log("VolumeScan.setupSpiralScan(): Number of time points to send to galvos for one volume = %d" % (len(t)))
   
     # reconstruct the image from the array of A-lines
     scanDetails.numTrigs=np.int32(OCTtrigRate/fv)     # calculate how many laser sweeps will occur during one plotParam scan               
@@ -138,32 +134,32 @@ def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     zReconstruct=rReconstruct*np.exp(-1j*theta)
     xReconstruct=np.real(zReconstruct)   # x values of the sampled A-Lines
     yReconstruct=np.imag(zReconstruct)   # y values of the sampled A-Lines
+    DebugLog.log("VolumeScan.setupSpiralScan(): Number of laser sweeps that will occur in one volume = %d" % (scanDetails.numTrigs))
 
+    # convert the x-y coordinates of each A-line to an integer between 0 and xPixel/yPixel
     xNorm1=plotParam.xPixel*((xReconstruct/2)+0.5)  
     yNorm1=plotParam.yPixel*((yReconstruct/2)+0.5)
-    xNorm=np.round(xNorm1)  #convert to an integer between 0 and xPixel
+    xNorm=np.round(xNorm1)  
     yNorm=np.round(yNorm1)
-     
-    # create the 3D array c2, of true/false to give which alines to average for each pixel, and then reformat this into scanDetails.c
+        
+    # For reformat mode 0: create the 3D array c2, of true/false to give which alines to average for each pixel, and then reformat this into scanDetails.c.
+    # For reformat mode 1: find the closest Aline that is within the pixel of interest, and put this index into scanDetail.c3.
     c2=np.zeros((plotParam.xPixel,plotParam.yPixel,scanDetails.numTrigs))   
     scanDetails.c3=np.zeros((plotParam.xPixel,plotParam.yPixel))
     for i1 in range(0,plotParam.xPixel):  
-        a=xNorm==i1    
+        a=xNorm==i1    # vector of which Alines are at this xPixel
         for i2 in range(0,plotParam.yPixel):
-            b=yNorm==i2
-            c1=np.logical_and(a, b)  # c is a vector contain trues for all of the data points in the pixel of interest
-            c2[i1,i2,:]=c1
-#                indexList=np.nonzero(c1)
-#                if len(indexList[0])>=1:
-#                    scanDetails.c3[i1,i2]=indexList[0][0]
-            distance=(xNorm1-i1)**2+(yNorm1-i2)**2
-            if np.min(distance)<np.sqrt(2):
-                scanDetails.c3[i1,i2]=np.argmin(distance)
+            b=yNorm==i2  # vector of which Alines are at this yPixel
+            c1=np.logical_and(a, b)  # c1 is a vector that contains trues for each Aline that is at the pixel of interest
+            c2[i1,i2,:]=c1  # c2 is a 3D array of x,y, true/falses for each Aline
+            if np.count_nonzero(c1)>0:
+                scanDetails.c3[i1,i2]=np.nonzero(c1)[0][0]
     cSum=np.sum(c2,axis=2)
     scanDetails.cTile=np.transpose(np.tile(cSum,[plotParam.zPixel,1,1]),(1, 2, 0))          
     scanDetails.c=np.reshape(c2,(plotParam.xPixel*plotParam.yPixel,scanDetails.numTrigs))            
     scanDetails.c3=np.uint(np.reshape(scanDetails.c3,(plotParam.xPixel*plotParam.yPixel)))
-    
+    totalNumPtstoPlot=np.count_nonzero(scanDetails.c3)
+    print('plot size=', scanDetails.c3.shape,' totalNumPtstoPlot=',totalNumPtstoPlot)
     
 def makeImgSliceFromVolume(volData, widthStep, norms=(0, 120), autoNorm=True, correctAspectRatio=True):
     imgData = volData.volumeImg[widthStep, :, :]
@@ -920,7 +916,7 @@ def runVolScan(appObj):
     appObj.isCollecting = True
     OCTtrigRate = appObj.oct_hw.GetTriggerRate()
 
-#    OCTtrigRate = 1000  # make this slower for testing purposes
+    OCTtrigRate = 10000  # make this slower for testing purposes
 
     mirrorDriver = appObj.mirrorDriver
     rset = True
@@ -955,7 +951,7 @@ def runVolScan(appObj):
     framesPerScan = scanParams.widthSteps // bscansPerFrame        
     if scanParams.continuousScan:
         numFrames = np.inf
-    elif scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
+    if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
         numFrames = 1
         framesPerScan = 1
         
@@ -967,6 +963,7 @@ def runVolScan(appObj):
     procOpts.thresholdEnFace=appObj.thresholdEnFace_verticalSlider.value()
     procOpts.enFace_avgDepth=appObj.enFace_avgDepth_verticalSlider.value()
 
+    timePoint1 = time.time()
     if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
         plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts)
    
@@ -976,6 +973,7 @@ def runVolScan(appObj):
         return
 
     isSaveDirInit = False
+    timePoint2 = time.time()
 
     try: 
         frameNum = 0
@@ -999,7 +997,7 @@ def runVolScan(appObj):
                 startTrigOffset = int(np.round(OCTtrigRate*mirrorDriver.settleTime))
                 
             # plot command to GUI 
-            pl = appObj.plot_mirrorCmd
+            pl = appObj.JSOmisc_plot1
             npts = mirrorOut.shape[1]
             t = np.linspace(0, npts/outputRate, npts)
             pl.clear()
@@ -1009,6 +1007,16 @@ def runVolScan(appObj):
             pl.setLabel('bottom', 'Time', 's', **labelStyle)
             labelStyle = appObj.yLblStyle
             pl.setLabel('left', 'Output', 'V', **labelStyle)
+
+            pl2=appObj.JSOmisc_plot2
+            pl2.clear()
+            pl2.plot(mirrorOut[0, :],mirrorOut[1, :], pen='k')
+            labelStyle = appObj.xLblStyle
+            pl2.setLabel('bottom', 'X galvo', 'V', **labelStyle)
+            labelStyle = appObj.yLblStyle
+            pl2.setLabel('left', 'Y galvo', 'V', **labelStyle)
+            
+            timePoint3 = time.time()
 
             if not appObj.oct_hw.IsDAQTestingMode():
                 # setup the analog output DAQ device
@@ -1029,15 +1037,20 @@ def runVolScan(appObj):
                     # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
                     samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
                     err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset)
+                
+                timePoint4 = time.time()
 
                 oct_data, klin = JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
             else:
                 QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
-                
+            
+            timePoint5 = time.time()
+
             # process the data
             oct_data_mag = np.abs(oct_data)
             volData = processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
-                
+            timePoint6 = time.time()
+    
             if scanParams.pattern == ScanPattern.spiral :
                 spiralData = volData.spiralScanData
                 img8b = spiralData.bscanPlot
@@ -1067,7 +1080,15 @@ def runVolScan(appObj):
             if not appObj.oct_hw.IsDAQTestingMode():
                 daq.stopAnalogOutput()
                 daq.clearAnalogOutput()
-            
+            timePoint7 = time.time()
+
+            print('timePoint2-timePoint1 = ',timePoint2-timePoint1)
+            print('timePoint3-timePoint2 = ',timePoint3-timePoint2)
+            print('timePoint4-timePoint3 = ',timePoint4-timePoint3)
+            print('timePoint5-timePoint4 = ',timePoint5-timePoint4)
+            print('timePoint6-timePoint5 = ',timePoint6-timePoint5)
+            print('timePoint7-timePoint6 = ',timePoint7-timePoint6)            
+
             frameNum += 1
             appObj.acquisition_progressBar.setValue(round(100*frameNum/framesPerScan))
             if appObj.getSaveState():

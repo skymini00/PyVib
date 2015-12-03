@@ -193,7 +193,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             try:
                 idx = self.scanParamsQuickSetsDict[defaultScanQuickSetName]
                 scanP = self.scanParamsQuickSets[idx]
-                self.loadScanParams(scanP)
+                self.loadScanParams(scanP)               
+                self.scan_quickSet_comboBox.setCurrentIndex(idx)
             except:
                 DebugLog.log("OCTWindowClass: __init__() could not load quickset '%s'" % defaultScanQuickSetName)
             
