@@ -167,6 +167,13 @@ def runSpeakerCal(appObj, testMode=False):
             freq_array = audioParams.freq[spkIdx, :]
             DebugLog.log("freq_array=" + repr(freq_array))
             freq_idx = 0
+
+            attenSig = AudioHardware.makeLM1972AttenSig(0)
+            
+            if not testMode:
+                # daq.sendDigOutCmd(attenLines, attenSig)
+                appObj.oct_hw.SetAttenLevel(0, attenLines)
+            
             for freq in freq_array:
                 spkOut = makeSpeakerCalibrationOutput(freq, audioHW, audioParams)    
                 npts = len(spkOut)
@@ -177,14 +184,12 @@ def runSpeakerCal(appObj, testMode=False):
                 endIdx = int(5e-3 * outputRate)        # only plot first 5 ms
                 pl.plot(t[0:endIdx], spkOut[0:endIdx], pen='b')
                         
-                attenSig = AudioHardware.makeLM1972AttenSig(0)
                 numInputSamples = int(inputRate*len(spkOut)/outputRate) 
                 
                 if testMode:
                     mic_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=3)                    
                 else:
-                    # daq.sendDigOutCmd(attenLines, attenSig)
-                    appObj.oct_hw.SetAttenLevel(0, attenLines)
+
                     # setup the output task
                     daq.setupAnalogOutput([chanNameOut], audioHW.daqTrigChanIn, int(outputRate), spkOut)
                     daq.startAnalogOutput()

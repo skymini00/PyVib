@@ -1315,9 +1315,11 @@ def MscanCollectFcn(oct_hw, frameNum, extraArgs):
         # set attenuator level
         if not oct_hw.IsDAQTestingMode():
             attenSig = AudioHardware.makeLM1972AttenSig(attenLvlL)
-            daq.sendDigOutCmd(audioHW.attenL_daqChan, attenSig)
+            appObj.oct_hw.SetAttenLevel(attenLvlL, attenLines)
+            #daq.sendDigOutCmd(audioHW.attenL_daqChan, attenSig)
             attenSig = AudioHardware.makeLM1972AttenSig(attenLvlR)
-            daq.sendDigOutCmd(audioHW.attenL_daqChan, attenSig)
+            appObj.oct_hw.SetAttenLevel(attenLvlR, attenLines)
+            #daq.sendDigOutCmd(audioHW.attenL_daqChan, attenSig)
     else:
         audioOutput, attenLvl = makeAudioOutput(audioParams, audioHW, spkNum, freq, amp)
         DebugLog.log("Mscan CollectionProcess(): attenLvL= %s " %  repr(attenLvl))
@@ -1327,7 +1329,8 @@ def MscanCollectFcn(oct_hw, frameNum, extraArgs):
 #        pl.plot(t[0:endIdx], audioOutput[0:endIdx], pen='b')
         if not oct_hw.IsDAQTestingMode():
             attenSig = AudioHardware.makeLM1972AttenSig(attenLvl)
-            daq.sendDigOutCmd(attenLines, attenSig)
+            # daq.sendDigOutCmd(attenLines, attenSig)
+            appObj.oct_hw.SetAttenLevel(attenLvl, attenLines)
     
     numInputSamples = int(inputRate*numOutputSamples/outputRate) 
     if not oct_hw.IsDAQTestingMode():
@@ -1754,9 +1757,11 @@ def runMScan(appObj, multiProcess=False):
                 # set attenuator level
                 if not oct_hw.IsDAQTestingMode():
                     attenSig = AudioHardware.makeLM1972AttenSig(attenLvlL)
-                    daq.sendDigOutCmd(audioHW.attenL_daqChan, attenSig)
+                    #daq.sendDigOutCmd(audioHW.attenL_daqChan, attenSig)
+                    appObj.oct_hw.SetAttenLevel(attenLvlL, attenLines)
                     attenSig = AudioHardware.makeLM1972AttenSig(attenLvlR)
-                    daq.sendDigOutCmd(audioHW.attenL_daqChan, attenSig)
+                    #daq.sendDigOutCmd(audioHW.attenL_daqChan, attenSig)
+                    appObj.oct_hw.SetAttenLevel(attenLvlR, attenLines)
             else:
                 audioOutput, attenLvl = makeAudioOutput(audioParams, audioHW, spkNum, freq, amp)
                 DebugLog.log("Mscan runMscan(): attenLvL= %s " %  repr(attenLvl))
@@ -1766,7 +1771,9 @@ def runMScan(appObj, multiProcess=False):
                 pl.plot(t[0:endIdx], audioOutput[0:endIdx], pen='b')
                 if not oct_hw.IsDAQTestingMode():
                     attenSig = AudioHardware.makeLM1972AttenSig(attenLvl)
-                    daq.sendDigOutCmd(attenLines, attenSig)
+                    #daq.sendDigOutCmd(attenLines, attenSig)
+                    appObj.oct_hw.SetAttenLevel(attenLvl, attenLines)
+                    
             
             numInputSamples = int(inputRate*numOutputSamples/outputRate) 
             if not oct_hw.IsDAQTestingMode():
