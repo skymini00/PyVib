@@ -10,4 +10,9 @@ OCT Trigger DAQ Chan= /PXI1Slot2/PXI_Trig2
 Output rate= 250000.000000
 DAQ Device = PXI1Slot2
 
-# note: these settings are for the OR microscope MEMS mirror
+skew= 1
+phaseAdjust= 0
+angularScanFreq= 280	
+volScanFreq= 5	
+
+# note: these settings are for the endoscope MEMS mirror

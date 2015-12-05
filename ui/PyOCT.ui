@@ -6197,7 +6197,7 @@
           <string>Steps</string>
          </property>
         </widget>
-        <widget class="QDoubleSpinBox" name="xskew_dblSpinBox">
+        <widget class="QDoubleSpinBox" name="skew_dblSpinBox">
          <property name="geometry">
           <rect>
            <x>270</x>
@@ -6830,7 +6830,7 @@
           </rect>
          </property>
          <property name="text">
-          <string>X skew/ Y adj</string>
+          <string>skew</string>
          </property>
         </widget>
         <widget class="QDoubleSpinBox" name="lengthRes_dblSpinBox">

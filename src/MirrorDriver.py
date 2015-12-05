@@ -28,6 +28,10 @@ class MirrorDriver:
         self.DAQdevice = 'Dev1'
         self.fastScanMaxFreq = 80e3
         self.newField = ''
+        self.skew = 1
+        self.phaseAdjust = 0
+        self.angularScanFreq = 0
+        self.volScanFreq = 0
         
     # return the  move the mirro to a single (x,y) point, where x and y in millimeters
     def makeMirrorCommand(self, x, y):
@@ -86,8 +90,14 @@ class MirrorDriver:
                 self.fastScanMaxFreq = float(val)
             elif(fld == "Type"):
                 self.mirrorType = MirrorType(int(val))
-            elif(fld == "new field"):
-                self.newField = val
+            elif(fld == "skew"):
+                self.skew = float(val)
+            elif(fld == "phaseAdjust"):
+                self.phaseAdjust = float(val)
+            elif(fld == "angularScanFreq"):
+                self.angularScanFreq = float(val)
+            elif(fld == "volScanFreq"):
+                self.volScanFreq = float(val)
                 
     def __repr__(self):        
         return self.encodeToString()

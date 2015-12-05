@@ -108,7 +108,7 @@ def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     """
     # make mirror output signals
     xAdjust = 1    
-    yAdjust = scanParams.xskew
+    yAdjust = scanParams.skew
     phaseShift = scanParams.phaseAdjust
     fr = scanParams.angularScanFreq  # angular scan rate (frequency of one rotation)
     fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
@@ -926,7 +926,7 @@ def runVolScan(appObj):
     outputRate = mirrorDriver.DAQoutputRate
     processMode = OCTCommon.ProcessMode(appObj.processMode_comboBox.currentIndex())
 
-    # if in testing mode, load proper paramaeters instead of getting them from GUI
+    # Get scan paramaeters either from GUI (running or software process testmode) or from a file (hardware process testmode)
     testDataDir = '' 
     if appObj.oct_hw.IsOCTTestingMode():
         testDataDir = os.path.join(appObj.basePath, 'exampledata', 'VolumeScan')

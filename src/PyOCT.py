@@ -780,14 +780,21 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         scanParams.pattern = ScanPattern(scan_pattern)
         scanParams.downsample = self.scan_downsample_spinBox.value() - 1
         scanParams.volBscansPerFrame = self.scan_volBscansPerFrame_spinBox.value()
-        scanParams.xskew = self.xskew_dblSpinBox.value()
         scanParams.continuousScan = self.continuousVolume_checkBox.isChecked()
-        scanParams.phaseAdjust = self.scanPhaseAdjust_spinBox.value()
-        scanParams.angularScanFreq = self.angularScanFreq_spinBox.value()
-        scanParams.volScanFreq = self.volScanFreq_spinBox.value()
-#        if(self.protocol.name == 'BScan'):
-#            scanParams.widthSteps = 1
 
+        if self.octSetupInfo.mirrorConfigFile[0:4]=='MEMS':
+            useGUI=1
+            if useGUI==1:
+                scanParams.skew = self.skew_dblSpinBox.value()
+                scanParams.phaseAdjust = self.scanPhaseAdjust_spinBox.value()
+                scanParams.angularScanFreq = self.angularScanFreq_spinBox.value()
+                scanParams.volScanFreq = self.volScanFreq_spinBox.value()
+            else:
+                scanParams.skew = self.mirrorDriver.skew
+                scanParams.phaseAdjust = self.mirrorDriver.phaseAdjust
+                scanParams.angularScanFreq = self.mirrorDriver.angularScanFreq
+                scanParams.volScanFreq = self.mirrorDriver.volScanFreq
+          
         return scanParams
 
         
@@ -798,7 +805,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.widthSteps_spinBox.blockSignals(blocked)
         self.lengthRes_dblSpinBox.blockSignals(blocked)
         self.widthRes_dblSpinBox.blockSignals(blocked)
-        self.xskew_dblSpinBox.blockSignals(blocked)
+        self.skew_dblSpinBox.blockSignals(blocked)
         
     def loadScanParams(self, scanParams):
         self.blockScanParamsSignals(True)
@@ -817,8 +824,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
         self.length_horizontalSlider.setValue(int(1000*scanParams.length))
         self.width_horizontalSlider.setValue(int(1000*scanParams.width))
-        if hasattr(scanParams, 'xskew'):
-            self.xskew_dblSpinBox.setValue(scanParams.xskew)
+        if hasattr(scanParams, 'skew'):
+            self.skew_dblSpinBox.setValue(scanParams.skew)
 
         if hasattr(scanParams, 'volBscansPerFrame'):
             self.scan_volBscansPerFrame_spinBox.setValue(scanParams.volBscansPerFrame)
