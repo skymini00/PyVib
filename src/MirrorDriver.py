@@ -32,6 +32,7 @@ class MirrorDriver:
         self.phaseAdjust = 0
         self.angularScanFreq = 0
         self.volScanFreq = 0
+        self.LPFcutoff = 10
         
     # return the  move the mirro to a single (x,y) point, where x and y in millimeters
     def makeMirrorCommand(self, x, y):
@@ -68,8 +69,9 @@ class MirrorDriver:
                 self.voltsPerMillimeter = float(val)
             elif(fld == "Volt Range"):
                 val2 = re.split(' ', val)
-                #print("val2 = %s %s" % (val2[1], val2[2]))
+                print("val2 = %s %s" % (val2[1], val2[2]))
                 self.voltRange = (float(val2[1]), float(val2[2]))
+                print('voltrange', self.voltRange)
             elif(fld == "Settle Time"):
                 self.settleTime = float(val)
             elif(fld == "Flyback Time"): 
@@ -98,7 +100,9 @@ class MirrorDriver:
                 self.angularScanFreq = float(val)
             elif(fld == "volScanFreq"):
                 self.volScanFreq = float(val)
-                
+            elif(fld == "LPF cutoff"):
+                self.LPFcutoff = float(val)
+                 
     def __repr__(self):        
         return self.encodeToString()
         

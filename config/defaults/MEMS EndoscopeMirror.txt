@@ -14,5 +14,6 @@ skew= 1
 phaseAdjust= 0
 angularScanFreq= 280	
 volScanFreq= 5	
+LPF cutoff = 350
 
 # note: these settings are for the endoscope MEMS mirror
