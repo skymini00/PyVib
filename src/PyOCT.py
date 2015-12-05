@@ -230,7 +230,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         else:
             try:
                 filepath = os.path.join(configBasePath, 'oct.txt')
-                self.octSetupInfo = readOCTSetupInfo(filepath)  
+                self.octSetupInfo = readOCTSetupInfo(filepath)
+                self.mirror_label.setText('Mirror driver: ' + self.octSetupInfo.mirrorConfigFile)
             except Exception as ex:
                 DebugLog.log("OCTMultiProcInterface.readHardwareConfig(): Could not read OCT setup '%s'" + repr(filepath))
                 traceback.print_exc(file=sys.stdout)
@@ -475,22 +476,24 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         try:
             fileList = os.listdir(scanParamsDir)
             for fName in fileList:
-                filePath = os.path.join(scanParamsDir, fName)
-                try:
-                    f = open(filePath, 'rb')
-                    scanP = pickle.load(f)
-                    f.close()
-                    
-                    fParts = re.split('\.', fName)
-                    setName = fParts[0]
-                    self.scanParamsQuickSets.append(scanP)
-                    self.scan_quickSet_comboBox.addItem(setName)
-                    idx = len(self.scanParamsQuickSets) - 1
-                    self.scanParamsQuickSetsDict[setName] = idx
-    
-                except Exception as ex:
-                    traceback.print_exc(file=sys.stdout)
-                    print("loadQuickSets: could not load scan quick set '%s'" % setName)
+                filename9, file_extension = os.path.splitext(fName)
+                if file_extension=='.pickle':
+                    filePath = os.path.join(scanParamsDir, fName)
+                    try:
+                        f = open(filePath, 'rb')
+                        scanP = pickle.load(f)
+                        f.close()
+                        
+                        fParts = re.split('\.', fName)
+                        setName = fParts[0]
+                        self.scanParamsQuickSets.append(scanP)
+                        self.scan_quickSet_comboBox.addItem(setName)
+                        idx = len(self.scanParamsQuickSets) - 1
+                        self.scanParamsQuickSetsDict[setName] = idx
+        
+                    except Exception as ex:
+                        traceback.print_exc(file=sys.stdout)
+                        print("loadQuickSets: could not load scan quick set '%s'" % setName)
         except Exception as e:
             traceback.print_exc(file=sys.stdout)
             print("loadQuickSets: could not load scan quick sets from directory'%s'" % scanParamsDir)

@@ -10,7 +10,9 @@ import numpy as np
 from DebugLog import DebugLog
 from ctypes import byref
 import time
-import PyDAQmx as daqmx
+
+# Patrick, please make this conditional... it won't work on my Mac
+#import PyDAQmx as daqmx
 
 class DAQHardware:
     def __init__(self):

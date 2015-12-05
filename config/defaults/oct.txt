@@ -1,10 +1,10 @@
-OCTsetup=4
-DispersionFilename=dispersionLast.pickle
+OCTsetup=-1
+DispersionFilename=dispComp-initial.pickle
 zResolution=5.9
 imgNorms=[30, 95]
 ZROI=[61, 948]
-DefaultScanQuickSet=spiralscan
+FPGAOptsFile=FPGA Opts 50kHz.txt
+AudioConfigFile=AudioHardware.txt
 DefaultAudioQuickSet=   
 MirrorConfigFile=OIM 50kHz.txt
-AudioConfigFile=AudioHardware.txt
-FPGAOptsFile=FPGA Opts 50kHz.txt
+DefaultScanQuickSet=fastBscan

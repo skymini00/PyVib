@@ -7133,6 +7133,19 @@ focal plane adjust</string>
          <bool>false</bool>
         </property>
        </widget>
+       <widget class="QLabel" name="mirror_label">
+        <property name="geometry">
+         <rect>
+          <x>360</x>
+          <y>0</y>
+          <width>301</width>
+          <height>16</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>TextLabel</string>
+        </property>
+       </widget>
        <zorder>acquisition_progressBar</zorder>
        <zorder>label_142</zorder>
        <zorder>tabWidget_2</zorder>
@@ -7151,6 +7164,7 @@ focal plane adjust</string>
        <zorder>Volume_pushButton</zorder>
        <zorder>rawDataTest_pushButton</zorder>
        <zorder>tabWidget</zorder>
+       <zorder>mirror_label</zorder>
       </widget>
      </widget>
     </item>
@@ -7162,7 +7176,7 @@ focal plane adjust</string>
      <x>0</x>
      <y>0</y>
      <width>1912</width>
-     <height>21</height>
+     <height>22</height>
     </rect>
    </property>
   </widget>
