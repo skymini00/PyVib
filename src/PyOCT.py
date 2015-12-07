@@ -183,7 +183,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 chkbox.setEnabled(False)
         
         # mag_plt = self.plot_mscan_mag_tuning
-        if self.mirrorDriver.mirrorType == MirrorDriver.MirrorType.OR_MICROSCOPE:
+        if self.mirrorDriver.mirrorType == MirrorDriver.MirrorType.MEMS_MICROSCOPE:
             from ORuscopeStageControl import Leica
             self.leica = Leica()
             self.focalPlaneAdj = Leica()        

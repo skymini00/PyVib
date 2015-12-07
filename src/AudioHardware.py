@@ -193,7 +193,7 @@ class AudioHardware:
                 
         for s in lines:
             x = re.split('=', s)
-            fld = x[0]
+            fld = x[0].rstrip()
             val = x[1]
             if(fld == 'Left freq'):
                 v = rep.split(" ", val)

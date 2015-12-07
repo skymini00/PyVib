@@ -10,8 +10,8 @@ import re   # regular expressions
 
 class MirrorType(Enum):
     DISSECTING_MICROSCOPE = 0
-    OR_MICROSCOPE = 1
-    OR_ENDOSCOPE = 2
+    MEMS_MICROSCOPE = 1
+    MEMS_ENDOSCOPE = 2
 
 class MirrorDriver:
     def __init__(self):
@@ -33,6 +33,7 @@ class MirrorDriver:
         self.angularScanFreq = 0
         self.volScanFreq = 0
         self.LPFcutoff = 10
+        self.voltsPerMillimeterResonant = 1
         
     # return the  move the mirro to a single (x,y) point, where x and y in millimeters
     def makeMirrorCommand(self, x, y):
@@ -63,13 +64,12 @@ class MirrorDriver:
             x = re.split('=', s)
             if(len(x) < 2):
                 continue
-            fld = x[0]
+            fld = x[0].rstrip()
             val = x[1]
             if(fld == "Volts per millimeter"):
                 self.voltsPerMillimeter = float(val)
             elif(fld == "Volt Range"):
                 val2 = re.split(' ', val)
-                print("val2 = %s %s" % (val2[1], val2[2]))
                 self.voltRange = (float(val2[1]), float(val2[2]))
                 print('voltrange', self.voltRange)
             elif(fld == "Settle Time"):
@@ -102,7 +102,8 @@ class MirrorDriver:
                 self.volScanFreq = float(val)
             elif(fld == "LPF cutoff"):
                 self.LPFcutoff = float(val)
-                 
+            elif(fld == "voltsPerMillimeterResonant"):
+                self.voltsPerMillimeterResonant = float(val)
     def __repr__(self):        
         return self.encodeToString()
         
@@ -113,5 +114,5 @@ def readMirrorDriverConfig(filepath):
     txt = f.read()
     f.close()
     
-    g.decodeFromString(txt)
+    g.decodeFromString(txt) 
     return g

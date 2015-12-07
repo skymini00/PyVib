@@ -123,7 +123,7 @@ def readOCTSetupInfo(filepath):
             #print("lnc = " + repr(lnc[0]))   # remove commens
             s = re.split('=', lnc[0])
             #print("s = " + repr(s))
-            fld = s[0]
+            fld = s[0].rstrip()
             val = s[1]
             # print("fld: %s val: %s" % (fld, val))
             if(fld == 'OCTsetup'):

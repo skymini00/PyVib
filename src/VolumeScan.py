@@ -103,96 +103,96 @@ def setupWagonWheelScan(scanParams, mirrorDriver, scanDetails,plotParam, OCTtrig
     pass
 
 def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate):
-        """
-        This function builds the zigzag scan voltages (scanDetails.mirrOut) 
-        and the variables that are used when reformatting the collected A-lines
-        into the proper 3D format(scanDetails.c,scanDetails.cTile, and scanDetails.c3)
-        """
-        Vmaxx=mirrorDriver.voltRange[1] #maximum voltage for MEMS mirror for x-axis
-        Vmaxy=mirrorDriver.voltRange[1] #minimum voltage for MEMS mirror for y-axis
-        MaxVinx = (Vmaxx / 7.5) - 9.333 #maximum input voltage to amplifier assuming
-        MaxViny = (Vmaxy / 7.5) - 9.333 #maximum input voltage
-        LPFcutoff=mirrorDriver.LPFcutoff  #recommended low pass cutoff frequency
-        RFx=scanParams.angularScanFreq #resonant frequency used for x-axis 
-        RFy=scanParams.volScanFreq # frequency to collect a two complete volumes along the y-axis 
+    """
+    This function builds the zigzag scan voltages (scanDetails.mirrOut) 
+    and the variables that are used when reformatting the collected A-lines
+    into the proper 3D format(scanDetails.c,scanDetails.cTile, and scanDetails.c3)
+    """
+    Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
+    Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
+    LPFcutoff=mirrorDriver.LPFcutoff  #recommended low pass cutoff frequency
+    RFx=scanParams.angularScanFreq #resonant frequency used for x-axis 
+    RFy=scanParams.volScanFreq # frequency to collect a two complete volumes along the y-axis 
 
-        # System parameters
-        plotParam.voltsPerMM=mirrorDriver.voltsPerMillimeter
-        angle=0 #angle in degrees for the Bscan 
-        fs= OCTtrigRate  #laser sweep rate
-        fDAQ= self.mirrorDriver.DAQoutputRate  #DAQ sampling rate       
-        FOV = 10 #field of view in mm
-        plotParam.xPixelsize=(FOV/plotParam.xPixel)*1000  # size on one pixel in the x dimension in microns
-        plotParam.yPixelsize=(FOV/plotParam.yPixel)*1000  # size on one pixel in the y dimension in microns         
-        spatialsampling= 5  #spatial sampling in microns       
-        Vpmmx=1*plotParam.voltsPerMM #volts per millimeter for x-axis
-        Vpmmy=1*plotParam.voltsPerMM #volts per millimeter for y-axis
-        if FOV>2*np.min([MaxVinx/Vpmmx,MaxViny/Vpmmy]):
-            FOV=2*np.min([MaxVinx/Vpmmx,MaxViny/Vpmmy])
-        n=round(FOV/(spatialsampling/1000))  #number of samples in both x and y
-        # Create filtered sawtooth scan on the x-axis      
-        faxis= fs/n #fast axis frequency
-        cycles=51  #number of cycles to use in to generate filtered waveform, we will use the middle cycle to avoid artifacts at the edges
-        ts=np.arange(0, 1/faxis*cycles, 1/fs) #generate time array for laser sweep clock
-        tDAQ=np.arange(0, 1/faxis*cycles, 1/fDAQ) #generate time array for DAQ clock
-        xraw=signal.sawtooth(2*np.pi*faxis*ts,0.5) #raw sawtooth signal for laser sweep
-        xDAQraw=signal.sawtooth(2*np.pi*faxis*tDAQ,0.5) #raw sawtooth signal for DAQ
+    # System parameters
+    plotParam.voltsPerMMx=mirrorDriver.voltsPerMillimeterResonant
+    plotParam.voltsPerMMy=mirrorDriver.voltsPerMillimeter
+    angle=0 #angle in degrees for the Bscan 
+    fs= OCTtrigRate  #laser sweep rate
+    fDAQ= mirrorDriver.DAQoutputRate  #DAQ sampling rate       
+    FOV = scanParams.length #field of view in mm
+    plotParam.xPixelsize=(FOV/plotParam.xPixel)*1000  # size on one pixel in the x dimension in microns
+    plotParam.yPixelsize=(FOV/plotParam.yPixel)*1000  # size on one pixel in the y dimension in microns         
+    spatialsampling= 5  #spatial sampling in microns       
+    Vpmmx=1*plotParam.voltsPerMMx #volts per millimeter for x-axis
+    Vpmmy=1*plotParam.voltsPerMMy #volts per millimeter for y-axis
+    if FOV>2*np.min([MaxVinx/Vpmmx,MaxViny/Vpmmy]):
+        FOV=2*np.min([MaxVinx/Vpmmx,MaxViny/Vpmmy])
+    n=round(FOV/(spatialsampling/1000))  #number of samples in both x and y
+    
+    # Create filtered sawtooth scan on the x-axis      
+    faxis= fs/n #fast axis frequency
+    cycles=51  #number of cycles to use in to generate filtered waveform, we will use the middle cycle to avoid artifacts at the edges
+    ts=np.arange(0, 1/faxis*cycles, 1/fs) #generate time array for laser sweep clock
+    tDAQ=np.arange(0, 1/faxis*cycles, 1/fDAQ) #generate time array for DAQ clock
+    xraw=signal.sawtooth(2*np.pi*faxis*ts,0.5) #raw sawtooth signal for laser sweep
+    xDAQraw=signal.sawtooth(2*np.pi*faxis*tDAQ,0.5) #raw sawtooth signal for DAQ
+    
+    b,a=signal.butter(3,LPFcutoff/fs/2,'low')  #note since using filtfilt a 3 pole is actually a 6 pole
+    xfil=signal.filtfilt(b,a,xraw) #filter to avoid MEMS resonance       
+    b,a=signal.butter(3,LPFcutoff/fDAQ/2,'low')  #note since using filtfilt a 3 pole is actually a 6 pole
+    xDAQfil=signal.filtfilt(b,a,xDAQraw) #filter to avoid MEMS resonance         
+    tlower=np.mean(tDAQ)-1/faxis/2 #lower time value for center cycle
+    thigher=np.mean(tDAQ)+1/faxis/2 #higher time value for center cycle
+    tcycleindexs=np.where(((ts>=tlower)*(ts<=thigher))>0) #find indicies coresponding to center cycle
+    tcycleindexDAQ=np.where(((tDAQ>=tlower)*(tDAQ<=thigher))>0) #find indicies coresponding to center cycle
         
-        b,a=signal.butter(3,LPFcutoff/fs/2,'low')  #note since using filtfilt a 3 pole is actually a 6 pole
-        xfil=signal.filtfilt(b,a,xraw) #filter to avoid MEMS resonance       
-        b,a=signal.butter(3,LPFcutoff/fDAQ/2,'low')  #note since using filtfilt a 3 pole is actually a 6 pole
-        xDAQfil=signal.filtfilt(b,a,xDAQraw) #filter to avoid MEMS resonance         
-        tlower=np.mean(tDAQ)-1/faxis/2 #lower time value for center cycle
-        thigher=np.mean(tDAQ)+1/faxis/2 #higher time value for center cycle
-        tcycleindexs=np.where(((ts>=tlower)*(ts<=thigher))>0) #find indicies coresponding to center cycle
-        tcycleindexDAQ=np.where(((tDAQ>=tlower)*(tDAQ<=thigher))>0) #find indicies coresponding to center cycle
-            
-        xfilcycle=xfil[tcycleindexs[0][0]:tcycleindexs[0][-1]] /np.max(xfil[tcycleindexs[0][0]:tcycleindexs[0][-1]]) #filtered cycle of sawtooth for generating scan waveform
-        xDAQfilcycle=xDAQfil[tcycleindexDAQ[0][0]:tcycleindexDAQ[0][-1]]/np.max(xDAQfil[tcycleindexDAQ[0][1]:tcycleindexDAQ[0][-1]]) #filtered cycle of sawtooth for generating scan waveform
+    xfilcycle=xfil[tcycleindexs[0][0]:tcycleindexs[0][-1]] /np.max(xfil[tcycleindexs[0][0]:tcycleindexs[0][-1]]) #filtered cycle of sawtooth for generating scan waveform
+    xDAQfilcycle=xDAQfil[tcycleindexDAQ[0][0]:tcycleindexDAQ[0][-1]]/np.max(xDAQfil[tcycleindexDAQ[0][1]:tcycleindexDAQ[0][-1]]) #filtered cycle of sawtooth for generating scan waveform
+
+    tqcycleindexs=np.where(((ts>=(tlower+1/faxis/4))*(ts<=(thigher-1/faxis/2)))>0) #find indicies for quarter cycle
+    tqcycleindexDAQ=np.where(((tDAQ>=(tlower+1/faxis/4))*(tDAQ<=(thigher-1/faxis/2)))>0) #find indicies for quarter cycle
+
+    xqfilcycle=xfil[tqcycleindexs[0][0]:tqcycleindexs[0][-1]]/np.max(xfil[tqcycleindexs[0][1]:tqcycleindexs[0][-1]]) #filtered quarter cycle to initiate scant at 0 V
+    xqDAQfilcycle=xDAQfil[tqcycleindexDAQ[0][0]:tqcycleindexDAQ[0][-1]]/np.max(xDAQfil[tqcycleindexDAQ[0][0]:tqcycleindexDAQ[0][-1]]) #filtered quarter cycle to initiate scant at 0 V        
+
+    A=-xqfilcycle #quarter cycle to begin scan at 0 V
+    B=-np.flipud(xqfilcycle) #quarter cycle to end scan at 0 V
+
+    ADAQ=-xqDAQfilcycle #quarter cycle to begin scan at 0 V
+    BDAQ=-np.flipud(xqDAQfilcycle) #quarter cycle to end scan at 0 V
+
+    xN=np.concatenate((A,np.tile(xfilcycle,n),B),2) #build normalized, from -1 to 1, x-waveform
+    yN=np.concatenate((A,np.linspace(-1,1,xfilcycle.size*n),-B),2) #build linear ramp for y-waveform
+
+    xDAQ=np.concatenate((ADAQ,np.tile(xDAQfilcycle,n),BDAQ),2) #build normalized, from -1 to 1, x-waveform
+    yDAQ=np.concatenate((ADAQ,np.linspace(-1,1,xDAQfilcycle.size*n),-BDAQ),2) #build linear ramp for y-waveform
+     
+    Vx=FOV*Vpmmx/2
+    x=Vx*xDAQ        
+    Vy=FOV*Vpmmy/2
+    y=Vy*yDAQ
+    scanDetails.mirrOut=[x,y]
+    self.plot_mirrorCmd.clear()
+    self.plot_mirrorCmd.plot(x,y)
+   
+    # calculate the x,y pixel positions for each sampletime
+    xNorm1=plotParam.xPixel*((xN/2)+0.5)  
+    yNorm1=plotParam.yPixel*((yN/2)+0.5)
+    scanDetails.numTrigs=xN.size
+    xNorm1[0:int(xN.size/4-1)]=1e10
+    xNorm1[int(xN.size/4*3):-1]=1e10
+    yNorm1[0:int(yN.size/4-1)]=1e10
+    yNorm1[int(yN.size/4*3):-1]=1e10
     
-        tqcycleindexs=np.where(((ts>=(tlower+1/faxis/4))*(ts<=(thigher-1/faxis/2)))>0) #find indicies for quarter cycle
-        tqcycleindexDAQ=np.where(((tDAQ>=(tlower+1/faxis/4))*(tDAQ<=(thigher-1/faxis/2)))>0) #find indicies for quarter cycle
-    
-        xqfilcycle=xfil[tqcycleindexs[0][0]:tqcycleindexs[0][-1]]/np.max(xfil[tqcycleindexs[0][1]:tqcycleindexs[0][-1]]) #filtered quarter cycle to initiate scant at 0 V
-        xqDAQfilcycle=xDAQfil[tqcycleindexDAQ[0][0]:tqcycleindexDAQ[0][-1]]/np.max(xDAQfil[tqcycleindexDAQ[0][0]:tqcycleindexDAQ[0][-1]]) #filtered quarter cycle to initiate scant at 0 V        
-    
-        A=-xqfilcycle #quarter cycle to begin scan at 0 V
-        B=-np.flipud(xqfilcycle) #quarter cycle to end scan at 0 V
-    
-        ADAQ=-xqDAQfilcycle #quarter cycle to begin scan at 0 V
-        BDAQ=-np.flipud(xqDAQfilcycle) #quarter cycle to end scan at 0 V
-    
-        xN=np.concatenate((A,np.tile(xfilcycle,n),B),2) #build normalized, from -1 to 1, x-waveform
-        yN=np.concatenate((A,np.linspace(-1,1,xfilcycle.size*n),-B),2) #build linear ramp for y-waveform
-    
-        xDAQ=np.concatenate((ADAQ,np.tile(xDAQfilcycle,n),BDAQ),2) #build normalized, from -1 to 1, x-waveform
-        yDAQ=np.concatenate((ADAQ,np.linspace(-1,1,xDAQfilcycle.size*n),-BDAQ),2) #build linear ramp for y-waveform
-         
-        Vx=FOV*Vpmmx/2
-        x=Vx*xDAQ        
-        Vy=FOV*Vpmmy/2
-        y=Vy*yDAQ
-        scanDetails.mirrOut=[x,y]
-        self.plot_mirrorCmd.clear()
-        self.plot_mirrorCmd.plot(x,y)
-       
-        # calculate the x,y pixel positions for each sampletime
-        xNorm1=plotParam.xPixel*((xN/2)+0.5)  
-        yNorm1=plotParam.yPixel*((yN/2)+0.5)
-        scanDetails.numTrigs=xN.size
-        xNorm1[0:int(xN.size/4-1)]=1e10
-        xNorm1[int(xN.size/4*3):-1]=1e10
-        yNorm1[0:int(yN.size/4-1)]=1e10
-        yNorm1[int(yN.size/4*3):-1]=1e10
-        
-        # create the 3D array c2, of true/false to give which alines to average for each pixel, and then reformat this into scanDetails.c
-        scanDetails.c3=np.zeros((plotParam.xPixel,plotParam.yPixel))
-        for i1 in range(0,plotParam.xPixel):  
-            for i2 in range(0,plotParam.yPixel):
-                distance=np.sqrt((xNorm1-i1)**2+(yNorm1-i2)**2)
-                if np.min(distance)<np.sqrt(2):
-                    scanDetails.c3[i1,i2]=np.argmin(distance)                                   
-        scanDetails.c3=np.uint(np.reshape(scanDetails.c3,(plotParam.xPixel*plotParam.yPixel)))
+    # create the 3D array c2, of true/false to give which alines to average for each pixel, and then reformat this into scanDetails.c
+    scanDetails.c3=np.zeros((plotParam.xPixel,plotParam.yPixel))
+    for i1 in range(0,plotParam.xPixel):  
+        for i2 in range(0,plotParam.yPixel):
+            distance=np.sqrt((xNorm1-i1)**2+(yNorm1-i2)**2)
+            if np.min(distance)<np.sqrt(2):
+                scanDetails.c3[i1,i2]=np.argmin(distance)                                   
+    scanDetails.c3=np.uint(np.reshape(scanDetails.c3,(plotParam.xPixel*plotParam.yPixel)))
 
 
 def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate):
@@ -202,17 +202,23 @@ def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     into the proper 3D format(scanDetails.c,scanDetails.cTile, and scanDetails.c3)
     """
     # make mirror output signals
+    print('mirrorDriver',mirrorDriver)
+    Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
+    Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
     xAdjust = 1    
     yAdjust = scanParams.skew
     phaseShift = scanParams.phaseAdjust
-    fr = scanParams.angularScanFreq  # angular scan rate (frequency of one rotation)
+    fr = scanParams.angularScanFreq  # angular scan rate (frequency of one rotation - resonant frequency)
     fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
     DebugLog.log("VolumeScan.setupSpiralScan(): freq of one rotation (fr)= %d; scan frequency (fv)= %d" % (fr, fv))
     diameter = scanParams.length
     plotParam.xPixelsize=(diameter/plotParam.xPixel)*1000  # size on one pixel in the x dimension in microns
     plotParam.yPixelsize=(diameter/plotParam.yPixel)*1000  # size on one pixel in the y dimension in microns         
-    voltsPerMM = mirrorDriver.voltsPerMillimeter
-    A=voltsPerMM*diameter/2     
+    voltsPerMM = mirrorDriver.voltsPerMillimeterResonant
+    A1=(Vmaxx/2)/xAdjust
+    A2=(Vmaxy/2)/yAdjust
+    A3=voltsPerMM*diameter/2 
+    A=np.min([A1,A2,A3])           
     fs=mirrorDriver.DAQoutputRate   # galvo output sampling rate
     t=np.arange(0,np.around(fs/fv))*1/fs  # t is the array of times for the DAQ output to the mirrors
     r=1/2*(1-np.cos(2*np.pi*fv*t))            
