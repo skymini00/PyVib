@@ -120,7 +120,9 @@ def processMZI(mzi_data, dispData, FIRcoeff=[0+0j]):
 
 #        mzi_complex=scipy.ndimage.filters.convolve1d(mzi_data,FIRcoeff)  # This gives errors - doesn't work with complex numbers correctly
 
-        mzi_complex=np.apply_along_axis(lambda m: np.convolve(m, FIRcoeff, mode='same'), axis=1, arr=mzi_data) # this works and is faster
+        mzi_complex=np.apply_along_axis(lambda m: np.convolve(m, FIRcoeff, mode='same'), axis=1, arr=mzi_data) # this works and is the fastest way to do it that I could figure out
+
+#        mzi_complex=scipy.signal.lfilter(FIRcoeff,[1],mzi_data,axis=1)  # this works, but is also very slow
         
     mzi_mag = np.abs(mzi_complex)
     mzi_ph = np.angle(mzi_complex)
