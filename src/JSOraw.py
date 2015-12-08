@@ -489,13 +489,22 @@ def runJSOraw(appObj):
             pdData,mziData,actualSamplesPerTrig=channelShift(ch0_data,ch1_data,dispData)    
             textString='Actual samples per trigger: {actualSamplesPerTrig}'.format(actualSamplesPerTrig=actualSamplesPerTrig)            
             appObj.actualSamplesPerTrig_label.setText(textString)         
+            
+            import time
+            t1 = time.time()
             mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData, dispData) 
+            mzi_proc_time = time.time() - t1
+            print("MZI processing time = %0.4f ms" % (mzi_proc_time*1000))
     
             # Adjust the k0 curves so that the unwrapping all starts at the same phase
             appObj.k0_plot_3.clear()
             appObj.k0_plot_4.clear()
             appObj.k0_plot_5.clear()
+            t1 = time.time()
             k0Cleaned=cleank0(k0,dispData)              
+            k0clean_time = time.time() - t1
+            print("k0 cleaning time = %0.4f ms" % (k0clean_time*1000))
+            
             for i in range(numTrigs):
                 appObj.k0_plot_3.plot(k0[i,:2*dispData.startSample], pen=(i,numTrigs)) 
             startMZIdata1=k0[:,dispData.startSample]
@@ -507,10 +516,17 @@ def runJSOraw(appObj):
             k0=k0Cleaned
             
             # Interpolate the PD data based upon the MZI data and calculate the a-lines before dispersion compensation      
+            t1 = time.time()
             pd_interpRaw, klin = processPD(pdData, k0, dispData)
+            interpPD_time = time.time() - t1
+            print("Interp PD time = %0.4f ms" % (interpPD_time*1000))
             dispData.Klin=klin
             pd_fftNoInterp, alineMagNoInterp, alinePhaseNoInterp = calculateAline(pdData[:,dispData.startSample:dispData.endSample])
+
+            t1 = time.time()
             pd_fftRaw, alineMagRaw, alinePhaseRaw = calculateAline(pd_interpRaw)
+            alineCalc_time = time.time() - t1
+            print("Aline calc time = %0.4f ms" % (alineCalc_time*1000))
             
             # find the mirror in the a-line to determine the filter settings, and then perform the dispersion compensatsion 
             rangePeak1=[100, 900]
