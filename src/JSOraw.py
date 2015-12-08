@@ -10,6 +10,7 @@ from PyQt4 import QtCore, QtGui, uic
 import pyqtgraph as pg
 import scipy.signal
 import scipy.cluster
+import scipy.ndimage
 import numpy as np
 import datetime
 import matplotlib.pyplot as plt
@@ -53,15 +54,77 @@ class SavedDataBuffer:
         appObj.requestedSamplesPerTrig.setValue(self.ch1_data_file.shape[1])
         print('loaded saved data into buffer from :',outfile)
        
-def processMZI(mzi_data, dispData):
-    # filtering seems to reduce sidebands created during the interpolation process
-    (b, a) = scipy.signal.butter(2, dispData.mziFilter, 'highpass')
-    mzi_data=scipy.signal.lfilter(b, a, mzi_data,axis=-1)    
-    
-    mzi_hilbert = scipy.signal.hilbert(mzi_data, axis=-1)
-    mzi_mag = np.abs(mzi_hilbert)
-    mzi_ph = np.angle(mzi_hilbert)
-    mzi_hilbert = np.imag(mzi_hilbert)
+def processMZI(mzi_data, dispData, FIRcoeff=[0+0j]):
+    complex_FIR = 1
+    if complex_FIR == 0:
+        #normal way using fft/ifft approach to do the hilbert transform
+        # filtering seems to reduce sidebands created during the interpolation process
+        (b, a) = scipy.signal.butter(2, dispData.mziFilter, 'highpass')
+        mzi_data=scipy.signal.lfilter(b, a, mzi_data,axis=-1)        
+        mzi_complex = scipy.signal.hilbert(mzi_data, axis=-1)
+    elif complex_FIR==1:      
+        # Approximate Hilbert Transform using FIR filter
+        """
+        # code to design the filter coefficients (This is not needed since they are pasted in below, but the code included for reference)
+        filter_order = 35
+        stop_freq=0.25
+        pass_freq=0.15
+        prt_lpf=scipy.signal.remez(filter_order, [0, pass_freq, stop_freq, 0.5], [1, 0])
+        exp_len=np.arange(-filter_order/2,filter_order/2,1)
+        FIRcoeff=prt_lpf*np.exp(np.complex(0,1)*2*np.pi*0.25*exp_len)
+        
+        for i in range(filter_order):
+            print(FIRcoeff[i],',')
+        """    
+        # these filter coefficients come from the above code
+        FIRcoeff=np.array([
+        (-0.00030351655287-0.00030351655287j) ,
+        (0.00113140195234-0.00113140195234j) ,
+        (-9.35755583151e-05-9.35755583151e-05j) ,
+        (0.00252252948249-0.00252252948249j) ,
+        (0.00218108432482+0.00218108432482j) ,
+        (0.0032263770108-0.0032263770108j) ,
+        (0.00690123992871+0.00690123992871j) ,
+        (0.0001322186872-0.0001322186872j) ,
+        (0.0122523152659+0.0122523152659j) ,
+        (-0.00969906300727+0.00969906300727j) ,
+        (0.0128955480118+0.0128955480118j) ,
+        (-0.0267326545724+0.0267326545724j) ,
+        (0.000205842190372+0.000205842190372j) ,
+        (-0.0472714248792+0.0472714248792j) ,
+        (-0.0409251974438-0.0409251974438j) ,
+        (-0.0643104412456+0.0643104412456j) ,
+        (-0.212334405586-0.212334405586j) ,
+        (0.282605062261-0.282605062261j) ,
+        (0.212334405586+0.212334405586j) ,
+        (-0.0643104412456+0.0643104412456j) ,
+        (0.0409251974438+0.0409251974438j) ,
+        (-0.0472714248792+0.0472714248792j) ,
+        (-0.000205842190372-0.000205842190372j) ,
+        (-0.0267326545724+0.0267326545724j) ,
+        (-0.0128955480118-0.0128955480118j) ,
+        (-0.00969906300727+0.00969906300727j) ,
+        (-0.0122523152659-0.0122523152659j) ,
+        (0.0001322186872-0.0001322186872j) ,
+        (-0.00690123992871-0.00690123992871j) ,
+        (0.0032263770108-0.0032263770108j) ,
+        (-0.00218108432482-0.00218108432482j) ,
+        (0.00252252948249-0.00252252948249j) ,
+        (9.35755583151e-05+9.35755583151e-05j) ,
+        (0.00113140195234-0.00113140195234j) ,
+        (0.00030351655287+0.00030351655287j)
+        ])
+        mzi_complex=np.zeros(mzi_data.shape, dtype=complex)
+#        for i_th in range(0, mzi_data.shape[0]):
+#            mzi_complex[i_th,:]=scipy.signal.convolve(mzi_data[i_th,:],FIRcoeff, mode='same')  # this works but is slow
+
+#        mzi_complex=scipy.ndimage.filters.convolve1d(mzi_data,FIRcoeff)  # This gives errors - doesn't work with complex numbers correctly
+
+        mzi_complex=np.apply_along_axis(lambda m: np.convolve(m, FIRcoeff, mode='same'), axis=1, arr=mzi_data) # this works and is faster
+        
+    mzi_mag = np.abs(mzi_complex)
+    mzi_ph = np.angle(mzi_complex)
+    mzi_hilbert = np.imag(mzi_complex)
     k0 = np.unwrap(mzi_ph,axis=-1)    
     return mzi_hilbert, mzi_mag, mzi_ph, k0
  
@@ -429,7 +492,7 @@ def runJSOraw(appObj):
             phaseNoiseTD=phaseNoiseTD-np.mean(phaseNoiseTD)
             phaseNoiseTD=phaseNoiseTD*1310e-9/(4*np.pi*1.32)
             phaseNoiseFFT = np.abs(np.fft.rfft(phaseNoiseTD))/(numTrigs/2)
-            phaseNoiseFD = 20*np.log10(np.abs(phaseNoiseFFT))        
+#            phaseNoiseFD = 20*np.log10(np.abs(phaseNoiseFFT))        
             freq = np.fft.rfftfreq(numTrigs)*laserSweepFreq
             print(numTrigs,laserSweepFreq)
     
