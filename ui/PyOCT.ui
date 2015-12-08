@@ -47,7 +47,7 @@
       <widget class="QWidget" name="scrollAreaWidgetContents">
        <property name="geometry">
         <rect>
-         <x>0</x>
+         <x>-45</x>
          <y>0</y>
          <width>1920</width>
          <height>1080</height>
@@ -6755,7 +6755,7 @@
          </item>
          <item>
           <property name="text">
-           <string>Bidrectional</string>
+           <string>Bidirectional</string>
           </property>
          </item>
          <item>
@@ -6766,6 +6766,11 @@
          <item>
           <property name="text">
            <string>Wagon Wheel Scan</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Zig Zag Scan</string>
           </property>
          </item>
         </widget>
@@ -7137,7 +7142,7 @@ focal plane adjust</string>
         <property name="geometry">
          <rect>
           <x>360</x>
-          <y>0</y>
+          <y>-2</y>
           <width>301</width>
           <height>16</height>
          </rect>
@@ -7176,7 +7181,7 @@ focal plane adjust</string>
      <x>0</x>
      <y>0</y>
      <width>1912</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
   </widget>

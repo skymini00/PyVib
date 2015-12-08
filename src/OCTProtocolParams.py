@@ -61,6 +61,7 @@ class ScanPattern(Enum):
     bidirectional = 3             # used for volumes, a linear scan in both directions with no flyback
     spiral = 4
     wagonWheel = 5
+    zigZag=6
     boxROIMask = 100              # used for mscan, a scan based off of a X/Y region like a volume, but with a mask indicatingwheter
     ptsList = 101                 # used for mscan, a discrete list o points
 
