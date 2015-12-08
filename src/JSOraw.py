@@ -114,9 +114,9 @@ def processMZI(mzi_data, dispData, FIRcoeff=[0+0j]):
         (0.00113140195234-0.00113140195234j) ,
         (0.00030351655287+0.00030351655287j)
         ])
-        mzi_complex=np.zeros(mzi_data.shape, dtype=complex)
+#        mzi_complex=np.zeros(mzi_data.shape, dtype=complex)
 #        for i_th in range(0, mzi_data.shape[0]):
-#            mzi_complex[i_th,:]=scipy.signal.convolve(mzi_data[i_th,:],FIRcoeff, mode='same')  # this works but is slow
+#            mzi_complex[i_th,:]=np.convolve(mzi_data[i_th,:],FIRcoeff, mode='same')  # this works but is slow
 
 #        mzi_complex=scipy.ndimage.filters.convolve1d(mzi_data,FIRcoeff)  # This gives errors - doesn't work with complex numbers correctly
 
