@@ -1,6 +1,5 @@
 Type= 1
-Volts per millimeter= 1.3628647214854113
-Volt Range= -7.000000 7.000000
+Volts per millimeter= 1
 Settle Time= 0.03
 Flyback Time= 0.10000
 Reverse Time= 0.02
@@ -9,11 +8,13 @@ Y DAQ Chan= PXI1Slot2/ao1
 OCT Trigger DAQ Chan= /PXI1Slot2/PXI_Trig2
 Output rate= 250000.000000
 DAQ Device = PXI1Slot2
-
 skew= 1
 phaseAdjust= 0
-angularScanFreq= 280	
+maxVoltage=120
+resonantFreq=  293	
 volScanFreq= 5	
-LPF cutoff = 350
+LPF cutoff = 120
+voltsPerMillimeterResonant = 0.2
 
 # note: these settings are for the OR microscope MEMS mirror
+# Device s4128; 13L1.5

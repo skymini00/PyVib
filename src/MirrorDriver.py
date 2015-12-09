@@ -7,6 +7,8 @@ Created on Wed Oct  7 12:44:20 2015
 
 from enum import Enum
 import re   # regular expressions
+import scipy
+import numpy as np
 
 class MirrorType(Enum):
     DISSECTING_MICROSCOPE = 0
@@ -15,25 +17,29 @@ class MirrorType(Enum):
 
 class MirrorDriver:
     def __init__(self):
-        self.mirrorType = MirrorType.DISSECTING_MICROSCOPE  
-        self.voltsPerMillimeter = 2.55      # how many volts to apply to to displace the beam  by one milliemeter
-        self.voltRange = (-10, 10)          # range 
+        self.mirrorType = MirrorType.DISSECTING_MICROSCOPE
+        self.MEMS=False     
+        self.voltsPerMillimeter = 1      # how many volts to apply to to displace the beam  by one milliemeter
+        self.voltRange = (-1, 1)          # range 
         self.settleTime = 1e-3              # time if takes for mirror to settle to small command changes
         self.flybackTime = 10e-3            # time it takes for mirro to flyback across its length
         self.reverseTime = 2e-3             # time for mirror to reverse position
         self.X_daqChan = "Dev1/ao2"
         self.Y_daqChan = "Dev1/ao3"
         self.trig_daqChan = "/Dev1/PXI_Trig2"
-        self.DAQoutputRate = 500e3
+        self.DAQoutputRate = 250e3
         self.DAQdevice = 'Dev1'
         self.fastScanMaxFreq = 80e3
         self.newField = ''
         self.skew = 1
         self.phaseAdjust = 0
-        self.angularScanFreq = 0
+        self.maxVoltage = 0
+        self.resonantFreq = 0
         self.volScanFreq = 0
         self.LPFcutoff = 10
-        self.voltsPerMillimeterResonant = 1
+        self.voltsPerMillimeterResonant = 0.1
+        self.a_filt=0
+        self.b_filt=0
         
     # return the  move the mirro to a single (x,y) point, where x and y in millimeters
     def makeMirrorCommand(self, x, y):
@@ -68,7 +74,7 @@ class MirrorDriver:
             val = x[1]
             if(fld == "Volts per millimeter"):
                 self.voltsPerMillimeter = float(val)
-            elif(fld == "Volt Range"):
+            elif(fld == "Volt Range"):  # this is only used for the OIM mirrors, not the MEMS mirrors
                 val2 = re.split(' ', val)
                 self.voltRange = (float(val2[1]), float(val2[2]))
                 print('voltrange', self.voltRange)
@@ -91,19 +97,34 @@ class MirrorDriver:
             elif(fld == "Fast Scan Max Freq"):
                 self.fastScanMaxFreq = float(val)
             elif(fld == "Type"):
-                self.mirrorType = MirrorType(int(val))
+                self.mirrorType = MirrorType(int(val))               
+                print('mirrorDriver type', val, int(val), float(val))                
+                if int(val)==1 or int(val)==2:   # if it is a MEMS mirror, note this
+                    self.MEMS=True
+                
+                else:
+                    self.MEMS=False
+                print('self.MEMS', self.MEMS)
             elif(fld == "skew"):
                 self.skew = float(val)
             elif(fld == "phaseAdjust"):
                 self.phaseAdjust = float(val)
-            elif(fld == "angularScanFreq"):
-                self.angularScanFreq = float(val)
+            elif(fld == "maxVoltage"):
+                self.maxVoltage = 0.75*float(val)    # I added the multiplier for an extra level of safety
+                maxVin=(self.maxVoltage/7.5)-9.333  # these formulas come from the MEMS mirror manufacturer instructions
+                minVin=9.333-(self.maxVoltage/7.5)
+                self.voltRange= (minVin,maxVin)
+            elif(fld == "resonantFreq"):
+                self.resonantFreq = float(val)
             elif(fld == "volScanFreq"):
                 self.volScanFreq = float(val)
             elif(fld == "LPF cutoff"):
                 self.LPFcutoff = float(val)
             elif(fld == "voltsPerMillimeterResonant"):
-                self.voltsPerMillimeterResonant = float(val)
+                self.voltsPerMillimeterResonant = float(val)               
+        if self.MEMS==True:   # if using a MEMS mirror, set up the filtering coefficients to be careful and not damage the device
+            self.b_filt,self.a_filt=scipy.signal.butter(3,self.LPFcutoff/self.DAQoutputRate/2,'low')  #note since using filtfilt a 3 pole is actually a 6 pole
+                
     def __repr__(self):        
         return self.encodeToString()
         

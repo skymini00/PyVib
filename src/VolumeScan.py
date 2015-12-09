@@ -143,7 +143,7 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     else:
         RFy=RFyPlanned
              
-    # Create filtered triangle waveform, crop out the middle waveforme, and stick the right number of them together to complete a full scan      
+    # Create filtered triangle waveform, crop out the middle waveform, and stick the right number of them together to complete a full scan      
     faxis= RFx #fast axis frequency
     cycles=51  #number of cycles to use in to generate filtered waveform, we will use the middle cycle to avoid artifacts at the edges
     ts=np.arange(0, 1/faxis*cycles, 1/OCTtrigRate) #generate time array for laser sweep clock
@@ -218,7 +218,7 @@ def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     xAdjust = 1    
     yAdjust = scanParams.skew
     phaseShift = scanParams.phaseAdjust
-    fr = scanParams.angularScanFreq  # angular scan rate (frequency of one rotation - resonant frequency)
+    fr = scanParams.resonantFreq  # angular scan rate (frequency of one rotation - resonant frequency)
     fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
     DebugLog.log("VolumeScan.setupSpiralScan(): freq of one rotation (fr)= %d; scan frequency (fv)= %d" % (fr, fv))
     diameter = scanParams.length
@@ -1081,7 +1081,7 @@ def runVolScan(appObj):
         plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts)
         numFrames = 1
         framesPerScan = 1
-   
+      
     saveOpts = appObj.getSaveOpts()
     if(appObj.multiProcess):
         runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, scanDetails, procOpts, saveOpts, numFrames, framesPerScan)
@@ -1107,10 +1107,14 @@ def runVolScan(appObj):
             if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel or scanParams.pattern == ScanPattern.zigZag:
                 mirrorOut = scanDetails.mirrOut
                 startTrigOffset = 0
+                # no need to filter the mirror commands here, because the necessary filtering has already been done in the setupScan routine                  
             else:
-                mirrorOut = makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, OCTtrigRate)
-                startTrigOffset = int(np.round(OCTtrigRate*mirrorDriver.settleTime))
-                
+                mirrorOut1 = makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, OCTtrigRate)
+                startTrigOffset = int(np.round(OCTtrigRate*mirrorDriver.settleTime))                
+                # if a MEMS mirror is being used, filter the mirrorOut commands to prevent damaging the device
+                if mirrorDriver.MEMS==True:
+                    mirrorOut=scipy.signal.filtfilt(mirrorDriver.b_filt,mirrorDriver.a_filt,mirrorOut1)           
+                    
             # plot command to GUI 
             pl = appObj.JSOmisc_plot1
             npts = mirrorOut.shape[1]
@@ -1118,6 +1122,8 @@ def runVolScan(appObj):
             pl.clear()
             pl.plot(t, mirrorOut[0, :], pen='b')  
             pl.plot(t, mirrorOut[1, :], pen='r')  
+            pl.plot(t, mirrorOut1[0, :], pen='k')  
+            pl.plot(t, mirrorOut1[1, :], pen='k')  
             labelStyle = appObj.xLblStyle
             pl.setLabel('bottom', 'Time', 's', **labelStyle)
             labelStyle = appObj.yLblStyle
@@ -1125,7 +1131,7 @@ def runVolScan(appObj):
 
             pl2=appObj.JSOmisc_plot2
             pl2.clear()
-            pl2.plot(mirrorOut[0, :],mirrorOut[1, :], pen='k')
+            pl2.plot(mirrorOut[0, :],mirrorOut[1, :], pen='b')
             labelStyle = appObj.xLblStyle
             pl2.setLabel('bottom', 'X galvo', 'V', **labelStyle)
             labelStyle = appObj.yLblStyle

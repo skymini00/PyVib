@@ -10,3 +10,12 @@ OCT Trigger DAQ Chan= /Dev1/PXI_Trig2
 Output rate= 250000.000000
 DAQ Device= PXI1Slot2
 Fast Scan Max Freq= 200
+skew= 1
+phaseAdjust= 0
+resonantFreq= 10	
+volScanFreq= 1	
+LPF cutoff= 15
+voltsPerMillimeterResonant = 2.550000
+
+# The OIM mirrors don't actually work in a resonant mode (like the MEMS mirror).
+# But, we still put in values so it can do a spiral scan in a non-resonant mode.

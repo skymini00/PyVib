@@ -783,17 +783,15 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         scanParams.continuousScan = self.continuousVolume_checkBox.isChecked()
 
         if self.octSetupInfo.mirrorConfigFile[0:4]=='MEMS':
+            scanParams.skew = self.mirrorDriver.skew
+            scanParams.phaseAdjust = self.mirrorDriver.phaseAdjust
+            scanParams.resonantFreq = self.mirrorDriver.resonantFreq
+            scanParams.volScanFreq = self.mirrorDriver.volScanFreq
             useGUI=1
             if useGUI==1:
                 scanParams.skew = self.skew_dblSpinBox.value()
                 scanParams.phaseAdjust = self.scanPhaseAdjust_spinBox.value()
-                scanParams.angularScanFreq = self.angularScanFreq_spinBox.value()
                 scanParams.volScanFreq = self.volScanFreq_spinBox.value()
-            else:
-                scanParams.skew = self.mirrorDriver.skew
-                scanParams.phaseAdjust = self.mirrorDriver.phaseAdjust
-                scanParams.angularScanFreq = self.mirrorDriver.angularScanFreq
-                scanParams.volScanFreq = self.mirrorDriver.volScanFreq
           
         return scanParams
 
@@ -835,9 +833,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             
         if hasattr(scanParams, 'phaseAdjust'):            
             self.scanPhaseAdjust_spinBox.setValue(scanParams.phaseAdjust)
-
-        if hasattr(scanParams, 'angularScanFreq'):            
-            self.angularScanFreq_spinBox.setValue(scanParams.angularScanFreq)
             
         if hasattr(scanParams, 'volScanFreq'):            
             self.volScanFreq_spinBox.setValue(scanParams.volScanFreq)
