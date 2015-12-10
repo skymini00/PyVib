@@ -8,7 +8,6 @@ Created on Wed Oct  7 12:44:20 2015
 from enum import Enum
 import re   # regular expressions
 import scipy
-import numpy as np
 
 class MirrorType(Enum):
     DISSECTING_MICROSCOPE = 0

@@ -102,9 +102,96 @@ def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
 
     return plotParam, scanDetails
     
-# TODO: need to implement this function
-def setupWagonWheelScan(scanParams, mirrorDriver, scanDetails,plotParam, OCTtrigRate):
-    pass
+    
+def setupWagonWheelScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate):
+    """
+    This function builds the wagonWheel scan voltages (scanDetails.mirrOut) 
+    and the variables that are used when reformatting the collected A-lines
+    into the proper 3D format(scanDetails.c,scanDetails.cTile, and scanDetails.c3)
+    
+    The Wagon Wheel scan is just a zig-zag scan that is stepped in theta. Both the x and y voltages are appropriately filtered for the MEMS mirror
+    The diameter and number of x/y pixels all come from the length and number of length steps selected. Width is not used in this scan.
+    """
+    LPFcutoff=mirrorDriver.LPFcutoff  #recommended low pass cutoff frequency
+    RFMax=0.95*LPFcutoff  # Maximum frequency to scan the x-axis back and forth must be below the low pass filter corner frequency 
+    fDAQ= mirrorDriver.DAQoutputRate  #DAQ sampling rate       
+    VoltageRangeMax=mirrorDriver.voltRange[1]-mirrorDriver.voltRange[0] # maximum voltage for MEMS mirror 
+    plotParam.voltsPerMMx=mirrorDriver.voltsPerMillimeter
+    plotParam.voltsPerMMy=mirrorDriver.voltsPerMillimeter
+    Vpmmx=plotParam.voltsPerMMx #volts per millimeter for x-axis
+    Vpmmy=plotParam.voltsPerMMy #volts per millimeter for y-axis
+    diameter = scanParams.length
+    if Vpmmx*diameter>VoltageRangeMax:
+        diameter=VoltageRangeMax/Vpmmx
+    if Vpmmy*diameter>VoltageRangeMax:
+        diameter=VoltageRangeMax/Vpmmx       
+    plotParam.xPixelsize=(diameter/plotParam.xPixel)*1000  # size of one pixel in the x dimension in microns
+    plotParam.yPixelsize=(diameter/plotParam.xPixel)*1000  # size of one pixel in the y dimension in microns 
+
+    n_angle=8 #number of angles to be used in flower scan Note: this will be rounded up to the nearest even number
+    
+    # calculate the scan rates
+    RFxPlanned=2*(OCTtrigRate/plotParam.xPixel)
+    if RFxPlanned>RFMax:
+        RFx=RFMax
+        plotParam.xPixel=np.int(np.floor(2*(OCTtrigRate/RFx)))
+    else:
+        RFx=RFxPlanned
+    fv = scanParams.volScanFreq     # plotParam scan frequency   
+    n_angle=np.floor(RFx/fv)        # the number of angles to sweep depends upon how fast we want to collect a volume
+       
+    # Create filtered triangle waveform, crop out the middle waveform, and stick the right number of them together to complete a full scan      
+    faxis= RFx #fast axis frequency
+    cycles=51  #number of cycles to use in to generate filtered waveform, we will use the middle cycle to avoid artifacts at the edges
+    ts=np.arange(0, 1/faxis*cycles, 1/OCTtrigRate) #generate time array for laser sweep clock
+    tDAQ=np.arange(0, 1/faxis*cycles, 1/fDAQ) #generate time array for DAQ clock
+    xraw=scipy.signal.sawtooth(2*np.pi*faxis*ts,0.5) #raw sawtooth signal for laser sweep
+    xDAQraw=scipy.signal.sawtooth(2*np.pi*faxis*tDAQ,0.5) #raw sawtooth signal for DAQ
+    
+    b,a=scipy.signal.butter(3,LPFcutoff/OCTtrigRate/2,'low')  #note since using filtfilt a 3 pole is actually a 6 pole
+    xfil=scipy.signal.filtfilt(b,a,xraw) #filter to avoid MEMS resonance       
+    b,a=scipy.signal.butter(3,LPFcutoff/fDAQ/2,'low')  #note since using filtfilt a 3 pole is actually a 6 pole
+    xDAQfil=scipy.signal.filtfilt(b,a,xDAQraw) #filter to avoid MEMS resonance         
+    tlower=np.mean(tDAQ)-1/faxis/2 #lower time value for center cycle
+    thigher=np.mean(tDAQ)+1/faxis/2 #higher time value for center cycle
+
+    tcycleindexs=np.where(((ts>=(tlower+1/faxis/4))*(ts<=(thigher+1/faxis/4)))>0) #find indicies coresponding to center cycle
+    tcycleindexDAQ=np.where(((tDAQ>=(tlower+1/faxis/4))*(tDAQ<=(thigher+1/faxis/4)))>0) #find indicies coresponding to center cycle
+    ufilcycle=xfil[tcycleindexs[0][0]:tcycleindexs[0][-1]] /np.max(xfil[tcycleindexs[0][0]:tcycleindexs[0][-1]]) #filtered cycle of sawtooth for generating scan waveform
+    uDAQfilcycle=xDAQfil[tcycleindexDAQ[0][0]:tcycleindexDAQ[0][-1]]/np.max(xDAQfil[tcycleindexDAQ[0][1]:tcycleindexDAQ[0][-1]]) #filtered cycle of sawtooth for generating scan waveform
+    u=np.concatenate((np.tile(ufilcycle,n_angle),ufilcycle[0:np.ceil(ufilcycle.size/2)]),2)
+    uDAQ=np.concatenate((np.tile(uDAQfilcycle,n_angle),uDAQfilcycle[0:np.ceil(uDAQfilcycle.size/2)]),2)
+    angleRad=np.linspace(0,np.pi,num=u.size)
+    angleRadDAQ=np.linspace(0,np.pi,num=uDAQ.size)
+    xN=u*np.cos(angleRad) #build normalized, from -1 to 1, x-waveform
+    yN=u*np.sin(angleRad) #build normalized, from -1 to 1, x-waveform
+    xDAQ=uDAQ*np.cos(angleRadDAQ) #build normalized, from -1 to 1, x-waveform
+    yDAQ=uDAQ*np.sin(angleRadDAQ) #build normalized, from -1 to 1, x-waveform
+      
+    Vx=diameter*Vpmmx/2
+    x=Vx*xDAQ        
+    Vy=diameter*Vpmmy/2
+    y=Vy*yDAQ
+    scanDetails.mirrOut=np.vstack((x,y))
+
+    # calculate the x,y pixel positions for each sampletime
+    xNorm1=plotParam.xPixel*((xN/2)+0.5)  
+    yNorm1=plotParam.yPixel*((yN/2)+0.5)
+    scanDetails.numTrigs=xN.size
+    xNorm1[0:int(xN.size/4-1)]=1e10
+    xNorm1[int(xN.size/4*3):-1]=1e10
+    yNorm1[0:int(yN.size/4-1)]=1e10
+    yNorm1[int(yN.size/4*3):-1]=1e10
+    
+    # create the 3D array c2, of true/false to give which alines to average for each pixel, and then reformat this into scanDetails.c
+    scanDetails.c3=np.zeros((plotParam.xPixel,plotParam.yPixel))
+    for i1 in range(0,plotParam.xPixel):  
+        for i2 in range(0,plotParam.yPixel):
+            distance=np.sqrt((xNorm1-i1)**2+(yNorm1-i2)**2)
+            if np.min(distance)<np.sqrt(2):
+                scanDetails.c3[i1,i2]=np.argmin(distance)                                   
+    scanDetails.c3=np.uint(np.reshape(scanDetails.c3,(plotParam.xPixel*plotParam.yPixel)))
+
 
 def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRate):
     """
@@ -119,8 +206,10 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     VoltageRangeMax=mirrorDriver.voltRange[1]-mirrorDriver.voltRange[0] # maximum voltage for MEMS mirror 
     plotParam.voltsPerMMx=mirrorDriver.voltsPerMillimeter
     plotParam.voltsPerMMy=mirrorDriver.voltsPerMillimeter
-    Vpmmx=1*plotParam.voltsPerMMx #volts per millimeter for x-axis
-    Vpmmy=1*plotParam.voltsPerMMy #volts per millimeter for y-axis
+    xAdjust = 1    
+    yAdjust = scanParams.skew
+    Vpmmx=plotParam.voltsPerMMx #volts per millimeter for x-axis
+    Vpmmy=plotParam.voltsPerMMy #volts per millimeter for y-axis
     if Vpmmx*scanParams.length>VoltageRangeMax:
         scanParams.length=VoltageRangeMax/Vpmmx
     if Vpmmy*scanParams.width>VoltageRangeMax:
@@ -181,9 +270,9 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     xDAQ=np.concatenate((ADAQ,np.tile(xDAQfilcycle,plotParam.yPixel),BDAQ),2) #build normalized, from -1 to 1, x-waveform
     yDAQ=np.concatenate((ADAQ,np.linspace(-1,1,xDAQfilcycle.size*plotParam.yPixel),-BDAQ),2) #build linear ramp for y-waveform
      
-    Vx=scanParams.length*Vpmmx/2
+    Vx=(scanParams.length*Vpmmx/2)/xAdjust
     x=Vx*xDAQ        
-    Vy=scanParams.width*Vpmmy/2
+    Vy=(scanParams.width*Vpmmy/2)/yAdjust
     y=Vy*yDAQ
     scanDetails.mirrOut=np.vstack((x,y))
 
@@ -618,7 +707,10 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
     if scanP.pattern == ScanPattern.spiral:
         volDataIn = processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam)
     elif scanP.pattern == ScanPattern.wagonWheel:
-        volDataIn = processDataWagonWheelScan(oct_data_mag, procOpts, scanDetails, plotParam)
+        volDataIn = processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam)
+        volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
+        volDataIn.xPixSize = plotParam.xPixelsize     # x pixel size in um
+        volDataIn.yPixSize = plotParam.yPixelsize     # y pixel size in um 
     elif scanP.pattern == ScanPattern.zigZag:
         volDataIn = processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam)
         volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
@@ -1122,8 +1214,6 @@ def runVolScan(appObj):
             pl.clear()
             pl.plot(t, mirrorOut[0, :], pen='b')  
             pl.plot(t, mirrorOut[1, :], pen='r')  
-            pl.plot(t, mirrorOut1[0, :], pen='k')  
-            pl.plot(t, mirrorOut1[1, :], pen='k')  
             labelStyle = appObj.xLblStyle
             pl.setLabel('bottom', 'Time', 's', **labelStyle)
             labelStyle = appObj.yLblStyle
@@ -1172,7 +1262,7 @@ def runVolScan(appObj):
             volData = processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
             timePoint6 = time.time()
     
-            if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.zigZag:
+            if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.zigZag or scanParams.pattern == ScanPattern.wagonWheel:
                 spiralData = volData.spiralScanData
                 img8b = spiralData.bscanPlot
                 img8b = np.require(img8b, dtype=np.uint8)
