@@ -12,7 +12,10 @@ from ctypes import byref
 import time
 
 # Patrick, please make this conditional... it won't work on my Mac
-#import PyDAQmx as daqmx
+try:
+    import PyDAQmx as daqmx
+except ImportError:
+    DebugLog.log("DAQHardware.py: could not import PyDAQmx module - DAQ hardware I/O will not work!!!")
 
 class DAQHardware:
     def __init__(self):
