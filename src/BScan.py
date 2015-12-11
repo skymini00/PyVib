@@ -604,11 +604,13 @@ def runBScan(appObj):
                     # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
                     # samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
                     samplesPerTrig = appObj.requestedSamplesPerTrig.value()
+                    t1 = time.time()
                     err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset)
+                    DebugLog.log("Bscan.runBscan(): data grab time= %0.4f" % (time.time() - t1))
                     
                 dataToSave = (ch0_data, ch1_data)
                 dataIsRaw = True
-                oct_data, klin = JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
+                oct_data, klin = JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj) #, True, True)
 
             else:
                 QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")

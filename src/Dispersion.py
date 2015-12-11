@@ -387,6 +387,7 @@ def runDispersion(appObj):
                 mzi_hilbert, mzi_mag, mzi_ph, k0 = JSOraw.processMZI(mziData, dispData)                # calculate k0 from the phase of the MZI data
                 k0Cleaned = JSOraw.cleank0(k0, dispData) # Adjust the k0 curves so that the unwrapping all starts at the same phase    
                 pd_data, klin = JSOraw.processPD(pdData, k0Cleaned, dispData, klin)  # Interpolate the PD data based upon the MZI data
+                dispData.Klin = klin
                 dispData = processUniqueDispersion(pd_data, dispData, pd_background, collectBG)
             else:
                 QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")

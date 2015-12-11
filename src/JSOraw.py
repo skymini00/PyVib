@@ -18,6 +18,7 @@ import traceback
 from DebugLog import DebugLog
 import pickle
 import Dispersion
+import time
 
 #class DispersionData:  # this class holds all the dispersion compensation data
 #    def __init__(self):
@@ -57,12 +58,18 @@ class SavedDataBuffer:
         print('loaded saved data into buffer from :',outfile)
        
 def processMZI(mzi_data, dispData, FIRcoeff=[0+0j]):
+    t1 = time.time()
     complex_FIR = 1
     if complex_FIR == 0:
         #normal way using fft/ifft approach to do the hilbert transform
+    
         # filtering seems to reduce sidebands created during the interpolation process
         (b, a) = scipy.signal.butter(2, dispData.mziFilter, 'highpass')
         mzi_data=scipy.signal.lfilter(b, a, mzi_data,axis=-1)        
+    
+        # mean subtraction is much faster, and we only need to eliminate the zero-frequency componment
+        # mzi_data = mzi_data - np.mean(mzi_data, keepdims=True)
+    
         mzi_complex = scipy.signal.hilbert(mzi_data, axis=-1)
     elif complex_FIR==1:      
         # Approximate Hilbert Transform using FIR filter
@@ -124,12 +131,21 @@ def processMZI(mzi_data, dispData, FIRcoeff=[0+0j]):
 
         mzi_complex=np.apply_along_axis(lambda m: np.convolve(m, FIRcoeff, mode='same'), axis=1, arr=mzi_data) # this works and is the fastest way to do it that I could figure out
 
-#        mzi_complex=scipy.signal.lfilter(FIRcoeff,[1],mzi_data,axis=1)  # this works, but is also very slow
+        # mzi_complex=scipy.signal.lfilter(FIRcoeff,[1],mzi_data,axis=1)  # this works, but is also very slow
         
+        
+    DebugLog.log("JSOraw.processMZI() hilbert trasnform time= %0.4f" % (time.time() - t1))
+    
     mzi_mag = np.abs(mzi_complex)
+    t1 = time.time()    
     mzi_ph = np.angle(mzi_complex)
+    DebugLog.log("JSOraw.processMZI() angle calc time= %0.4f" % (time.time() - t1))
+        
     mzi_hilbert = np.imag(mzi_complex)
+    
+    t1 = time.time()    
     k0 = np.unwrap(mzi_ph,axis=-1)    
+    DebugLog.log("JSOraw.processMZI() unwraptime= %0.4f" % (time.time() - t1))
     return mzi_hilbert, mzi_mag, mzi_ph, k0
  
 def cleank0(k0,dispData):  # for Disp Compensation: look at all of the k0 tracings and shift them 2pi rads so they overlap
@@ -153,6 +169,7 @@ def cleank0(k0,dispData):  # for Disp Compensation: look at all of the k0 tracin
 def cleank0Run(k0,dispData):  # for Runtime: use the cleaned k0Reference data and adjust all new k0 data by 2pi rads to overlap it
     k0Cleaned=np.copy(k0)    
     k0Init=k0Cleaned[:,dispData.startSample]
+    DebugLog.log('JSOraw.cleank0Run: len(k0reference)= %d startSample= %d' % (len(dispData.k0Reference), dispData.startSample))
     k0RefInit=np.tile(dispData.k0Reference[dispData.startSample],len(k0Init))    
     
     # If there are phase jumps going on in the data, find the bad k0 curves and shift them appropriately by 2pi
@@ -168,16 +185,20 @@ def cleank0Run(k0,dispData):  # for Runtime: use the cleaned k0Reference data an
     
 def processPD(pd_data, k0, dispData, klin=None):
     numklinpts = dispData.numKlinPts
-    if klin is None:        # this section is only run during the dispersion compensation algorithm. Then, klin is saved with the dispersion file and used from there on
+    # this section is only run during the dispersion compensation algorithm. Then, klin is saved with the dispersion file and used from there on
+    if klin is None or (len(klin) != numklinpts):   
         klin = np.linspace(k0[0,dispData.startSample], k0[0,dispData.endSample], numklinpts)
 
     # if num klinpts is > 2048, need to use downsampling to get interp points below 2048
     if numklinpts > 2048:
         dsf = numklinpts // 2048 + 1
+        num_klin_ds = numklinpts // dsf
+        DebugLog.log("JSOraw.processPD numklinpts= %d dsf= %d len(klin)= %d pd_data.shape= %s" % (numklinpts, dsf, len(klin), repr(pd_data.shape)))
+        
         pd_interp = np.zeros((pd_data.shape[0], numklinpts // dsf))
         for i in range(pd_data.shape[0]):
             interp_pd = np.interp(klin, k0[i,:], pd_data[i,:])    
-            interp_pd = np.reshape(interp_pd, (numklinpts // dsf, dsf))
+            interp_pd = np.reshape(interp_pd, (num_klin_ds, dsf))
             interp_pd = np.mean(interp_pd, 1)
             pd_interp[i,:] = interp_pd
     else:
@@ -204,11 +225,27 @@ def dispersionCorrection(pd,dispData):
         dispData.magWin = np.ones(dispData.numKlinPts)
         dispData.phaseCorr = np.zeros(dispData.numKlinPts)
     
-def calculateAline(pd):
+def calculateAline(pd, returnPhase=True, unwrapPhase=True):
     numPts=pd.shape[1] 
+
+    t1 = time.time()    
     pd_fft = (np.fft.fft(pd, n=2048,axis=-1)/numPts)/100
-    alineMag = 20*np.log10(np.abs(pd_fft) + 1)
-    alinePhase=np.unwrap(np.angle(pd_fft),axis=-1)
+    DebugLog.log("JSOraw.calculateAline() FFT time= %0.4f" % (time.time() - t1))
+    
+    t1 = time.time()    
+    alineMag = np.abs(pd_fft)
+    DebugLog.log("JSOraw.calculateAline() abs time= %0.4f" % (time.time() - t1))
+    
+    t1 = time.time()    
+    alineMag = 20*np.log10(alineMag + 1)
+    DebugLog.log("JSOraw.calculateAline() log10 time= %0.4f" % (time.time() - t1))
+    
+    alinePhase = None
+    if returnPhase:
+        alinePhase= np.angle(pd_fft)
+        if unwrapPhase:
+            alinePhase= np.unwrap(alinePhase,axis=-1)
+        
     return pd_fft, alineMag, alinePhase
 
 def channelShift(ch0_data,ch1_data,dispData):
@@ -370,20 +407,29 @@ def loadDispersion_onStartup(appObj):
     appObj.dispCompFilename_label.setText(infile)
     updateDispersionGUI(appObj, appObj.dispData)
 
-def softwareProcessing(ch0_data,ch1_data,zROI,appObj):
+def softwareProcessing(ch0_data,ch1_data,zROI,appObj, returnPhase=False, unwrapPhase=False):
     # This routine can be called from any other routine to do software processing of the raw data. 
     # It needs appObj.dispData so you must have loaded a dispersion file already for this to work.
 
     dispData=appObj.dispData
     pdData,mziData,actualSamplesPerTrig=channelShift(ch0_data,ch1_data,dispData)    # shift the two channels to account for delays in the sample data compared to the MZI data 
+        
+    t1 = time.time()
     mzi_hilbert, mzi_mag, mzi_ph, k0 = processMZI(mziData, dispData)                # calculate k0 from the phase of the MZI data
+    DebugLog.log("JSOraw.softwareProcessing(): process MZI time= %0.4f" % (time.time() - t1))
     DebugLog.log("JSOraw.softwareProcessing(): numTriggers collected= %d" % (k0.shape[0]))
 
     k0Cleaned=cleank0Run(k0,dispData) # Adjust the k0 curves so that the unwrapping all starts at the same phase    
     Klin=dispData.Klin
+    
+    t1 = time.time()
     pd_interpRaw, klin = processPD(pdData, k0Cleaned, dispData, Klin)  # Interpolate the PD data based upon the MZI data    
+    DebugLog.log("JSOraw.softwareProcessing(): process PD time= %0.4f" % (time.time() - t1))
+    
+    t1 = time.time()    
     pd_interpDispComp = dispData.magWin * pd_interpRaw * (np.cos(-1*dispData.phaseCorr) + 1j * np.sin(-1*dispData.phaseCorr))  # perform dispersion compensation
-    pd_fftDispComp, alineMagDispComp, alinePhaseDispComp = calculateAline(pd_interpDispComp) # calculate the a-line
+    pd_fftDispComp, alineMagDispComp, alinePhaseDispComp = calculateAline(pd_interpDispComp, returnPhase, unwrapPhase) # calculate the a-line
+    DebugLog.log("JSOraw.softwareProcessing(): calc Aline time= %0.4f" % (time.time() - t1))
     oct_data = pd_fftDispComp[:, zROI[0]:zROI[1]] 
     return oct_data, klin
     
@@ -493,7 +539,7 @@ def runJSOraw(appObj):
             alineAve=np.average(alineMagDispComp,axis=0) 
             peakXPos[0]=np.argmax(alineAve[rangePeak[0]:rangePeak[1]])+rangePeak[0]
             peakYPos[0]=alineAve[peakXPos[0]]              
-            time=np.arange(numTrigs)/laserSweepFreq
+            t=np.arange(numTrigs)/laserSweepFreq
             phaseNoiseTD=np.unwrap(alinePhaseDispComp[:,peakXPos[0]])
             phaseNoiseTD=phaseNoiseTD-np.mean(phaseNoiseTD)
             phaseNoiseTD=phaseNoiseTD*1310e-9/(4*np.pi*1.32)
@@ -551,7 +597,7 @@ def runJSOraw(appObj):
                 
             appObj.alineRaw_plot.plot(peakXPos1,peakYPos1, pen=None, symbolBrush='k', symbolPen='b')
             appObj.alineDispComp_plot.plot(peakXPos,peakYPos, pen=None, symbolBrush='k', symbolPen='b')
-            appObj.phaseNoiseTD_plot.plot(time,phaseNoiseTD, pen='r')
+            appObj.phaseNoiseTD_plot.plot(t,phaseNoiseTD, pen='r')
             appObj.phaseNoiseFD_plot.plot(freq,phaseNoiseFFT, pen='r')
             appObj.mzi_phase_plot_2.plot(mziDataNorm, pen='b')            
             appObj.mzi_phase_plot_2.plot(k0RippleNorm, pen='r')            
