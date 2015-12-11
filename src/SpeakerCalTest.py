@@ -22,6 +22,9 @@ def makeSpkCalTestOutput(freq, amp, audioHW, audioParams, spkNum):
     #outV = 100e-3
     (outV, attenLvl) = audioHW.getCalibratedOutputVoltageAndAttenLevel(freq, amp, spkNum)
 
+    if outV == 0:
+        return None, 0
+        
     outputRate = audioHW.DAQOutputRate
     trialDur = 1e-3*audioParams.getTrialDuration(80)
     trialPts = np.ceil(trialDur * outputRate)
@@ -233,7 +236,9 @@ def runSpeakerCalTest(appObj):
     
                     if saveOpts.saveRaw:
                         OCTCommon.saveRawData(mic_data, saveDir, frameNum, dataType=3)
-                    
+            
+                frameNum = frameNum + 1
+                
                 QtGui.QApplication.processEvents() # check for GUI events, such as button presses
                 
                 # if done flag, break out of loop

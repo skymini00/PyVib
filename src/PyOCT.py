@@ -110,13 +110,21 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         DebugLog.log(self.octSetupInfo.__dict__)
 
 
-        # load up stuff for software processing (JSO) routines
-        self.dispData = JSOraw.DispersionData()  # This class holds all the dispersion compensation data, and loads an intial dispersion compensation file
-        JSOraw.loadDispersion_onStartup(self)
         self.JSOsaveDispersion_pushButton.setEnabled(False)
         
 #        self.dispData = Dispersion.DispersionData(fpgaOpts)        
+        # load up stuff for software processing (JSO) routines
+        try:
+            JSOraw.loadDispersion_onStartup(self)
+        except Exception as ex:
+            traceback.print_exc(file=sys.stdout)
+            DebugLog.log('OCTWindowClass.__init__: Error loading dispersion file %s' % self.octSetupInfo.dispFilename)
+            # fall back to default dispersion data
+            fpgaOpts = self.oct_hw.fpgaOpts
+            self.dispData = Dispersion.DispersionData(fpgaOpts)  # This class holds all the dispersion compensation data, and loads an intial dispersion compensation file
+
         self._initOCTHardware(fpgaOpts)
+
         
         imgNorms = self.octSetupInfo.imgNorms
         self.normLow_spinBox.setValue(imgNorms[0])

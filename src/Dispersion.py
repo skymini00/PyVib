@@ -46,6 +46,10 @@ class DispersionData:  # this class holds all the dispersion compensation data
         self.k0Reference = []
         self.uncorrAline = []
         self.corrAline = []
+        self.Klin=[]
+        self.dispCode=-1
+        self.dispMode=-1
+            
         
         if fpgaOpts is not None:
             self.requestedSamplesPerTrig = fpgaOpts.SamplesPerTrig*2

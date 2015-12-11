@@ -42,7 +42,7 @@ class StatusMsg:
 class OCTSetupInfo:
     def __init__(self):
         self.setupNum = -1
-        self.dispFilename = ''
+        self.dispFilename = 'dispComp-initial.pickle'
         self.zRes = 8.37
         self.imgNorms = (50, 120)
         self.ZROI = (100, 100 + 4*120 - 1 )

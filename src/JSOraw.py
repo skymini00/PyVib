@@ -17,23 +17,25 @@ import matplotlib.pyplot as plt
 import traceback
 from DebugLog import DebugLog
 import pickle
+import Dispersion
 
-class DispersionData:  # this class holds all the dispersion compensation data
-    def __init__(self):
-        self.magWin =[]
-        self.phaseCorr = []
-        self.phDiode_background = None
-        self.requestedSamplesPerTrig=[]
-        self.startSample=[]
-        self.endSample=[]
-        self.numKlinPts=[]
-        self.Klin=[]
-        self.numShiftPts=[]
-        self.filterWidth=[]
-        self.PDfilterCutoffs=[]
-        self.mziFilter=[]
-        self.magWin_LPfilterCutoff=[]
-        self.k0Reference=[]
+#class DispersionData:  # this class holds all the dispersion compensation data
+#    def __init__(self):
+#        self.magWin =[]
+#        self.phaseCorr = []
+#        self.phDiode_background = None
+#        self.requestedSamplesPerTrig=[]
+#        self.startSample=[]
+#        self.endSample=[]
+#        self.numKlinPts=[]
+#        self.Klin=[]
+#        self.numShiftPts=[]
+#        self.filterWidth=[]
+#        self.PDfilterCutoffs=[]
+#        self.mziFilter=[]
+#        self.magWin_LPfilterCutoff=[]
+#        self.k0Reference=[]
+
                 
 class SavedDataBuffer: 
     def __init__(self):
@@ -343,7 +345,10 @@ def updateDispersionGUI(appObj, dispData):
     appObj.filterWidth.setValue(dispData.filterWidth)
     appObj.mziFilter.setValue(dispData.mziFilter)
     appObj.dispMagWindowFilter.setValue(dispData.magWin_LPfilterCutoff)
-    appObj.dispersionCompAlgorithm_comboBox.setCurrentIndex(dispData.dispCode) 
+    try:  # this field may not exist, so wrap around try/except
+        appObj.dispersionCompAlgorithm_comboBox.setCurrentIndex(dispData.dispCode) 
+    except:
+        pass
     
 def loadDispersion_pushButton_clicked(appObj):
     loadpath=os.path.join(appObj.configPath, 'Dispersion')  
@@ -358,11 +363,10 @@ def loadDispersion_pushButton_clicked(appObj):
     
 def loadDispersion_onStartup(appObj):   
 #    infile=os.path.join(appObj.configPath, 'Dispersion','dispComp-initial.pickle')  
-    infile=os.path.join(appObj.configPath, 'Dispersion',appObj.octSetupInfo.dispFilename)  
-    file2=open(infile,'rb')
-    dispData=pickle.load(file2)
-    file2.close()
+    infile = appObj.octSetupInfo.dispFilename
+    dispData = Dispersion.loadDispData(appObj, infile)
     appObj.dispData=dispData
+    DebugLog.log('JSORaw.loadDispersion_onStartup: set appObj.dispData')
     appObj.dispCompFilename_label.setText(infile)
     updateDispersionGUI(appObj, appObj.dispData)
 
