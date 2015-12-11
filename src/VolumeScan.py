@@ -245,11 +245,12 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     b,a=scipy.signal.butter(3,LPFcutoff/fDAQ/2,'low')  #note since using filtfilt a 3 pole is actually a 6 pole
     xDAQfil=scipy.signal.filtfilt(b,a,xDAQraw) #filter to avoid MEMS resonance         
     tlower=np.mean(tDAQ)-1/faxis/2 #lower time value for center cycle
-    thigher=np.mean(tDAQ)+1/faxis/2 #higher time value for center cycle
+    thigher=np.mean(tDAQ)+1/faxis/2 #higher time value for center cycle    
     tcycleindexs=np.where(((ts>=tlower)*(ts<=thigher))>0) #find indicies coresponding to center cycle
-    tcycleindexDAQ=np.where(((tDAQ>=tlower)*(tDAQ<=thigher))>0) #find indicies coresponding to center cycle
-    
+    tcycleindexDAQ=np.where(((tDAQ>=tlower)*(tDAQ<=thigher))>0) #find indicies coresponding to center cycle    
     xfilcycle=xfil[tcycleindexs[0][0]:tcycleindexs[0][-1]] /np.max(xfil[tcycleindexs[0][0]:tcycleindexs[0][-1]]) #filtered cycle of sawtooth for generating scan waveform
+    plt.figure(1)
+    plt.plot(xfilcycle)
     xDAQfilcycle=xDAQfil[tcycleindexDAQ[0][0]:tcycleindexDAQ[0][-1]]/np.max(xDAQfil[tcycleindexDAQ[0][1]:tcycleindexDAQ[0][-1]]) #filtered cycle of sawtooth for generating scan waveform
 
     tqcycleindexs=np.where(((ts>=(tlower+1/faxis/4))*(ts<=(thigher-1/faxis/2)))>0) #find indicies for quarter cycle
@@ -266,6 +267,8 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     
     xN=np.concatenate((A,np.tile(xfilcycle,plotParam.yPixel),B),2) #build normalized, from -1 to 1, x-waveform
     yN=np.concatenate((A,np.linspace(-1,1,xfilcycle.size*plotParam.yPixel),-B),2) #build linear ramp for y-waveform
+    plt.figure(2)    
+    plt.plot(xN,yN)
 
     xDAQ=np.concatenate((ADAQ,np.tile(xDAQfilcycle,plotParam.yPixel),BDAQ),2) #build normalized, from -1 to 1, x-waveform
     yDAQ=np.concatenate((ADAQ,np.linspace(-1,1,xDAQfilcycle.size*plotParam.yPixel),-BDAQ),2) #build linear ramp for y-waveform
@@ -275,16 +278,21 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     Vy=(scanParams.width*Vpmmy/2)/yAdjust
     y=Vy*yDAQ
     scanDetails.mirrOut=np.vstack((x,y))
+    scanDetails.numTrigs=xN.size
 
     # calculate the x,y pixel positions for each sampletime
-    xNorm1=plotParam.xPixel*((xN/2)+0.5)  
+    xNorm1=plotParam.xPixel*((xN/2)+0.5)  # convert xN from -1 to +1 to go from 0 to the number of xPixels
     yNorm1=plotParam.yPixel*((yN/2)+0.5)
-    scanDetails.numTrigs=xN.size
-    xNorm1[0:int(xN.size/4-1)]=1e10
-    xNorm1[int(xN.size/4*3):-1]=1e10
-    yNorm1[0:int(yN.size/4-1)]=1e10
-    yNorm1[int(yN.size/4*3):-1]=1e10
-    
+    plt.figure(3)    
+    plt.plot(xNorm1,yNorm1)
+
+#    xNorm1[0:int(xN.size/4-1)]=1e10
+#    xNorm1[int(xN.size/4*3):-1]=1e10
+#    yNorm1[0:int(yN.size/4-1)]=1e10
+#    yNorm1[int(yN.size/4*3):-1]=1e10
+#    plt.figure(2)    
+#    plt.plot(xNorm1,yNorm1)
+#   
     # create the 3D array c2, of true/false to give which alines to average for each pixel, and then reformat this into scanDetails.c
     scanDetails.c3=np.zeros((plotParam.xPixel,plotParam.yPixel))
     for i1 in range(0,plotParam.xPixel):  
@@ -301,13 +309,14 @@ def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     and the variables that are used when reformatting the collected A-lines
     into the proper 3D format(scanDetails.c,scanDetails.cTile, and scanDetails.c3)
     """
+    
     # make mirror output signals
     Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
     Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
     xAdjust = 1    
     yAdjust = scanParams.skew
     phaseShift = scanParams.phaseAdjust
-    fr = scanParams.resonantFreq  # angular scan rate (frequency of one rotation - resonant frequency)
+    fr = mirrorDriver.resonantFreq  # angular scan rate (frequency of one rotation - resonant frequency)
     fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
     DebugLog.log("VolumeScan.setupSpiralScan(): freq of one rotation (fr)= %d; scan frequency (fv)= %d" % (fr, fv))
     diameter = scanParams.length
@@ -1124,7 +1133,8 @@ def runVolScan(appObj):
     appObj.isCollecting = True
     OCTtrigRate = appObj.oct_hw.GetTriggerRate()
 
-    OCTtrigRate = 10000  # make this slower for testing purposes
+    if appObj.testcode==1:
+        OCTtrigRate = 200  # make this slower for testing purposes
 
     mirrorDriver = appObj.mirrorDriver
     rset = True
@@ -1148,9 +1158,10 @@ def runVolScan(appObj):
             appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData.npz')
             scanParams = appObj.getScanParams()
     else:
-        # get the scan paramters that the user has entred 
+        # get the scan paramters that the user has entered 
         scanParams = appObj.getScanParams()
 
+    print('scanParams',dir(scanParams))
     scanDetails = None
     plotParam = None
     zROI = appObj.getZROI()    
@@ -1206,6 +1217,8 @@ def runVolScan(appObj):
                 # if a MEMS mirror is being used, filter the mirrorOut commands to prevent damaging the device
                 if mirrorDriver.MEMS==True:
                     mirrorOut=scipy.signal.filtfilt(mirrorDriver.b_filt,mirrorDriver.a_filt,mirrorOut1)           
+                else:
+                    mirrorOut=mirrorOut1    
                     
             # plot command to GUI 
             pl = appObj.JSOmisc_plot1

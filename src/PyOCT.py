@@ -126,6 +126,10 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self._initOCTHardware(fpgaOpts)
 
         
+        # these are JSO's variables for testing stuff
+        self.useGUI=1   # 1=use gui information for spiral/WW/ZZ scans; 0= use values from the mirrorDriver file
+        self.testcode=1 # 1=testing code (use slower sampling rate); 0=run real code           
+        
         imgNorms = self.octSetupInfo.imgNorms
         self.normLow_spinBox.setValue(imgNorms[0])
         self.normLow_slider.setValue(imgNorms[0])
@@ -790,17 +794,15 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         scanParams.volBscansPerFrame = self.scan_volBscansPerFrame_spinBox.value()
         scanParams.continuousScan = self.continuousVolume_checkBox.isChecked()
 
-        if self.octSetupInfo.mirrorConfigFile[0:4]=='MEMS':
+        if self.useGUI==1:
+            scanParams.skew = self.skew_dblSpinBox.value()
+            scanParams.phaseAdjust = self.scanPhaseAdjust_spinBox.value()
+            scanParams.volScanFreq = self.volScanFreq_spinBox.value()
+        else:
             scanParams.skew = self.mirrorDriver.skew
             scanParams.phaseAdjust = self.mirrorDriver.phaseAdjust
-            scanParams.resonantFreq = self.mirrorDriver.resonantFreq
-            scanParams.volScanFreq = self.mirrorDriver.volScanFreq
-            useGUI=1
-            if useGUI==1:
-                scanParams.skew = self.skew_dblSpinBox.value()
-                scanParams.phaseAdjust = self.scanPhaseAdjust_spinBox.value()
-                scanParams.volScanFreq = self.volScanFreq_spinBox.value()
-          
+            scanParams.volScanFreq = self.mirrorDriver.volScanFreq  
+        
         return scanParams
 
         
