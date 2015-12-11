@@ -7,4 +7,4 @@ FPGAOptsFile=FPGA Opts 50kHz.txt
 AudioConfigFile=AudioHardware.txt
 DefaultAudioQuickSet=   
 MirrorConfigFile=OIM 50kHz.txt
-DefaultScanQuickSet=fastBscan
+DefaultScanQuickSet=spiralscan

@@ -99,8 +99,7 @@ class MirrorDriver:
                 self.mirrorType = MirrorType(int(val))               
                 print('mirrorDriver type', val, int(val), float(val))                
                 if int(val)==1 or int(val)==2:   # if it is a MEMS mirror, note this
-                    self.MEMS=True
-                
+                    self.MEMS=True                
                 else:
                     self.MEMS=False
                 print('self.MEMS', self.MEMS)
@@ -121,7 +120,8 @@ class MirrorDriver:
                 self.LPFcutoff = float(val)
             elif(fld == "voltsPerMillimeterResonant"):
                 self.voltsPerMillimeterResonant = float(val)               
-        if self.MEMS==True:   # if using a MEMS mirror, set up the filtering coefficients to be careful and not damage the device
+            
+            # Set up the filtering coefficients to be careful and not damage the device
             self.b_filt,self.a_filt=scipy.signal.butter(3,self.LPFcutoff/self.DAQoutputRate/2,'low')  #note since using filtfilt a 3 pole is actually a 6 pole
                 
     def __repr__(self):        
