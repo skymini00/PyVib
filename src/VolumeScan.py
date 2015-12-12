@@ -79,13 +79,16 @@ def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
     plotParam=blankRecord() # create an empty record to pass the plotting parameters in
     plotParam.zROI = zROI
     plotParam.zPixel=plotParam.zROI[1]-plotParam.zROI[0]+1              
-    plotParam.zPixelsize=procOpts.zRes    
+    plotParam.zPixelSize=procOpts.zRes    
     plotParam.xPixel=scanParams.lengthSteps   # number of pixels in x dimension  
     plotParam.yPixel=scanParams.widthSteps   # number of pixels in y dimension        
     plotParam.xCenter=np.int(plotParam.xPixel/2)
     plotParam.yCenter=np.int(plotParam.yPixel/2)            
     plotParam.rangeCenter=((plotParam.xCenter+plotParam.yCenter)//2)//4   
-    
+    plotParam.xPixelZoom=1   # these zoom factors may change if the scan rate of the mirror doesn't permit the desired pixel resolution
+    plotParam.yPixelZoom=1
+    plotParam.zPixelZoom=1    
+     
     DebugLog.log("VolumeScan.setupScan() plotParam xPixel= %d yPixel= %d zPixel= %d xCenter= %d yCenter= %d rangeCenter= %d" % (plotParam.xPixel, plotParam.yPixel, plotParam.zPixel, plotParam.xCenter, plotParam.yCenter, plotParam.rangeCenter))
     #  setup galvo voltages and calculate which samples fit into which pixels                 
     scanDetails=blankRecord()  #create an empty record to get the spiral scan parameter
@@ -125,18 +128,22 @@ def setupWagonWheelScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtri
         diameter=VoltageRangeMax/Vpmmx
     if Vpmmy*diameter>VoltageRangeMax:
         diameter=VoltageRangeMax/Vpmmx       
-    plotParam.xPixelsize=(diameter/plotParam.xPixel)*1000  # size of one pixel in the x dimension in microns
-    plotParam.yPixelsize=(diameter/plotParam.xPixel)*1000  # size of one pixel in the y dimension in microns 
-
+    plotParam.xPixelSize=(diameter/plotParam.xPixel)*1000  # size of one pixel in the x dimension in microns
+    plotParam.yPixelSize=(diameter/plotParam.xPixel)*1000  # size of one pixel in the y dimension in microns 
     n_angle=8 #number of angles to be used in flower scan Note: this will be rounded up to the nearest even number
     
     # calculate the scan rates
     RFxPlanned=2*(OCTtrigRate/plotParam.xPixel)
     if RFxPlanned>RFMax:
         RFx=RFMax
-        plotParam.xPixel=np.int(np.floor(2*(OCTtrigRate/RFx)))
+        xPixelnew=np.int(np.floor(2*(OCTtrigRate/RFx)))
+        plotParam.xPixelZoom=plotParam.xPixel/xPixelnew
+        plotParam.xPixel=xPixelnew
+        plotParam.yPixel=plotParam.xPixel
+        plotParam.yPixelZoom=plotParam.xPixelZoom
     else:
         RFx=RFxPlanned
+        plotParam.yPixel=plotParam.xPixel
     fv = scanParams.volScanFreq     # plotParam scan frequency   
     n_angle=np.floor(RFx/fv)        # the number of angles to sweep depends upon how fast we want to collect a volume
        
@@ -178,10 +185,6 @@ def setupWagonWheelScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtri
     xNorm1=plotParam.xPixel*((xN/2)+0.5)  
     yNorm1=plotParam.yPixel*((yN/2)+0.5)
     scanDetails.numTrigs=xN.size
-    xNorm1[0:int(xN.size/4-1)]=1e10
-    xNorm1[int(xN.size/4*3):-1]=1e10
-    yNorm1[0:int(yN.size/4-1)]=1e10
-    yNorm1[int(yN.size/4*3):-1]=1e10
     
     # create the 3D array c2, of true/false to give which alines to average for each pixel, and then reformat this into scanDetails.c
     scanDetails.c3=np.zeros((plotParam.xPixel,plotParam.yPixel))
@@ -214,21 +217,25 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
         scanParams.length=VoltageRangeMax/Vpmmx
     if Vpmmy*scanParams.width>VoltageRangeMax:
         scanParams.width=VoltageRangeMax/Vpmmx       
-    plotParam.xPixelsize=(scanParams.length/plotParam.xPixel)*1000  # size of one pixel in the x dimension in microns
-    plotParam.yPixelsize=(scanParams.width/plotParam.yPixel)*1000  # size of one pixel in the y dimension in microns 
     fDAQ= mirrorDriver.DAQoutputRate  #DAQ sampling rate       
+    plotParam.xPixelSize=(scanParams.length/plotParam.xPixel)*1000  # size of one pixel in the x dimension in microns
+    plotParam.yPixelSize=(scanParams.width/plotParam.yPixel)*1000  # size of one pixel in the y dimension in microns 
     
-    # calculate the scan rates for the x and y directions (both are bidirectional)  
+    # calculate the scan rates for the x and y directions (both are bidirectional) 
     RFxPlanned=2*(OCTtrigRate/plotParam.xPixel)
     if RFxPlanned>RFMax:
         RFx=RFMax
-        plotParam.xPixel=np.int(np.floor(2*(OCTtrigRate/RFx)))
+        xPixelnew=np.int(np.floor(2*(OCTtrigRate/RFx)))
+        plotParam.xPixelZoom=plotParam.xPixel/xPixelnew
+        plotParam.xPixel=xPixelnew
     else:
         RFx=RFxPlanned
     RFyPlanned=2*RFx/(plotParam.yPixel/2)
     if RFyPlanned>RFMax:
         RFy=RFMax
-        plotParam.yPixel=np.int(np.floor(2*(OCTtrigRate/RFy)))
+        yPixelnew=np.int(np.floor(2*(OCTtrigRate/RFy)))
+        plotParam.yPixelZoom=plotParam.yPixel/yPixelnew
+        plotParam.yPixel=yPixelnew
     else:
         RFy=RFyPlanned
              
@@ -249,8 +256,6 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     tcycleindexs=np.where(((ts>=tlower)*(ts<=thigher))>0) #find indicies coresponding to center cycle
     tcycleindexDAQ=np.where(((tDAQ>=tlower)*(tDAQ<=thigher))>0) #find indicies coresponding to center cycle    
     xfilcycle=xfil[tcycleindexs[0][0]:tcycleindexs[0][-1]] /np.max(xfil[tcycleindexs[0][0]:tcycleindexs[0][-1]]) #filtered cycle of sawtooth for generating scan waveform
-    plt.figure(1)
-    plt.plot(xfilcycle)
     xDAQfilcycle=xDAQfil[tcycleindexDAQ[0][0]:tcycleindexDAQ[0][-1]]/np.max(xDAQfil[tcycleindexDAQ[0][1]:tcycleindexDAQ[0][-1]]) #filtered cycle of sawtooth for generating scan waveform
 
     tqcycleindexs=np.where(((ts>=(tlower+1/faxis/4))*(ts<=(thigher-1/faxis/2)))>0) #find indicies for quarter cycle
@@ -267,8 +272,6 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     
     xN=np.concatenate((A,np.tile(xfilcycle,plotParam.yPixel),B),2) #build normalized, from -1 to 1, x-waveform
     yN=np.concatenate((A,np.linspace(-1,1,xfilcycle.size*plotParam.yPixel),-B),2) #build linear ramp for y-waveform
-    plt.figure(2)    
-    plt.plot(xN,yN)
 
     xDAQ=np.concatenate((ADAQ,np.tile(xDAQfilcycle,plotParam.yPixel),BDAQ),2) #build normalized, from -1 to 1, x-waveform
     yDAQ=np.concatenate((ADAQ,np.linspace(-1,1,xDAQfilcycle.size*plotParam.yPixel),-BDAQ),2) #build linear ramp for y-waveform
@@ -283,15 +286,7 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     # calculate the x,y pixel positions for each sampletime
     xNorm1=plotParam.xPixel*((xN/2)+0.5)  # convert xN from -1 to +1 to go from 0 to the number of xPixels
     yNorm1=plotParam.yPixel*((yN/2)+0.5)
-    plt.figure(3)    
-    plt.plot(xNorm1,yNorm1)
-
-#    xNorm1[0:int(xN.size/4-1)]=1e10
-#    xNorm1[int(xN.size/4*3):-1]=1e10
-#    yNorm1[0:int(yN.size/4-1)]=1e10
-#    yNorm1[int(yN.size/4*3):-1]=1e10
-#    plt.figure(2)    
-#    plt.plot(xNorm1,yNorm1)
+ 
 #   
     # create the 3D array c2, of true/false to give which alines to average for each pixel, and then reformat this into scanDetails.c
     scanDetails.c3=np.zeros((plotParam.xPixel,plotParam.yPixel))
@@ -320,8 +315,8 @@ def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
     DebugLog.log("VolumeScan.setupSpiralScan(): freq of one rotation (fr)= %d; scan frequency (fv)= %d" % (fr, fv))
     diameter = scanParams.length
-    plotParam.xPixelsize=(diameter/plotParam.xPixel)*1000  # size on one pixel in the x dimension in microns
-    plotParam.yPixelsize=(diameter/plotParam.yPixel)*1000  # size on one pixel in the y dimension in microns         
+    plotParam.xPixelSize=(diameter/plotParam.xPixel)*1000  # size on one pixel in the x dimension in microns
+    plotParam.yPixelSize=(diameter/plotParam.yPixel)*1000  # size on one pixel in the y dimension in microns         
     voltsPerMM = mirrorDriver.voltsPerMillimeterResonant
     A1=(Vmaxx/2)/xAdjust
     A2=(Vmaxy/2)/yAdjust
@@ -558,12 +553,19 @@ def reformatScan(scanDetails,plotParam,oct_dataMag):
     if reformatMode==0:
         datasum21=np.dot(scanDetails.c,oct_dataMag)            
         datasum22=np.reshape(datasum21,(plotParam.xPixel,plotParam.yPixel,plotParam.zPixel))
-        data3D=np.nan_to_num(np.divide(datasum22,scanDetails.cTile))+1     
+        data3D_init=np.nan_to_num(np.divide(datasum22,scanDetails.cTile))+1     
     else:
         plotParam.zPixel=oct_dataMag.shape[1]
         datasum23=oct_dataMag[scanDetails.c3,:]
         datasum24=np.reshape(datasum23,(plotParam.xPixel,plotParam.yPixel,plotParam.zPixel))
-        data3D=np.nan_to_num(datasum24)+1     
+        data3D_init=np.nan_to_num(datasum24)+1    
+    
+    # if the 3D volume is oversampled, because the mirrors can't move fast enough
+    # to keep up with the desired sampling rate, 3D interpolate down to the right size array.
+    if plotParam.xPixelZoom != 1 or plotParam.yPixelZoom != 1:
+        data3D=scipy.ndimage.interpolation.zoom(data3D_init, [plotParam.xPixelZoom, plotParam.yPixelZoom, plotParam.zPixelZoom], order=3)        
+    else:
+        data3D=data3D_init
     return data3D
         
 def plotScan(plotParam,data3D, procOpts):
@@ -592,18 +594,18 @@ def plotScan(plotParam,data3D, procOpts):
 
     # shape the array to make a proportional image
     matrix=np.zeros((2,2))
-    if plotParam.xPixelsize<=plotParam.yPixelsize:
+    if plotParam.xPixelSize<=plotParam.yPixelSize:
         matrix[0,0]=1
-        matrix[1,1]=plotParam.xPixelsize/plotParam.yPixelsize     
+        matrix[1,1]=plotParam.xPixelSize/plotParam.yPixelSize     
         xOut=data3D.shape[0]
-        yOut=int(data3D.shape[1]*plotParam.yPixelsize/plotParam.xPixelsize)             
-        pixelSize=plotParam.xPixelsize    
+        yOut=int(data3D.shape[1]*plotParam.yPixelSize/plotParam.xPixelSize)             
+        pixelSize=plotParam.xPixelSize    
     else:
-        matrix[0,0]=plotParam.yPixelsize/plotParam.xPixelsize                  
+        matrix[0,0]=plotParam.yPixelSize/plotParam.xPixelSize                  
         matrix[1,1]=1
         yOut=data3D.shape[1]
-        xOut=int(data3D.shape[0]*plotParam.xPixelsize/plotParam.yPixelsize)
-        pixelSize=plotParam.yPixelsize    
+        xOut=int(data3D.shape[0]*plotParam.xPixelSize/plotParam.yPixelSize)
+        pixelSize=plotParam.yPixelSize    
     v3A=scipy.ndimage.interpolation.affine_transform(v3,matrix,output_shape=(xOut,yOut))        
     v4A=scipy.ndimage.interpolation.affine_transform(v4,matrix,output_shape=(xOut,yOut))        
     v3_sumAllA=scipy.ndimage.interpolation.affine_transform(v3_sumAll,matrix,output_shape=(xOut,yOut))        
@@ -639,16 +641,16 @@ def plotScan(plotParam,data3D, procOpts):
     
     # shape the array to make a proportional image
     matrix=np.zeros((2,2))
-    if plotParam.xPixelsize<=plotParam.zPixelsize:
+    if plotParam.xPixelSize<=plotParam.zPixelSize:
         matrix[0,0]=1
-        matrix[1,1]=plotParam.xPixelsize/plotParam.zPixelsize     
+        matrix[1,1]=plotParam.xPixelSize/plotParam.zPixelSize     
         xOut=plotParam.bScanArray.shape[0]
-        zOut=int(plotParam.bScanArray.shape[1]*plotParam.zPixelsize/plotParam.xPixelsize)             
+        zOut=int(plotParam.bScanArray.shape[1]*plotParam.zPixelSize/plotParam.xPixelSize)             
     else:
-        matrix[0,0]=plotParam.zPixelsize/plotParam.xPixelsize                  
+        matrix[0,0]=plotParam.zPixelSize/plotParam.xPixelSize                  
         matrix[1,1]=1
         zOut=plotParam.bScanArray.shape[1]
-        xOut=int(plotParam.bScanArray.shape[0]*plotParam.xPixelsize/plotParam.zPixelsize)
+        xOut=int(plotParam.bScanArray.shape[0]*plotParam.xPixelSize/plotParam.zPixelSize)
     plotParam.bScanArray1=scipy.ndimage.interpolation.affine_transform(plotParam.bScanArray,matrix,output_shape=(xOut,zOut))        
         
 #        plotParam.bScanArray1=plotParam.bScanArray
@@ -666,7 +668,7 @@ def plotScan(plotParam,data3D, procOpts):
     return surfacePlot,bScanPlot,bScanPlot16b
 
 
-def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
+def processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam):
     DebugLog.log("VolumeScan.processDataSpiralScan(): oct_data_mag.shape=(%d, %d)" % (oct_data_mag.shape))
 
     data3D=reformatScan(scanDetails,plotParam,oct_data_mag) # convert 2D array of A-lines in to 3D dataset with the proper orientation
@@ -674,8 +676,8 @@ def processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam):
 #    volDataIn.scanParams = scanParams
     volDataIn.volumeImg = np.uint16(data3D)                
     volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
-    volDataIn.xPixSize = plotParam.xPixelsize    # x pixel size in um
-    volDataIn.yPixSize = plotParam.yPixelsize    # y pixel size in um 
+    volDataIn.xPixSize = plotParam.xPixelSize    # x pixel size in um
+    volDataIn.yPixSize = plotParam.yPixelSize    # y pixel size in um 
         
     [surfacePlot,bScanPlot,bScanPlot16b]= plotScan(plotParam,data3D, procOpts)  # generate the surface views and b-scan slice images           
 
@@ -714,17 +716,17 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
     scanP = scanParams
     bscansPerFrame = scanP.volBscansPerFrame
     if scanP.pattern == ScanPattern.spiral:
-        volDataIn = processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam)
+        volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam)
     elif scanP.pattern == ScanPattern.wagonWheel:
-        volDataIn = processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam)
+        volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam)
         volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
-        volDataIn.xPixSize = plotParam.xPixelsize     # x pixel size in um
-        volDataIn.yPixSize = plotParam.yPixelsize     # y pixel size in um 
+        volDataIn.xPixSize = plotParam.xPixelSize     # x pixel size in um
+        volDataIn.yPixSize = plotParam.yPixelSize     # y pixel size in um 
     elif scanP.pattern == ScanPattern.zigZag:
-        volDataIn = processDataSpiralScan(oct_data_mag, procOpts, scanDetails, plotParam)
+        volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam)
         volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
-        volDataIn.xPixSize = plotParam.xPixelsize     # x pixel size in um
-        volDataIn.yPixSize = plotParam.yPixelsize     # y pixel size in um 
+        volDataIn.xPixSize = plotParam.xPixelSize     # x pixel size in um
+        volDataIn.yPixSize = plotParam.yPixelSize     # y pixel size in um 
     else:
         if bscansPerFrame > 1:
             oct_data_tmp = copy.copy(oct_data_mag)
@@ -1134,7 +1136,7 @@ def runVolScan(appObj):
     OCTtrigRate = appObj.oct_hw.GetTriggerRate()
 
     if appObj.testcode==1:
-        OCTtrigRate = 200  # make this slower for testing purposes
+        OCTtrigRate = 2000  # make this slower for testing purposes
 
     mirrorDriver = appObj.mirrorDriver
     rset = True
