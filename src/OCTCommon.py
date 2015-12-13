@@ -51,6 +51,7 @@ class OCTSetupInfo:
         self.mirrorConfigFile = 'GalvoMirror.txt'
         self.audioConfigFile = 'AudioHardware.txt'
         self.FPGAOptsFile = 'FPGA Opts.txt'
+        self.Laser = 1       
         
     def encodeToString(self):
         s = ''
@@ -146,6 +147,9 @@ def readOCTSetupInfo(filepath):
                 setupInfo.audioConfigFile = val
             elif(fld == 'FPGAOptsFile'):
                 setupInfo.FPGAOptsFile = val
+            elif(fld == 'Laser'):
+                setupInfo.Laser = int(val)
+                                
         except Exception as ex:
             pass
             
@@ -244,6 +248,20 @@ def initSaveDir(saveOpts, protocolName, scanParams=None, audioParams=None):
         f.close()
         
     return saveDir
+
+def GetTriggerRate(appObj):
+    print('appObj.octSetupInfo.Laser',appObj.octSetupInfo.Laser)               
+    if appObj.octSetupInfo.Laser == 1:
+        trigRate = 200e3
+    elif appObj.octSetupInfo.Laser==2:
+        trigRate = 49.9598e3
+    elif appObj.octSetupInfo.Laser==3:
+        trigRate = 100e3
+    elif appObj.octSetupInfo.Laser==4:      # test mode with a low laser rate
+        trigRate = 2000
+        
+    return trigRate
+
 
 dataTypeFileNames = [ 'OCT complex FFT ',  'OCT interp PD ', 'OCT raw PD/MZI ', 'Mic raw ']
 # save teh raw data

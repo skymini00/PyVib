@@ -131,7 +131,9 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
 
         # these are JSO's variables for testing stuff
         self.useGUI=1   # 1=use gui information for spiral/WW/ZZ scans; 0= use values from the mirrorDriver file
-        self.testcode=1 # 1=testing code (use slower sampling rate); 0=run real code           
+        self.maxTrigs=20000 # max number of triggers to collect at once
+        
+        print('self.octSetupInfo.Laser',self.octSetupInfo.Laser)        
         
         imgNorms = self.octSetupInfo.imgNorms
         self.normLow_spinBox.setValue(imgNorms[0])
@@ -297,7 +299,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             oct_hw = octfpga.StartOCTInterfaceBGProcess(self.basePath)  
         else:
             oct_hw = octfpga.LV_DLLInterface()
-        
+                
         samplesPerTrig = fpgaOpts.SamplesPerTrig
         sampleOffset = fpgaOpts.SampleOffset
         Ch0Shift = fpgaOpts.Ch0Shift

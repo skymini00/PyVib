@@ -343,7 +343,6 @@ class LV_DLLInterface:
             
         klin = klin[0:klinNumPts-1]
         self.setupNum = setup
-    
         return err, klin
         
     # IsOCTTestingMode: returns True if OCT hardware is NOT present, otherwise returns False
@@ -649,7 +648,17 @@ class LV_DLLInterface:
             trigRate = 49.9598e3
         else:
             trigRate = 200e3
-            
+
+# This needs to be fixed to work like this!!!
+
+#        print('self.octSetupInfo.Laser',self.octSetupInfo.Laser)               
+#        if self.octSetupInfo.Laser == 1:
+#            trigRate = 200e3
+#        elif self.octSetupInfo.Laser==2:
+#            trigRate = 49.9598e3
+#        elif self.octSetupInfo.Laser==3:
+#            trigRate = 100e3
+#            
         return trigRate
         
     def Shutdown(self):
@@ -902,11 +911,13 @@ class LV_DLLInterface_BGProcess_Adaptor:
         return resp
         
     def GetTriggerRate(self):
-        setupNum = self.setupNum
-        if setupNum == 1 or setupNum == 4:
-            trigRate = 49.9598e3
-        else:
+        print('self.octSetupInfo.Laser',self.octSetupInfo.Laser)               
+        if self.octSetupInfo.Laser == 1:
             trigRate = 200e3
+        elif self.octSetupInfo.Laser==2:
+            trigRate = 49.9598e3
+        elif self.octSetupInfo.Laser==3:
+            trigRate = 100e3
             
         return trigRate
             

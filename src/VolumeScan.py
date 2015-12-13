@@ -1133,11 +1133,8 @@ def runVolScan(appObj):
         
     appObj.doneFlag = False
     appObj.isCollecting = True
-    OCTtrigRate = appObj.oct_hw.GetTriggerRate()
 
-    if appObj.testcode==1:
-        OCTtrigRate = 2000  # make this slower for testing purposes
-
+    OCTtrigRate = OCTCommon.GetTriggerRate(appObj)
     mirrorDriver = appObj.mirrorDriver
     rset = True
     
@@ -1251,96 +1248,104 @@ def runVolScan(appObj):
             
             # setup and grab the OCT data
             numTrigs = getNumTrigs(scanParams, scanDetails, OCTtrigRate, mirrorDriver)
-            if processMode == OCTCommon.ProcessMode.FPGA:
-                if appObj.oct_hw.IsOCTTestingMode():
-                    oct_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
-                else:
-                    err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
-            elif processMode == OCTCommon.ProcessMode.SOFTWARE:
-                if appObj.oct_hw.IsOCTTestingMode():
-                    ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
-                else:
-                    # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
-                    samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
-                    err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset)
-                
-                timePoint4 = time.time()
-
-                oct_data, klin = JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
-            else:
-                QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
             
-            timePoint5 = time.time()
-
-            # process the data
-            oct_data_mag = np.abs(oct_data)
-            volData = processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
-            timePoint6 = time.time()
-    
-            if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.zigZag or scanParams.pattern == ScanPattern.wagonWheel:
-                spiralData = volData.spiralScanData
-                img8b = spiralData.bscanPlot
-                img8b = np.require(img8b, dtype=np.uint8)
-                appObj.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
-                img8b = spiralData.surfacePlot
-                img8b = np.require(img8b, dtype=np.uint8)
-                appObj.vol_plane_proj_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
-                if rset:
-                    gvs = (appObj.vol_bscan_gv, appObj.vol_plane_proj_gv)
-                    for gv in gvs:
-                        hscroll = gv.horizontalScrollBar()
-                        hscroll.setSliderPosition(-500)
-                        vscroll = gv.verticalScrollBar()
-                        vscroll.setSliderPosition(-500)
-                        
-                rset = False
+            if numTrigs>appObj.maxTrigs:
+                print('This is too many triggers. Get it under %d or the computer will crash. Current numTrigs= %d' %(appObj.maxTrigs,numTrigs))
+                appObj.doneFlag=True
+                blankImg=np.zeros((1,1), dtype=np.uint8)
+                appObj.vol_bscan_gv.setImage(blankImg, ROIImageGraphicsView.COLORMAP_HOT, rset)    
+                appObj.vol_plane_proj_gv.setImage(blankImg, ROIImageGraphicsView.COLORMAP_HOT, rset)              
             else:
-                img16b = volData.volumeImg[frameNum*bscansPerFrame, :, :]
-                img8b = np.round(255.0*img16b/65335.0)  # remap image range
-                DebugLog.log("VolumeScan runVolScan(): frame= %d img16b max= %d min=%d " % (frameNum*bscansPerFrame, np.max(img8b), np.min(img8b)))
-
-                img8b = np.require(img8b, dtype=np.uint8)
-                appObj.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
-                rset = False                
-                
-            if not appObj.oct_hw.IsDAQTestingMode():
-                daq.stopAnalogOutput()
-                daq.clearAnalogOutput()
-            timePoint7 = time.time()
-
-            print('timePoint2-timePoint1 = ',timePoint2-timePoint1)
-            print('timePoint3-timePoint2 = ',timePoint3-timePoint2)
-            print('timePoint4-timePoint3 = ',timePoint4-timePoint3)
-            print('timePoint5-timePoint4 = ',timePoint5-timePoint4)
-            print('timePoint6-timePoint5 = ',timePoint6-timePoint5)
-            print('timePoint7-timePoint6 = ',timePoint7-timePoint6)            
-
-            frameNum += 1
-            appObj.acquisition_progressBar.setValue(round(100*frameNum/framesPerScan))
-            if appObj.getSaveState():
-                if not isSaveDirInit:
-                    saveDir = OCTCommon.initSaveDir(saveOpts, 'Volume', scanParams)
-                    isSaveDirInit = True
-                if saveOpts.saveRaw:
-                    if processMode == OCTCommon.ProcessMode.FPGA:
-                        OCTCommon.saveRawData(oct_data, saveDir, frameNum-1, dataType=0)
-                    elif processMode == OCTCommon.ProcessMode.SOFTWARE:
-                        outfile = os.path.join(saveDir, 'testData %d.npz' % (frameNum-1))
-                        np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)
-            
-            if frameNum % framesPerScan == 0:
-                if appObj.getSaveState():
-                    saveVolumeData(volData, saveDir, saveOpts, scanNum)
-
-                appObj.volDataLast = volData
-                appObj.displayVolumeImg3D(volData.volumeImg)  # update the volume image
+                if processMode == OCTCommon.ProcessMode.FPGA:
+                    if appObj.oct_hw.IsOCTTestingMode():
+                        oct_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
+                    else:
+                        err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
+                elif processMode == OCTCommon.ProcessMode.SOFTWARE:
+                    if appObj.oct_hw.IsOCTTestingMode():
+                        ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
+                    else:
+                        # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
+                        samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
+                        err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset)
                     
-                scanNum += 1
-                if scanParams.continuousScan:
-                    frameNum = 0
+                    timePoint4 = time.time()
+    
+                    oct_data, klin = JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
+                else:
+                    QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
                 
-            # check for GUI events, particularly the "done" flag
-            QtGui.QApplication.processEvents() 
+                timePoint5 = time.time()
+    
+                # process the data
+                oct_data_mag = np.abs(oct_data)
+                volData = processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
+                timePoint6 = time.time()
+        
+                if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.zigZag or scanParams.pattern == ScanPattern.wagonWheel:
+                    spiralData = volData.spiralScanData
+                    img8b = spiralData.bscanPlot
+                    img8b = np.require(img8b, dtype=np.uint8)
+                    appObj.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
+                    img8b = spiralData.surfacePlot
+                    img8b = np.require(img8b, dtype=np.uint8)
+                    appObj.vol_plane_proj_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
+                    if rset:
+                        gvs = (appObj.vol_bscan_gv, appObj.vol_plane_proj_gv)
+                        for gv in gvs:
+                            hscroll = gv.horizontalScrollBar()
+                            hscroll.setSliderPosition(-500)
+                            vscroll = gv.verticalScrollBar()
+                            vscroll.setSliderPosition(-500)
+                            
+                    rset = False
+                else:
+                    img16b = volData.volumeImg[frameNum*bscansPerFrame, :, :]
+                    img8b = np.round(255.0*img16b/65335.0)  # remap image range
+                    DebugLog.log("VolumeScan runVolScan(): frame= %d img16b max= %d min=%d " % (frameNum*bscansPerFrame, np.max(img8b), np.min(img8b)))
+    
+                    img8b = np.require(img8b, dtype=np.uint8)
+                    appObj.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
+                    rset = False                
+                    
+                if not appObj.oct_hw.IsDAQTestingMode():
+                    daq.stopAnalogOutput()
+                    daq.clearAnalogOutput()
+                timePoint7 = time.time()
+    
+                print('timePoint2-timePoint1 = ',timePoint2-timePoint1)
+                print('timePoint3-timePoint2 = ',timePoint3-timePoint2)
+                print('timePoint4-timePoint3 = ',timePoint4-timePoint3)
+                print('timePoint5-timePoint4 = ',timePoint5-timePoint4)
+                print('timePoint6-timePoint5 = ',timePoint6-timePoint5)
+                print('timePoint7-timePoint6 = ',timePoint7-timePoint6)            
+    
+                frameNum += 1
+                appObj.acquisition_progressBar.setValue(round(100*frameNum/framesPerScan))
+                if appObj.getSaveState():
+                    if not isSaveDirInit:
+                        saveDir = OCTCommon.initSaveDir(saveOpts, 'Volume', scanParams)
+                        isSaveDirInit = True
+                    if saveOpts.saveRaw:
+                        if processMode == OCTCommon.ProcessMode.FPGA:
+                            OCTCommon.saveRawData(oct_data, saveDir, frameNum-1, dataType=0)
+                        elif processMode == OCTCommon.ProcessMode.SOFTWARE:
+                            outfile = os.path.join(saveDir, 'testData %d.npz' % (frameNum-1))
+                            np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)
+                
+                if frameNum % framesPerScan == 0:
+                    if appObj.getSaveState():
+                        saveVolumeData(volData, saveDir, saveOpts, scanNum)
+    
+                    appObj.volDataLast = volData
+                    appObj.displayVolumeImg3D(volData.volumeImg)  # update the volume image
+                        
+                    scanNum += 1
+                    if scanParams.continuousScan:
+                        frameNum = 0
+                    
+                # check for GUI events, particularly the "done" flag
+                QtGui.QApplication.processEvents() 
 
         
     except Exception as ex:
