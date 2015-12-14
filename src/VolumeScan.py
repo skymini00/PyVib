@@ -563,7 +563,8 @@ def reformatScan(scanDetails,plotParam,oct_dataMag):
     # if the 3D volume is oversampled, because the mirrors can't move fast enough
     # to keep up with the desired sampling rate, 3D interpolate down to the right size array.
     if plotParam.xPixelZoom != 1 or plotParam.yPixelZoom != 1:
-        data3D=scipy.ndimage.interpolation.zoom(data3D_init, [plotParam.xPixelZoom, plotParam.yPixelZoom, plotParam.zPixelZoom], order=3)        
+        data3D_init1=scipy.ndimage.interpolation.zoom(data3D_init, [plotParam.xPixelZoom, plotParam.yPixelZoom, plotParam.zPixelZoom], order=3)
+        data3D=np.abs(data3D_init1)        
     else:
         data3D=data3D_init
     return data3D
@@ -699,7 +700,13 @@ def processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam):
     SpiralData.bscanPlot_16b = bScanPlot16b
     volDataIn.spiralScanData = SpiralData
     # procData.data3D = data3D
-    
+ 
+#    print('data3d issues1:',np.count_nonzero(np.isinf(data3D))) 
+#    print('data3d issues2:',np.count_nonzero(np.isnan(data3D))) 
+#    print('data3d issues3:',np.count_nonzero(data3D==0)) 
+#    print('data3d issues4:',np.count_nonzero(data3D<0)) 
+#    print('data3d issues5:',np.count_nonzero(data3D>0)) 
+#    
     data3D = 20*np.log10(data3D[:,:,::-1])
     nL = procOpts.normLow
     nH = procOpts.normHigh
