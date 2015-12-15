@@ -387,6 +387,10 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             slider.valueChanged.connect(cb)
             cb = self.scanParamSpinBoxChanged(spinBox, slider)
             spinBox.valueChanged.connect(cb)
+            
+        self.vol_3d_normlow_slider.valueChanged.connect(self.view3DParamsChanged)
+        self.vol_3d_normhigh_slider.valueChanged.connect(self.view3DParamsChanged)
+        self.vol_3d_threshold_spinBox.valueChanged.connect(self.view3DParamsChanged)
 
     def _initGraphVars(self):
         layout = QtGui.QHBoxLayout()
@@ -463,7 +467,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
     def scanParamSpinBoxChanged(self, spinBox, slider):
         def dimChanged(self):
             slider.blockSignals(True)   # block the signals so the scanParam
-            slider.setValue(spinBox.value*1000)
+            slider.setValue(spinBox.value()*1000)
             slider.blockSignals(False)
             
         return dimChanged
@@ -1151,8 +1155,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
 #        from OCTGLViewWidget import OCTGLViewWidget            
         view = self.graphicsView
         
-        nL = 65535*self.vol_3dnormlow_slider.value() / 100
-        nH = 65535*self.vol_3dnormhigh_slider.value() / 100
+        nL = 65535*self.vol_3d_normlow_slider.value() / 100
+        nH = 65535*self.vol_3d_normhigh_slider.value() / 100
         
         # convert to 8-bit
         volImg = np.clip(volImg, nL, nH)
@@ -1224,6 +1228,10 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.zROILast = zroi
         self.ZROI_size_spinBox.setValue(roiEnd - roiBegin + 1)
         self.bscan_img_gv.centerOn(0, 0)
+        
+    def view3DParamsChanged(self):
+        if self.volDataLast is not None:
+            self.displayVolumeImg3D(self.volDataLast.volumeImg_corr_aspect)
         
 #        if not self.singleProcess:
 #            self.collMsgQ.put(CollProcMsg(CollProcMsgType.CHANGE_ZROI, zroi))        

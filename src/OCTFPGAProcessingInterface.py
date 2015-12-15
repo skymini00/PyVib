@@ -358,13 +358,14 @@ class LV_DLLInterface:
         return self.setupNum < 0
             
     # grab the output of the FFT 
-    def AcquireOCTDataFFT(self, numTriggers, zROI, startTrigOffset=0, dispCorr=True):
+    def AcquireOCTDataFFT(self, numTriggers, zROI, startTrigOffset=0, dispCorr=True, downsample=0):
         setupNum = c_uint16(self.setupNum)
         
         fpgaOpts = self.fpgaOpts
+        dsFactor = downsample + 1
         fpgaOpts.procRoiBegin = c_uint16(zROI[0])
         fpgaOpts.procRoiEnd = c_uint16(zROI[1])
-        fpgaOpts.StartTriggerOfffset = c_uint16(startTrigOffset)
+        fpgaOpts.StartTriggerOfffset = c_uint16(startTrigOffset*dsFactor)
         fpgaOpts.ProcessMZI = c_uint8(55) # True
         fpgaOpts.InterpData = c_uint8(55) # True
         if dispCorr:
@@ -374,7 +375,7 @@ class LV_DLLInterface:
         fpgaOpts.FFT16b = c_uint8(0)
         fpgaOpts.Polar = c_uint8(0)
         fpgaOpts.MagOnly = c_uint8(0)
-            
+        fpgaOpts.DownsampleFactor = c_int16(downsample) 
         fpgaOpts.FFT = c_uint8(55)  # True
         samplesPerTrig = fpgaOpts.SamplesPerTrig
         
@@ -382,7 +383,7 @@ class LV_DLLInterface:
         numTrigsOut = c_int32(numTriggers)
         roiSize = zROI[1]-zROI[0]+1
         roiSizeOut = c_int32(roiSize)
-        err = self.config_fpga_acq(setupNum, c_uint32(numTriggers), byref(fpgaOpts), byref(roiSizeOut), byref(numTrigsOut), byref(fpgaOptsOut))
+        err = self.config_fpga_acq(setupNum, c_uint32(numTriggers*dsFactor), byref(fpgaOpts), byref(roiSizeOut), byref(numTrigsOut), byref(fpgaOptsOut))
         DebugLog.log("AcquireOCTDataFFT  roiSizeout= %d numTrigsOut=  %d" % (roiSizeOut.value,  numTrigsOut.value))
         if err < 0:
             return err, None
@@ -419,9 +420,10 @@ class LV_DLLInterface:
         return err, oct_data
     
     # grab the interpolated photodiode data
-    def AcquireOCTDataInterpPD(self, numTrigs):
+    def AcquireOCTDataInterpPD(self, numTrigs, downsample=0):
         setupNum = c_uint16(self.setupNum)
         
+        dsFactor = downsample + 1
         fpgaOpts = self.fpgaOpts
         fpgaOpts.DispCorr = c_uint8(0) # False
         fpgaOpts.FFT = c_uint8(0)   # False
@@ -431,13 +433,14 @@ class LV_DLLInterface:
         fpgaOpts.FFT16b = c_uint8(0)
         fpgaOpts.Polar = c_uint8(0)
         fpgaOpts.MagOnly = c_uint8(0)
+        fpgaOpts.DownsampleFactor = c_int16(downsample)
         
         fpgaOptsOut =  FPGAOpts_t()
         numTrigsOut = c_int32(numTrigs)
         
         roiSize = 2048
         roiSizeOut = c_int32(roiSize)
-        err = self.config_fpga_acq(setupNum, c_uint32(numTrigs), byref(fpgaOpts), byref(roiSizeOut), byref(numTrigsOut), byref(fpgaOptsOut))
+        err = self.config_fpga_acq(setupNum, c_uint32(numTrigs*dsFactor), byref(fpgaOpts), byref(roiSizeOut), byref(numTrigsOut), byref(fpgaOptsOut))
         numSamples = roiSizeOut.value * numTrigsOut.value
         if err < 0:
             return err, None
@@ -474,13 +477,14 @@ class LV_DLLInterface:
     
     # return only the magnitude in a packed 64-bit integer
     # this gives max speed for imaging only acquisiiton in multiprocess mode
-    def AcquireOCTDataMagOnly(self, numTriggers, zROI, startTrigOffset=0, dispCorr=True):
+    def AcquireOCTDataMagOnly(self, numTriggers, zROI, startTrigOffset=0, dispCorr=True, downsample=0):
         setupNum = c_uint16(self.setupNum)
         
+        dsFactor = downsample + 1
         fpgaOpts = copy.copy(self.fpgaOpts)
         fpgaOpts.procRoiBegin = c_uint16(zROI[0])
         fpgaOpts.procRoiEnd = c_uint16(zROI[1])
-        fpgaOpts.StartTriggerOfffset = c_uint16(startTrigOffset)
+        fpgaOpts.StartTriggerOfffset = c_uint16(startTrigOffset*dsFactor)
         fpgaOpts.ProcessMZI = c_uint8(55) # True
         fpgaOpts.InterpData = c_uint8(55) # True
         if dispCorr:
@@ -491,6 +495,7 @@ class LV_DLLInterface:
         fpgaOpts.FFT16b = c_uint8(55)
         fpgaOpts.Polar = c_uint8(55)
         fpgaOpts.MagOnly = c_uint8(55)
+        fpgaOpts.DownsampleFactor = c_int16(downsample)
         
         samplesPerTrig = fpgaOpts.SamplesPerTrig
         
@@ -498,7 +503,7 @@ class LV_DLLInterface:
         numTrigsOut = c_int32(numTriggers)
         roiSize = zROI[1]-zROI[0]+1
         roiSizeOut = c_int32(roiSize)
-        err = self.config_fpga_acq(setupNum, c_uint32(numTriggers), byref(fpgaOpts), byref(roiSizeOut), byref(numTrigsOut), byref(fpgaOptsOut))
+        err = self.config_fpga_acq(setupNum, c_uint32(numTriggers*dsFactor), byref(fpgaOpts), byref(roiSizeOut), byref(numTrigsOut), byref(fpgaOptsOut))
         DebugLog.log("AcquireOCTDataMagOnly: roiSizeout= %d numTrigsOut=  %d" % (roiSizeOut.value,  numTrigsOut.value))
         if err < 0:
             return err, None
@@ -539,11 +544,13 @@ class LV_DLLInterface:
         return err, packedData
     
     # grabb the output of the FFT 
-    def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
+    def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0, downsample=0):
         setupNum = c_uint16(self.setupNum)
         
+        dsFactor = downsample + 1
+        
         fpgaOpts = copy.copy(self.fpgaOpts)
-        fpgaOpts.StartTriggerOfffset = c_uint16(startTrigOffset)
+        fpgaOpts.StartTriggerOfffset = c_uint16(startTrigOffset*dsFactor)
         fpgaOpts.ProcessMZI = c_uint8(0) # False
         fpgaOpts.InterpData = c_uint8(0) # False
         fpgaOpts.DispCorr = c_uint8(0) # False
@@ -551,6 +558,7 @@ class LV_DLLInterface:
         fpgaOpts.klinRoiBegin = c_uint16(0) 
         fpgaOpts.SampleOffset = c_int16(1)   # sample offset must be at least 1 for 200 khz system
         fpgaOpts.Ch0Shift = c_uint16(0)
+        fpgaOpts.DownsampleFactor = c_int16(downsample)
         
         if Ch0Shift < 0:
             Ch0Shift = fpgaOpts.Ch0Shift
@@ -573,7 +581,7 @@ class LV_DLLInterface:
         numTrigsOut = c_int32(numTriggers)
         roiSize = samplesPerTrig * 2
         roiSizeOut = c_int32(roiSize)
-        err = self.config_fpga_acq(setupNum, c_uint32(numTriggers), byref(fpgaOpts), byref(roiSizeOut), byref(numTrigsOut), byref(fpgaOptsOut))
+        err = self.config_fpga_acq(setupNum, c_uint32(numTriggers*dsFactor), byref(fpgaOpts), byref(roiSizeOut), byref(numTrigsOut), byref(fpgaOptsOut))
         DebugLog.log("AcquireOCTDataRaw  config_fpga_acq err= %d" % err)
         DebugLog.log("AcquireOCTDataRaw  roiSizeout= %d numTrigsOut=  %d" % (roiSizeOut.value,  numTrigsOut.value))
         if err < 0:
@@ -973,9 +981,9 @@ class LV_DLLInterface_BGProcess_Adaptor:
         msg = ('shutdown', 0)
         self.collMsgQ.put(msg, timeout=self.qTimeout)
         
-    def AcquireOCTDataFFT(self, numTriggers, zROI, startTrigOffset=0, dispCorr=True):
+    def AcquireOCTDataFFT(self, numTriggers, zROI, startTrigOffset=0, dispCorr=True, downsample=0):
         self.ClearDataQ()
-        msg = ('acquireFFT', (numTriggers, zROI, startTrigOffset, dispCorr))
+        msg = ('acquireFFT', (numTriggers, zROI, startTrigOffset, dispCorr, downsample))
         self.collMsgQ.put(msg, timeout=self.qTimeout)
         t = min((numTrigs*1e-4 + 500e-3, 5))
         (err, oct_data) = self.rawDataQ.get(timeout=t)
@@ -983,9 +991,9 @@ class LV_DLLInterface_BGProcess_Adaptor:
         return err, oct_data
     
     # grab the interpolated photodiode data
-    def AcquireOCTDataInterpPD(self, numTrigs):
+    def AcquireOCTDataInterpPD(self, numTrigs, downsample=0):
         self.ClearDataQ()
-        msg = ('acquireInterpPD', numTrigs)
+        msg = ('acquireInterpPD', (numTrigs, downsample))
         self.collMsgQ.put(msg, timeout=self.qTimeout)
         t = min((numTrigs*1e-4 + 500e-3, 5))
         (err, interp_pd) = self.rawDataQ.get(timeout=t)
@@ -997,9 +1005,9 @@ class LV_DLLInterface_BGProcess_Adaptor:
         pass
     
     # grabb the output of the FFT 
-    def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
+    def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0, downsample=0):
         self.ClearDataQ()
-        msg = ('acquireRaw', (numTriggers, samplesPerTrig, Ch0Shift, startTrigOffset))
+        msg = ('acquireRaw', (numTriggers, samplesPerTrig, Ch0Shift, startTrigOffset, downsample))
         t = min((numTriggers*1e-4 + 500e-3, 5))
         self.collMsgQ.put(msg, timeout=t)
         (err, pd_data, mzi_data) = self.rawDataQ.get(timeout=self.qTimeout)

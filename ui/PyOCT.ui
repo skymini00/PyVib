@@ -776,7 +776,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>7</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="bscan_tab">
          <attribute name="title">
@@ -1998,7 +1998,7 @@
            <string>0</string>
           </property>
          </widget>
-         <widget class="QSlider" name="vol_3dnormlow_slider">
+         <widget class="QSlider" name="vol_3d_normlow_slider">
           <property name="geometry">
            <rect>
             <x>600</x>
@@ -2020,7 +2020,7 @@
            <number>10</number>
           </property>
          </widget>
-         <widget class="QSlider" name="vol_3dnormhigh_slider">
+         <widget class="QSlider" name="vol_3d_normhigh_slider">
           <property name="geometry">
            <rect>
             <x>600</x>
@@ -2087,7 +2087,7 @@
            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
           </property>
          </widget>
-         <widget class="QSpinBox" name="spinBox">
+         <widget class="QSpinBox" name="vol_3d_threshold_spinBox">
           <property name="geometry">
            <rect>
             <x>680</x>
@@ -7209,7 +7209,7 @@ focal plane adjust</string>
   <connection>
    <sender>thresholdSlider</sender>
    <signal>sliderMoved(int)</signal>
-   <receiver>spinBox</receiver>
+   <receiver>vol_3d_threshold_spinBox</receiver>
    <slot>setValue(int)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -7223,7 +7223,7 @@ focal plane adjust</string>
    </hints>
   </connection>
   <connection>
-   <sender>spinBox</sender>
+   <sender>vol_3d_threshold_spinBox</sender>
    <signal>valueChanged(int)</signal>
    <receiver>thresholdSlider</receiver>
    <slot>setValue(int)</slot>

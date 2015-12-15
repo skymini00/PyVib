@@ -41,17 +41,21 @@ class ProcOpts:
         self.spiralScanThresholdVal = 0.3
         self.biDirTrigVolAdj = 0
         self.zRes = 8.3e-6
-
+        
 # processed data of a single stim of single pt
 class VolumeData:
     def __init__(self):
         self.scanParams = None
-        self.volumeImg = None                 # should be a numpy.ndarray (of 3 dimensions)
+        self.volumeImg = None      # should be a numpy.ndarray (of 3 dimensions)
         self.zPixSize = np.NaN     # z pixel size in um
         self.xPixSize = np.NaN     # x pixel size in um
         self.yPixSize = np.NaN     # y pixel size in um 
         self.scanNum = 0
         self.spiralScanData = None
+        self.volumeImg_corr_aspect = None    # the volume image with the correct aspect ratio
+        self.zPixSize_corr = np.NaN     # z pixel size in um
+        self.xPixSize_corr = np.NaN     # x pixel size in um
+        self.yPixSize_corr = np.NaN     # y pixel size in um 
 
 class SpiralScanData():
     def __init__(self):
@@ -719,6 +723,22 @@ def processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam):
 def processDataWagonWheelScan(rawData, procOpts, scanDetails, plotParam):
     pass
     
+
+def initVolImgData(scanParams, img16b, img16b_corr, procOpts)    :
+    volDataIn = VolumeData()
+    volDataIn.scanParams = scanParams
+    volDataIn.volumeImg = np.zeros((scanParams.widthSteps, img16b.shape[0], img16b.shape[1]), dtype=np.uint16)                
+    volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
+    volDataIn.xPixSize = img16b.shape[1]/scanParams.length     # x pixel size in um
+    volDataIn.yPixSize = scanParams.widthSteps/scanParams.width     # y pixel size in um 
+    
+    volDataIn.volumeImg_corr_aspect = np.zeros((scanParams.widthSteps, img16b_corr.shape[0], img16b_corr.shape[1]), dtype=np.uint16)                
+    volDataIn.xPixSize_corr = img16b.shape[1]/scanParams.length     # x pixel size in um
+    volDataIn.zPixSize_corr = volDataIn.xPixSize_corr               # same for y, z
+    volDataIn.yPixSize_corr = volDataIn.xPixSize_corr
+    
+    return volDataIn
+
 def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volDataIn, frameNum, scanDetails=None, plotParam=None):
     scanP = scanParams
     bscansPerFrame = scanP.volBscansPerFrame
@@ -773,35 +793,38 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
                     oct_data_mag = oct_data_tmp[idx1:idx2, :]
 #                if DebugLog.isLogging:
 #                    DebugLog.log("VolumeScan processData(): n= %d idx1= %d idx2= %d" % (n, idx1, idx2))
+                    
                 
-                img16b, img8b = BScan.makeBscanImage(oct_data_mag, scanParams, procOpts.zRes, procOpts.normLow, procOpts.normHigh, correctAspectRatio=True)
+                img16b, img8b = BScan.makeBscanImage(oct_data_mag, scanParams, procOpts.zRes, procOpts.normLow, procOpts.normHigh, correctAspectRatio=False)
+                # correct image along z axis
+                xRes = img16b.shape[1]/scanParams.length     # x pixel size in um
+                zRes = xRes
+                img32b = np.require(img16b, 'uint32') 
+                img16b_corr = BScan.correctImageAspectRatio(img32b, xRes, zRes, dataType=np.uint32, dim=1) 
+                
                 if volDataIn is None:
-                    volDataIn = VolumeData()
-                    volDataIn.scanParams = scanParams
-                    volDataIn.volumeImg = np.zeros((scanParams.widthSteps, img16b.shape[0], img16b.shape[1]), dtype=np.uint16)                
-                    volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
-                    volDataIn.xPixSize = img16b.shape[1]/scanParams.length     # x pixel size in um
-                    volDataIn.yPixSize = scanParams.widthSteps/scanParams.width     # y pixel size in um 
+                    volDataIn = initVolImgData(scanParams, img16b, img16b_corr, procOpts)
                 
                 # DebugLog.log("VolumeScan processData(): step= %d img16b max= %d min=%d " % (n + bscansPerFrame*frameInScan, np.max(img16b), np.min(img16b)))
                 volDataIn.volumeImg[n + bscansPerFrame*frameInScan, :, :] = img16b
+                volDataIn.volumeImg_corr_aspect[n + bscansPerFrame*frameInScan, :, :] = img16b_corr
                 
             DebugLog.isLogging = isLogging
 
         else:
-            img16b, img8b = BScan.makeBscanImage(oct_data_mag, scanParams, procOpts.zRes, procOpts.normLow, procOpts.normHigh, correctAspectRatio=True)
+            img16b, img8b = BScan.makeBscanImage(oct_data_mag, scanParams, procOpts.zRes, procOpts.normLow, procOpts.normHigh, correctAspectRatio=False)
+            # correct image along z axis
+            xRes = img16b.shape[1]/scanParams.length     # x pixel size in um
+            zRes = xRes
+            img32b = np.require(img16b, 'uint32')  
+            img16b_corr = BScan.correctImageAspectRatio(img32b, xRes, zRes, dataType=np.uint32, dim=1) 
             
             if volDataIn is None:
-                volDataIn = VolumeData()
-                volDataIn.scanParams = scanParams
-                volDataIn.volumeImg = np.zeros((scanParams.widthSteps, img16b.shape[0], img16b.shape[1]), dtype=np.uint16)                
-                volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
-                volDataIn.xPixSize = img16b.shape[1]/scanParams.length     # x pixel size in um
-                volDataIn.yPixSize = scanParams.widthSteps/scanParams.width     # y pixel size in um 
-                    
+                volDataIn = initVolImgData(scanParams, img16b, img16b_corr, procOpts)
             
             DebugLog.log("VolumeScan processData(): frameNum= %d img16b max= %d min=%d " % (frameNum, np.max(img16b), np.min(img16b)))
             volDataIn.volumeImg[frameNum, :, :] = img16b
+            volDataIn.volumeImg_corr_aspect[frameNum, :, :] = img16b_corr
             
         if DebugLog.isLogging:
             DebugLog.log("VolumeScan processData(): volumeImg.shape= " + repr(volDataIn.volumeImg.shape))
@@ -810,7 +833,8 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
     
 # save the processed data of this protocol
 def saveVolumeData(volData, saveDir, saveOpts, scanNum):
-    volImg = volData.volumeImg
+    volImg = volData.volumeImg_corr_aspect
+    
     volImg = np.require(volImg, np.uint16)
     fileName = 'Volume'
     if saveOpts.subject != '':
@@ -1167,6 +1191,9 @@ def runVolScan(appObj):
         # get the scan paramters that the user has entered 
         scanParams = appObj.getScanParams()
 
+    downsample = scanParams.downsample
+    trigRate = OCTtrigRate / (downsample + 1)  # calculate effective trigger rate
+
     print('scanParams',dir(scanParams))
     scanDetails = None
     plotParam = None
@@ -1187,7 +1214,7 @@ def runVolScan(appObj):
 
     timePoint1 = time.time()
     if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel or scanParams.pattern == ScanPattern.zigZag:
-        plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts)
+        plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, trigRate, procOpts)
         numFrames = 1
         framesPerScan = 1
       
@@ -1203,7 +1230,10 @@ def runVolScan(appObj):
         frameNum = 0
         scanNum = 0
         
+            
         while not appObj.doneFlag and frameNum < numFrames:
+            startFrameTime = time.time()
+            
             # reinitialize volume data on first frame
             if frameNum % framesPerScan == 0:
                 volData = None
@@ -1218,8 +1248,8 @@ def runVolScan(appObj):
                 startTrigOffset = 0
                 # no need to filter the mirror commands here, because the necessary filtering has already been done in the setupScan routine                  
             else:
-                mirrorOut1 = makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, OCTtrigRate)
-                startTrigOffset = int(np.round(OCTtrigRate*mirrorDriver.settleTime))                
+                mirrorOut1 = makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, trigRate)
+                startTrigOffset = int(np.round(trigRate*mirrorDriver.settleTime))                
                 # if a MEMS mirror is being used, filter the mirrorOut commands to prevent damaging the device
                 if mirrorDriver.MEMS==True:
                     mirrorOut=scipy.signal.filtfilt(mirrorDriver.b_filt,mirrorDriver.a_filt,mirrorOut1)           
@@ -1254,7 +1284,7 @@ def runVolScan(appObj):
                 daq.startAnalogOutput()
             
             # setup and grab the OCT data
-            numTrigs = getNumTrigs(scanParams, scanDetails, OCTtrigRate, mirrorDriver)
+            numTrigs = getNumTrigs(scanParams, scanDetails, trigRate, mirrorDriver)
             
             if numTrigs>appObj.maxTrigs:
                 print('This is too many triggers. Get it under %d or the computer will crash. Current numTrigs= %d' %(appObj.maxTrigs,numTrigs))
@@ -1262,32 +1292,41 @@ def runVolScan(appObj):
                 blankImg=np.zeros((1,1), dtype=np.uint8)
                 appObj.vol_bscan_gv.setImage(blankImg, ROIImageGraphicsView.COLORMAP_HOT, rset)    
                 appObj.vol_plane_proj_gv.setImage(blankImg, ROIImageGraphicsView.COLORMAP_HOT, rset)              
+                QtGui.QMessageBox.critical (appObj, "Too many triggers", 'This is too many triggers. Get it under %d or the computer will crash. Current numTrigs= %d' %(appObj.maxTrigs,numTrigs))
+                
             else:
+                t1 = time.time()
                 if processMode == OCTCommon.ProcessMode.FPGA:
                     if appObj.oct_hw.IsOCTTestingMode():
                         oct_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
                     else:
-                        err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
+                        err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, downsample=downsample)
+                    dataCollectionTime = time.time() - t1
+                        
+                    timePoint4 = time.time()                        
                 elif processMode == OCTCommon.ProcessMode.SOFTWARE:
                     if appObj.oct_hw.IsOCTTestingMode():
                         ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
                     else:
                         # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
                         samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
-                        err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset)
-                    
+                        err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset, downsample=downsample)
+                        
+                    dataCollectionTime = time.time() - t1
                     timePoint4 = time.time()
-    
+                     
                     oct_data, klin = JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
                 else:
                     QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
+                    dataCollectionTime = 0
                 
                 timePoint5 = time.time()
     
                 # process the data
                 oct_data_mag = np.abs(oct_data)
-                volData = processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, volData, frameNum, scanDetails, plotParam)
+                volData = processData(oct_data_mag, scanParams, mirrorDriver, trigRate, procOpts, volData, frameNum, scanDetails, plotParam)
                 timePoint6 = time.time()
+                processTime = timePoint6 - timePoint4
         
                 if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.zigZag or scanParams.pattern == ScanPattern.wagonWheel:
                     spiralData = volData.spiralScanData
@@ -1307,7 +1346,10 @@ def runVolScan(appObj):
                             
                     rset = False
                 else:
-                    img16b = volData.volumeImg[frameNum*bscansPerFrame, :, :]
+                    img16b = volData.volumeImg_corr_aspect[frameNum*bscansPerFrame, :, :]
+                    #xRes = scanParams.length / img16b.shape[1]
+                    #img16b_corr_asp = BScan.correctImageAspectRatio(img16b, xRes, procOpts.zRes, mode=np.uint16)
+
                     img8b = np.round(255.0*img16b/65335.0)  # remap image range
                     DebugLog.log("VolumeScan runVolScan(): frame= %d img16b max= %d min=%d " % (frameNum*bscansPerFrame, np.max(img8b), np.min(img8b)))
     
@@ -1316,6 +1358,7 @@ def runVolScan(appObj):
                     rset = False                
                     
                 if not appObj.oct_hw.IsDAQTestingMode():
+                    daq.waitDoneOutput()
                     daq.stopAnalogOutput()
                     daq.clearAnalogOutput()
                 timePoint7 = time.time()
@@ -1345,12 +1388,17 @@ def runVolScan(appObj):
                         saveVolumeData(volData, saveDir, saveOpts, scanNum)
     
                     appObj.volDataLast = volData
-                    appObj.displayVolumeImg3D(volData.volumeImg)  # update the volume image
+                    appObj.displayVolumeImg3D(volData.volumeImg_corr_aspect)  # update the volume image
                         
                     scanNum += 1
                     if scanParams.continuousScan:
                         frameNum = 0
-                    
+                        
+                
+                appObj.volCollectionTime_label.setText("%0.4g ms" % (1000*dataCollectionTime))
+                appObj.volProcessTime_label.setText("%0.4g ms" % (1000*processTime))
+                appObj.volUpdateRate_label.setText("%0.4g fps" % (1/(time.time() - startFrameTime)))
+                
                 # check for GUI events, particularly the "done" flag
                 QtGui.QApplication.processEvents() 
 

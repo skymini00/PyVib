@@ -24,26 +24,37 @@ import pickle
 import time
 import JSOraw
 
-def correctImageAspectRatio(imgData, xRes, zRes, interpMode=PIL.Image.BILINEAR):
+def correctImageAspectRatio(imgData, xRes, zRes, interpMode=PIL.Image.BILINEAR, dataType=np.uint8, dim=0):
     if not np.isfinite(xRes) or not np.isfinite(zRes):
         return None
-        
-    imgData = np.require(imgData, np.uint8, 'C')
-    s = imgData.shape
-    img = PIL.Image.fromarray(imgData, 'P')     # 'I' for 32-bit images, 'P' for 8-bit
-    # correct aspect ratio
     
+    imgData = np.require(imgData, dataType, 'C')    
+    s = imgData.shape
+    if dataType == np.uint8:
+        img = PIL.Image.fromarray(imgData, 'P')     # 'I' for 32-bit images, 'P' for 8-bit
+    else:
+        img = PIL.Image.fromarray(imgData, 'I')
+        
+    # correct aspect ratio
     sizeX = s[1]
     sizeY = s[0]
-    newSizeX = int(np.round(sizeX*xRes/zRes))
-    newSizeX = min(newSizeX, 2000)    # guard against images that are too big
-    newSizeX = max(2, newSizeX)
+    if dim == 0:
+        newSizeX = int(np.round(sizeX*xRes/zRes))
+        newSizeX = min(newSizeX, 2000)    # guard against images that are too big
+        newSizeX = max(2, newSizeX)
+        newSizeY = sizeY
+    else:
+        newSizeY = int(np.round(sizeY*zRes/xRes))
+        newSizeY = min(newSizeY, 2000)    # guard against images that are too big
+        newSizeY = max(2, newSizeY)
+        newSizeX = sizeX
+        
     if DebugLog.isLogging:
-        DebugLog.log("correctImageAspectRatio() xRes= %g zRes= %g sizeX= %d sizeY=%d newSizeX = %d" % (xRes, zRes, sizeX, sizeY, newSizeX))
-    img = img.resize((newSizeX, sizeY), interpMode) 
+        DebugLog.log("correctImageAspectRatio() xRes= %g zRes= %g sizeX= %d sizeY=%d newSizeX = %d newSizeY= %d" % (xRes, zRes, sizeX, sizeY, newSizeX, newSizeY))
+    img = img.resize((newSizeX, newSizeY), interpMode) 
     imgData = np.array(img)
     
-    imgData = np.require(imgData, np.uint8, 'C')
+    imgData = np.require(imgData, dataType, 'C')
     
     return imgData
 
@@ -116,7 +127,8 @@ def makeBscanImage(oct_data, scanParams, zRes, normLow, normHigh, correctAspectR
         sizeX = int(np.round(sizeX*xRes/zRes))
         sizeX = min(sizeX, 4000)    # guard against images that are too big
         sizeX = max(2, sizeX)
-        DebugLog.log("makeBscanImg:  new sizeX = %d" % (sizeX))
+        
+        DebugLog.log("makeBscanImg:  new sizeY = %d" % (sizeY))
         img16b = img16b.resize((sizeX, sizeY), PIL.Image.BILINEAR) 
 
     imgdata_16b = np.array(img16b)
@@ -177,8 +189,10 @@ def makeBscanCommand(scanParams, galvoMirror, OCTtriggerRate, volWidthStep=-1):
     cmd_y = None
     galv = galvoMirror
     DAQoutputRate = galv.DAQoutputRate
-    DebugLog.log("makeBscanCommand(): outputRate= %0.1f trigRate= %0.1f" % (DAQoutputRate, OCTtriggerRate))
+    dsFactor = scanParams.downsample + 1
+    DebugLog.log("makeBscanCommand(): outputRate= %0.1f trigRate= %0.1f dsFactor=%d" % (DAQoutputRate, OCTtriggerRate, dsFactor))
     DAQptsPerTrig = DAQoutputRate/OCTtriggerRate
+
     if scanParams.pattern == ScanPattern.rasterFast or (scanParams.pattern == ScanPattern.bidirectional):
         scanTime = scanParams.lengthSteps / OCTtriggerRate 
         scanPts = np.floor(scanTime * DAQoutputRate)
@@ -272,7 +286,7 @@ def makeBscanCommand(scanParams, galvoMirror, OCTtriggerRate, volWidthStep=-1):
         cmd_y = np.concatenate((startup_y, scan_y, reverse_y, flyback_y))
         
     elif scanParams.pattern == ScanPattern.rasterSlow:
-        scanTime = scanParams.lengthSteps / OCTtriggerRate 
+        scanTime = dsFactor * scanParams.lengthSteps / OCTtriggerRate
         # trigsPerPt = np.ceil(galv.settleTime * OCTtriggerRate)
         DAQptsPerTrig = galvoMirror.settleTime * DAQoutputRate 
         scanPts = np.floor(DAQptsPerTrig * scanParams.lengthSteps)
@@ -449,7 +463,7 @@ def handleStatusMessage(statusMsg):
 def runBScanMultiProcess(appObj, testDataDir):
     DebugLog.log("runBScanMultiProcess")
     oct_hw = appObj.oct_hw
-    trigRate = appObj.oct_hw.GetTriggerRate()
+    OCTtrigRate = appObj.oct_hw.GetTriggerRate()
     mirrorDriver = appObj.mirrorDriver
     rset = appObj.imgDataScanParams is None
     saveOpts = appObj.getSaveOpts()
@@ -546,7 +560,7 @@ def runBScan(appObj):
         from DAQHardware import DAQHardware
         daq = DAQHardware()
         
-    trigRate = appObj.oct_hw.GetTriggerRate()
+    OCTtrigRate = appObj.oct_hw.GetTriggerRate()
     mirrorDriver = appObj.mirrorDriver
     rset = appObj.imgDataScanParams is None
         
@@ -569,6 +583,8 @@ def runBScan(appObj):
             #if not appObj.oct_hw.IsOCTTestingMode():
             # get the scan paramters tht user has entred 
             scanParams = appObj.getScanParams()
+            downsample = scanParams.downsample
+            trigRate = OCTtrigRate / (downsample + 1)  # calculate effective trigger rate
             
             # generate the mirrrour output function
             (mirrorOutput, numTrigs) = makeBscanMirrorOutput(scanParams, mirrorDriver, trigRate)
@@ -592,7 +608,7 @@ def runBScan(appObj):
                 if appObj.oct_hw.IsOCTTestingMode():
                     oct_data = OCTCommon.loadRawData(testDataDir, frameNum % 15, dataType=0)
                 else:
-                    err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, dispCorr)
+                    err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, dispCorr, downsample)
                     
                 dataToSave = oct_data
                 dataIsRaw = False
@@ -605,7 +621,7 @@ def runBScan(appObj):
                     # samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
                     samplesPerTrig = appObj.requestedSamplesPerTrig.value()
                     t1 = time.time()
-                    err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset)
+                    err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset, downsample=downsample)
                     DebugLog.log("Bscan.runBscan(): data grab time= %0.4f" % (time.time() - t1))
                     
                 dataToSave = (ch0_data, ch1_data)
@@ -625,6 +641,18 @@ def runBScan(appObj):
                 
             isSaveDirInit, saveDir = saveBScanData(appObj, dataToSave, img16b, frameNum, scanParams, saveOpts, isSaveDirInit, dataIsRaw, saveDir)
 
+
+            x_cmd = mirrorOutput[0, :]
+            y_cmd = mirrorOutput[1, :]
+            npts = len(x_cmd)
+            tEnd = npts/outputRate
+            t = np.linspace(0, tEnd, npts)
+            
+            pl = appObj.plot_mirrorCmd
+            pl.clear()
+            pl.plot(t, x_cmd, pen='b')
+            pl.plot(t, y_cmd, pen='r')
+            
             frameNum += 1
             # check for GUI events, particularly the "done" flag
             QtGui.QApplication.processEvents() 
