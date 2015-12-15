@@ -1388,7 +1388,10 @@ def runVolScan(appObj):
                         saveVolumeData(volData, saveDir, saveOpts, scanNum)
     
                     appObj.volDataLast = volData
-                    appObj.displayVolumeImg3D(volData.volumeImg_corr_aspect)  # update the volume image
+                    if volData.volumeImg_corr_aspect is not None:
+                        appObj.displayVolumeImg3D(volData.volumeImg_corr_aspect)  # update the volume image
+                    else:
+                        appObj.displayVolumeImg3D(volData.volumeImg)  # update the volume image
                         
                     scanNum += 1
                     if scanParams.continuousScan:

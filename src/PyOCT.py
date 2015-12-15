@@ -1148,7 +1148,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
     # display volume inage as 3D in OpenGL context
     def displayVolumeImg3D(self, volImg):
-        if not self.enableVolViewer:
+        if not self.enableVolViewer or volImg is None:
             return
 
 #        import pyqtgraph.opengl as gl
@@ -1231,7 +1231,10 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
     def view3DParamsChanged(self):
         if self.volDataLast is not None:
-            self.displayVolumeImg3D(self.volDataLast.volumeImg_corr_aspect)
+            if self.volDataLast.volumeImg_corr_aspect is not None:
+                self.displayVolumeImg3D(self.volDataLast.volumeImg_corr_aspect)
+            else:
+                self.displayVolumeImg3D(self.volDataLast.volumeImg)
         
 #        if not self.singleProcess:
 #            self.collMsgQ.put(CollProcMsg(CollProcMsgType.CHANGE_ZROI, zroi))        
