@@ -193,7 +193,7 @@ def makeBscanCommand(scanParams, galvoMirror, OCTtriggerRate, volWidthStep=-1):
     DebugLog.log("makeBscanCommand(): outputRate= %0.1f trigRate= %0.1f dsFactor=%d" % (DAQoutputRate, OCTtriggerRate, dsFactor))
     DAQptsPerTrig = DAQoutputRate/OCTtriggerRate
 
-    if scanParams.pattern == ScanPattern.rasterFast or (scanParams.pattern == ScanPattern.bidirectional):
+    if scanParams.pattern != ScanPattern.rasterSlow:
         scanTime = scanParams.lengthSteps / OCTtriggerRate 
         scanPts = np.floor(scanTime * DAQoutputRate)
         
@@ -285,7 +285,7 @@ def makeBscanCommand(scanParams, galvoMirror, OCTtriggerRate, volWidthStep=-1):
         cmd_x = np.concatenate((startup_x, scan_x, reverse_x, flyback_x))
         cmd_y = np.concatenate((startup_y, scan_y, reverse_y, flyback_y))
         
-    elif scanParams.pattern == ScanPattern.rasterSlow:
+    else:  # raster slow
         scanTime =  scanParams.lengthSteps / OCTtriggerRate
         # trigsPerPt = np.ceil(galv.settleTime * OCTtriggerRate)
         DAQptsPerTrig = galvoMirror.settleTime * DAQoutputRate 
@@ -313,9 +313,6 @@ def makeBscanCommand(scanParams, galvoMirror, OCTtriggerRate, volWidthStep=-1):
         
         cmd_x = np.concatenate((scan_x, flyback_x))
         cmd_y = np.concatenate((scan_y, flyback_y))
-        
-    else:
-        DebugLog.log("makeBscanCommand(): unsupported scan pattern '%s'"  % repr(scanParams.pattern))
     
     if cmd_x is not None:
         return np.vstack((cmd_x, cmd_y))

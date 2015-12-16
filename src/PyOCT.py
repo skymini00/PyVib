@@ -1247,7 +1247,11 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             zStep = self.enFace_zStep_verticalSlider.value()
             zDepth = self.enFace_avgDepth_verticalSlider.value()
             projType = VolumeScan.EnFaceProjType(self.enFace_imageGen_comboBox.currentIndex())
-            imgData = VolumeScan.makeEnfaceImgSliceFromVolume(volData, zStep, zDepth, projType)
+            if volData.spiralScanData is not None:
+                imgData = volData.spiralScanData.surfacePlot
+            else:
+                imgData = VolumeScan.makeEnfaceImgSliceFromVolume(volData, zStep, zDepth, projType)
+                
             if imgData is not None:
                 self.vol_plane_proj_gv.setImage(imgData, ROIImageGraphicsView.COLORMAP_HOT)
         
@@ -1265,9 +1269,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         img8b = np.round(255.0*img16b/65335.0)  # remap image range
         img8b = np.require(img8b, dtype=np.uint8)
         self.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, False)
-                    
-
-        
             
     def shutdown(self):
         DebugLog.log("OCTWindowClass.shutdown(): closing FPGA")
