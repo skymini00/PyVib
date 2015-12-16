@@ -286,7 +286,7 @@ def makeBscanCommand(scanParams, galvoMirror, OCTtriggerRate, volWidthStep=-1):
         cmd_y = np.concatenate((startup_y, scan_y, reverse_y, flyback_y))
         
     elif scanParams.pattern == ScanPattern.rasterSlow:
-        scanTime = dsFactor * scanParams.lengthSteps / OCTtriggerRate
+        scanTime =  scanParams.lengthSteps / OCTtriggerRate
         # trigsPerPt = np.ceil(galv.settleTime * OCTtriggerRate)
         DAQptsPerTrig = galvoMirror.settleTime * DAQoutputRate 
         scanPts = np.floor(DAQptsPerTrig * scanParams.lengthSteps)
@@ -359,14 +359,16 @@ class BScanRawData():
         self.frameNum = frameNum
         self.dataIsRaw = dataIsRaw
         
-def BscanCollectFunction(oct_hw, frameNum, extraArgs)    :
+def BscanCollectFunction(oct_hw, frameNum, trigRate, extraArgs):
     scanParams = extraArgs[0]
     mirrorDriver = extraArgs[1]
     zROI = extraArgs[2]
     dispCorr = extraArgs[3]
     testDataDir = extraArgs[4]
-    trigRate = oct_hw.GetTriggerRate()
     # testDataDir = os.path.join(basePath, 'exampledata\\Bscan')
+
+    downsample = scanParams.downsample
+    trigRate = trigRate / (downsample + 1)
     
     # generate the mirrrour output function
     (mirrorOutput, numTrigs) = makeBscanMirrorOutput(scanParams, mirrorDriver, trigRate)
@@ -376,6 +378,7 @@ def BscanCollectFunction(oct_hw, frameNum, extraArgs)    :
     chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
     trigChan = mirrorDriver.trig_daqChan
     outputRate = mirrorDriver.DAQoutputRate
+
     
     if not oct_hw.IsDAQTestingMode():
         from DAQHardware import DAQHardware
@@ -390,7 +393,7 @@ def BscanCollectFunction(oct_hw, frameNum, extraArgs)    :
         oct_data = OCTCommon.loadRawData(testDataDir, frameNum % 15, dataType=0)
         DebugLog.log('BscanCollectFunction floading test data frameNum= ' + repr(frameNum))
     else:
-        err, oct_data = oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, dispCorr)
+        err, oct_data = oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, dispCorr, downsample)
         DebugLog.log('BscanCollectFunction AcquireOCTDataFFT() err= ' + repr(err))
     if not oct_hw.IsDAQTestingMode():
         daq.waitDoneOutput()
@@ -463,7 +466,7 @@ def handleStatusMessage(statusMsg):
 def runBScanMultiProcess(appObj, testDataDir):
     DebugLog.log("runBScanMultiProcess")
     oct_hw = appObj.oct_hw
-    OCTtrigRate = appObj.oct_hw.GetTriggerRate()
+    OCTtrigRate = appObj.octSetupInfo.getTriggerRate()
     mirrorDriver = appObj.mirrorDriver
     rset = appObj.imgDataScanParams is None
     saveOpts = appObj.getSaveOpts()
@@ -560,7 +563,7 @@ def runBScan(appObj):
         from DAQHardware import DAQHardware
         daq = DAQHardware()
         
-    OCTtrigRate = appObj.oct_hw.GetTriggerRate()
+    OCTtrigRate = appObj.octSetupInfo.getTriggerRate()
     mirrorDriver = appObj.mirrorDriver
     rset = appObj.imgDataScanParams is None
         

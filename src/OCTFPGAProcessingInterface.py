@@ -649,31 +649,11 @@ class LV_DLLInterface:
             
         return err
     
-    
-    def GetTriggerRate(self):
-        setupNum = self.setupNum
-        if setupNum == 1 or setupNum == 4:
-            trigRate = 49.9598e3
-        else:
-            trigRate = 200e3
-
-# This needs to be fixed to work like this!!!
-
-#        print('self.octSetupInfo.Laser',self.octSetupInfo.Laser)               
-#        if self.octSetupInfo.Laser == 1:
-#            trigRate = 200e3
-#        elif self.octSetupInfo.Laser==2:
-#            trigRate = 49.9598e3
-#        elif self.octSetupInfo.Laser==3:
-#            trigRate = 100e3
-#            
-        return trigRate
-        
     def Shutdown(self):
         pass
         
                     
-def StartOCTInterfaceBGProcess(basePath, rawDataQSize=3):
+def StartOCTInterfaceBGProcess(basePath, OCTtrigRate, rawDataQSize=3):
     # check if process exists 
     filePath = os.path.join(basePath, 'collector_PID_tmp.txt')
     if(os.path.isfile(filePath)):
@@ -692,7 +672,7 @@ def StartOCTInterfaceBGProcess(basePath, rawDataQSize=3):
     rawDataQ = mproc.Queue(rawDataQSize)
     msgQ = mproc.Queue(10)
     statusQ = mproc.Queue(10)
-    collectorProcess = mproc.Process(target=_OCTBGLoop, args=[rawDataQ, msgQ, statusQ], daemon=True)
+    collectorProcess = mproc.Process(target=_OCTBGLoop, args=[rawDataQ, msgQ, statusQ, OCTtrigRate], daemon=True)
     DebugLog.log("StartOCTInterfaceBGProcess(): starting collector process")
     collectorProcess.start()
     collPID = collectorProcess.pid
@@ -703,19 +683,20 @@ def StartOCTInterfaceBGProcess(basePath, rawDataQSize=3):
     adaptor = LV_DLLInterface_BGProcess_Adaptor(rawDataQ, msgQ, statusQ)
     return adaptor
     
-def _OCTBGLoop(rawDataQ, collMsgQ, statusQ):
-    bgProcess = LV_DLLInterface_BGProcess(rawDataQ, collMsgQ, statusQ)
+def _OCTBGLoop(rawDataQ, collMsgQ, statusQ, OCTtrigRate):
+    bgProcess = LV_DLLInterface_BGProcess(rawDataQ, collMsgQ, statusQ, OCTtrigRate)
     bgProcess.loop()
     
 
 # interface to the as a background process
 class LV_DLLInterface_BGProcess:
-    def __init__(self, rawDataQ, collMsgQ, statusQ):
+    def __init__(self, rawDataQ, collMsgQ, statusQ, OCTtrigRate):
         self.oct_hw = LV_DLLInterface()
         self.shutdown = False
         self.rawDataQ = rawDataQ
         self.msgQ = collMsgQ
         self.statusQ = statusQ 
+        self.OCTtrigRate = OCTtrigRate
         
     def handleMessage(self, msg):
         msgType = msg[0]
@@ -787,7 +768,7 @@ class LV_DLLInterface_BGProcess:
                     # call the acquire function to get OCT data - this function is set by the user
                     if not putTimeout:
                         DebugLog.log("LV_DLLInterface_BGProcess.loop(): acquiring frame " + repr(self.frameNum))
-                        data, extraOutput = self.acqFunction(self.oct_hw, self.frameNum, self.acqFunctionArgs) 
+                        data, extraOutput = self.acqFunction(self.oct_hw, self.frameNum, self.OCTtrigRate, self.acqFunctionArgs) 
                         numTimeouts = 0
                     if data is not None:
                         try:
@@ -917,17 +898,7 @@ class LV_DLLInterface_BGProcess_Adaptor:
             if resp is None:
                 resp = -1
         return resp
-        
-    def GetTriggerRate(self):
-        print('self.octSetupInfo.Laser',self.octSetupInfo.Laser)               
-        if self.octSetupInfo.Laser == 1:
-            trigRate = 200e3
-        elif self.octSetupInfo.Laser==2:
-            trigRate = 49.9598e3
-        elif self.octSetupInfo.Laser==3:
-            trigRate = 100e3
-            
-        return trigRate
+
             
     def StartAcquisition(self):
         msg = ['acquire', 0]            

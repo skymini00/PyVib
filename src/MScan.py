@@ -1245,7 +1245,7 @@ def MscanGetStepFromFrameNum(frameNum, scanParams, audioParams):
     
 # collect mscan data for a given frame number
 # oct_hw is a LV_DLL_Interface
-def MscanCollectFcn(oct_hw, frameNum, extraArgs):
+def MscanCollectFcn(oct_hw, frameNum, trigRate, extraArgs):
     t1 = time.time()
     scanParams = extraArgs[0]
     audioParams = extraArgs[1]
@@ -1254,8 +1254,6 @@ def MscanCollectFcn(oct_hw, frameNum, extraArgs):
     zROI = extraArgs[4]
     testDataDir =  extraArgs[5]
     
-    trigRate = oct_hw.GetTriggerRate()
-
     numAmpSteps = len(audioParams.amp)
     numFreqSteps = audioParams.getNumFrequencies()
     numLenSteps = scanParams.lengthSteps
@@ -1330,7 +1328,7 @@ def MscanCollectFcn(oct_hw, frameNum, extraArgs):
         if not oct_hw.IsDAQTestingMode():
             attenSig = AudioHardware.makeLM1972AttenSig(attenLvl)
             # daq.sendDigOutCmd(attenLines, attenSig)
-            appObj.oct_hw.SetAttenLevel(attenLvl, attenLines)
+            oct_hw.SetAttenLevel(attenLvl, attenLines)
     
     numInputSamples = int(inputRate*numOutputSamples/outputRate) 
     if not oct_hw.IsDAQTestingMode():
@@ -1400,12 +1398,13 @@ class MScanRegionVolData():
         self.mscanRegionData = mscanRegionData
         self.volData = volData
         
-def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts, trigRate, framesPerScan, rawDataQ, procDataQ, procRawDataQ, msgQ):
+def MscanProcessingProcess(audioParams, scanParams, zROI, regionMscan, procOpts, trigRate, framesPerScan, rawDataQ, procDataQ, procRawDataQ, msgQ, statusQ):
     shutdown = False
     mscanTuningCurveList = None
     numZPts = zROI[1] - zROI[0] + 1
     mscanRegionData = None
     volData = None
+    mscanData = None
     
     frameNum = 0
     putTimeout = False  # indicates there was a timeout attempting to send data to 
@@ -1528,7 +1527,8 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
         procRawDataQ = mproc.Queue(10)
     msgQ = mproc.Queue(10)
     rawDataQ = oct_hw.rawDataQ
-    procProcess = mproc.Process(target=MscanProcessingProcess, args=[audioParams, scanParams, zROI, regionMscan, procOpts, trigRate, framesPerScan, rawDataQ, procDataQ, procRawDataQ, msgQ], daemon=True)
+    statusQ = oct_hw.statusQ
+    procProcess = mproc.Process(target=MscanProcessingProcess, args=[audioParams, scanParams, zROI, regionMscan, procOpts, trigRate, framesPerScan, rawDataQ, procDataQ, procRawDataQ, msgQ, statusQ], daemon=True)
     DebugLog.log("runBScanMultiProcess(): starting processing process")
     procProcess.start()
     frameNum = -1
@@ -1638,7 +1638,7 @@ def runMScan(appObj, multiProcess=False):
             appObj.isCollecting = False
             return
 
-        trigRate = oct_hw.GetTriggerRate()
+        trigRate = appObj.octSetupInfo.getTriggerRate()
         mirrorDriver = appObj.mirrorDriver
         saveOpts = appObj.getSaveOpts()
         isSaveDirInit = False

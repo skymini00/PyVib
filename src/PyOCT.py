@@ -144,6 +144,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.roiBeginSlider.setValue(zROI[0])
         self.roiEndSlider.setValue(zROI[1])
         self.ZROI_size_spinBox.setValue(zROI[1] - zROI[0] + 1)
+        self.processMode_comboBox.setCurrentIndex(self.octSetupInfo.processMode.value)
 
         fpgaOpts = self.oct_hw.fpgaOpts
         self.ch0shift_spinBox.setValue(fpgaOpts.Ch0Shift)
@@ -296,7 +297,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
         if self.multiProcess:
             # returns LV_DLLInterface_BGProcess_Adaptor
-            oct_hw = octfpga.StartOCTInterfaceBGProcess(self.basePath)  
+            oct_hw = octfpga.StartOCTInterfaceBGProcess(self.basePath, self.octSetupInfo.getTriggerRate())  
         else:
             oct_hw = octfpga.LV_DLLInterface()
                 
@@ -391,7 +392,13 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.vol_3d_normlow_slider.valueChanged.connect(self.view3DParamsChanged)
         self.vol_3d_normhigh_slider.valueChanged.connect(self.view3DParamsChanged)
         self.vol_3d_threshold_spinBox.valueChanged.connect(self.view3DParamsChanged)
-
+        
+        self.enFace_avgDepth_verticalSlider.valueChanged.connect(self.enFaceChanged)
+        self.thresholdEnFace_verticalSlider.valueChanged.connect(self.enFaceChanged)
+        self.enFace_imageGen_comboBox.currentIndexChanged.connect(self.enFaceChanged)
+        
+        self.vol_bscan_widthstep_slider.valueChanged.connect(self.volBScanWidthStepChanged)
+        
     def _initGraphVars(self):
         layout = QtGui.QHBoxLayout()
         if self.enableVolViewer:
@@ -547,8 +554,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
     def closeEvent(self, event): 
         print("OCTWindowClass: closeEvent() entered function") 
         
-        if self.mirrorDriver.mirrorType == MirrorDriver.MirrorType.OR_MICROSCOPE:
-            self.focalPlaneAdj.closeCOMport()
             
         self.shutdown()
         super().closeEvent(event)
@@ -835,7 +840,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.widthSteps_spinBox.setValue(scanParams.widthSteps)
         self.averages_spinBox.setValue(scanParams.numAverages)
         self.scan_pattern_comboBox.setCurrentIndex(scanParams.pattern.value - 1)
-        self.scan_downsample_spinBox.setValue(scanParams.downsample)
+        self.scan_downsample_spinBox.setValue(scanParams.downsample + 1)
         self.lengthRes_dblSpinBox.setValue(1e3*scanParams.length / scanParams.lengthSteps)
         self.widthRes_dblSpinBox.setValue(1e3*scanParams.width / scanParams.widthSteps)
         
@@ -1232,7 +1237,32 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
     def view3DParamsChanged(self):
         if self.volDataLast is not None:
             self.displayVolumeImg3D(self.volDataLast.volumeImg_corr_aspect)
+            
+    def enFaceChanged(self):
+        if hasattr(self, 'volDataLast') and (self.volDataLast is not None):
+            volData = self.volDataLast
+            zStep = self.enFace_zStep_verticalSlider.value()
+            zDepth = self.enFace_avgDepth_verticalSlider.value()
+            projType = VolumeScan.EnFaceProjType(self.enFace_imageGen_comboBox.currentIndex())
+            imgData = VolumeScan.makeEnfaceImgSliceFromVolume(volData, zStep, zDepth, projType)
+            if imgData is not None:
+                self.vol_plane_proj_gv.setImage(imgData, ROIImageGraphicsView.COLORMAP_HOT)
         
+    def volBScanWidthStepChanged(self):
+        volData = self.volDataLast
+        if volData is None: 
+            return
+
+        widthStep = self.vol_bscan_widthstep_slider.value()
+        if volData.volumeImg_corr_aspect is not None:
+            img16b = volData.volumeImg_corr_aspect[widthStep, :, :]
+        else:
+            img16b = volData.volumeImg[widthStep, :, :]
+            
+        img8b = np.round(255.0*img16b/65335.0)  # remap image range
+        img8b = np.require(img8b, dtype=np.uint8)
+        self.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, False)
+                    
 #        if not self.singleProcess:
 #            self.collMsgQ.put(CollProcMsg(CollProcMsgType.CHANGE_ZROI, zroi))        
             
@@ -1245,6 +1275,14 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         except Exception as ex:
             DebugLog.log("OCTWindowClass.shutdown(): exception while attempting to close/shutdown FPGA")
             traceback.print_exc(file=sys.stdout)            
+            
+        try:
+            if self.mirrorDriver.mirrorType == MirrorDriver.MirrorType.MEMS_MICROSCOPE:
+                self.focalPlaneAdj.closeCOMport()
+        except Exception as ex:
+            DebugLog.log("OCTWindowClass.shutdown(): exception while attempting to OR u-scope COM port")
+            traceback.print_exc(file=sys.stdout)            
+
             
         self.isShutdown = True
         DebugLog.log("OCTWindowClass.shutdown(): done")

@@ -410,14 +410,16 @@ def makeEnfaceImgSliceFromVolume(volData, zStep, zDepth, projType=EnFaceProjType
     if DebugLog.isLogging:
         DebugLog.log("makeEnfaceImgSliceFromVolume shp=%s zStart= %d zEnd= %d" % (repr(shp), zStart, zEnd))
         
-    imgData = volData.volumeImg[:, :, zStart:zEnd+1]
+    imgData = volData.volumeImg[:, zStart:zEnd+1, :]
     if zStart != zEnd:
         if projType == EnFaceProjType.AVERAGE:
-            imgData = np.mean(imgData, 2)
+            imgData = np.mean(imgData, 1)
         elif projType == EnFaceProjType.MAX:
-            imgData = np.max(imgData, 2)
+            imgData = np.max(imgData, 1)
+            
+        imgData = np.reshape(imgData, (shp[0], shp[2]))
     else:
-        imgData = imgData[:, :, 0]
+        imgData = imgData[:, 0, :]
         
     if (autoNorm):
         nL = np.min(imgData)
@@ -429,14 +431,14 @@ def makeEnfaceImgSliceFromVolume(volData, zStep, zDepth, projType=EnFaceProjType
     imgData = np.floor(255*(imgData - nL)/(nH - nL))
     imgData = np.clip(imgData, 0, 255)
             
-    xRes = volData.xRes
-    yRes = volData.yRes
+    xRes = volData.xPixSize
+    yRes = volData.yPixSize
 
     DebugLog.log("makeEnfaceImgSliceFromVolume imgData.shape=%s xRes= %f yRes= %f" % (repr(imgData.shape), xRes, yRes))
     
     # correct the aspect ratio
     if xRes != yRes and correctAspectRatio:    
-        imgData = correctImageAspectRatio(imgData, xRes, yRes)
+        imgData = BScan.correctImageAspectRatio(imgData, xRes, yRes)
     else:
         imgData = np.require(imgData, np.uint8)
 
@@ -854,15 +856,16 @@ def saveVolumeData(volData, saveDir, saveOpts, scanNum):
     oct_hw is a LV_DLL_Interface
 """    
 
-def VolScanCollectFcn(oct_hw, frameNum, extraArgs):
+def VolScanCollectFcn(oct_hw, frameNum, OCTtrigRate, extraArgs):
     t1 = time.time()
     scanParams = extraArgs[0]
     mirrorDriver = extraArgs[1]
     zROI = extraArgs[2]
     testDataDir =  extraArgs[3]
     scanDetails =  extraArgs[4]
-    
-    OCTtrigRate = oct_hw.GetTriggerRate()
+
+    downsample = scanParams.downsample
+    OCTtrigRate = OCTtrigRate / (downsample + 1)  # effective trigger rate
     
     bscansPerFrame = scanParams.volBscansPerFrame
     framesPerScan = scanParams.widthSteps // bscansPerFrame   
@@ -872,6 +875,7 @@ def VolScanCollectFcn(oct_hw, frameNum, extraArgs):
     chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
     outputRate = mirrorDriver.DAQoutputRate
     trigChan = mirrorDriver.trig_daqChan
+    
     if not oct_hw.IsOCTTestingMode():
         from DAQHardware import DAQHardware
         daq = DAQHardware()
@@ -1048,7 +1052,7 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
     rawDataQ = oct_hw.rawDataQ
     statusQ = oct_hw.statusQ
     # VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, rawDataQ, procDataQ, procRawDataQ, msgQ, statusQ):
-    OCTtrigRate = oct_hw.GetTriggerRate()
+    OCTtrigRate = appObj.octSetupInfo.getTriggerRate()
     procProcess = mproc.Process(target=VolScanProcessingProcess, args=[scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, rawDataQ, procDataQ, procRawDataQ, msgQ, statusQ], daemon=True)
     DebugLog.log("runVolScanMultiProcess(): starting processing process")
     procProcess.start()
@@ -1165,7 +1169,7 @@ def runVolScan(appObj):
     appObj.doneFlag = False
     appObj.isCollecting = True
 
-    OCTtrigRate = OCTCommon.GetTriggerRate(appObj)
+    OCTtrigRate = appObj.octSetupInfo.getTriggerRate()
     mirrorDriver = appObj.mirrorDriver
     rset = True
     
@@ -1390,6 +1394,8 @@ def runVolScan(appObj):
                     appObj.volDataLast = volData
                     appObj.displayVolumeImg3D(volData.volumeImg_corr_aspect)  # update the volume image
                         
+                    appObj.enFaceChanged()  # update the enface image
+                    
                     scanNum += 1
                     if scanParams.continuousScan:
                         frameNum = 0

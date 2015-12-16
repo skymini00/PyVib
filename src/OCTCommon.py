@@ -52,6 +52,7 @@ class OCTSetupInfo:
         self.audioConfigFile = 'AudioHardware.txt'
         self.FPGAOptsFile = 'FPGA Opts.txt'
         self.Laser = 1       
+        self.processMode = ProcessMode.SOFTWARE
         
     def encodeToString(self):
         s = ''
@@ -65,8 +66,22 @@ class OCTSetupInfo:
         s = s + '\nMirrorConfigFile=' + self.mirrorConfigFile
         s = s + '\nAudioConfigFile=' + self.mirrorConfigFile
         s = s + '\nFPGAOptsFile=' + self.FPGAOptsFile
+        s = s + '\nLaser=' + self.Laser
+        s = s + '\nProcessMode=' + self.processMode.name
         
         return s
+        
+    def getTriggerRate(self):
+        if self.Laser == 1:
+            trigRate = 200e3
+        elif self.Laser==2:
+            trigRate = 49.9598e3
+        elif self.Laser==3:
+            trigRate = 100e3
+        elif self.Laser==4:      # test mode with a low laser rate
+            trigRate = 2000
+            
+        return trigRate
         
 #class DispCorr:
 #   def __init__(self):
@@ -149,7 +164,9 @@ def readOCTSetupInfo(filepath):
                 setupInfo.FPGAOptsFile = val
             elif(fld == 'Laser'):
                 setupInfo.Laser = int(val)
-                                
+            elif(fld == 'ProcessMode'):
+                setupInfo.processMode = ProcessMode[val.upper()]
+                    
         except Exception as ex:
             pass
             
@@ -249,18 +266,7 @@ def initSaveDir(saveOpts, protocolName, scanParams=None, audioParams=None):
         
     return saveDir
 
-def GetTriggerRate(appObj):
-    print('appObj.octSetupInfo.Laser',appObj.octSetupInfo.Laser)               
-    if appObj.octSetupInfo.Laser == 1:
-        trigRate = 200e3
-    elif appObj.octSetupInfo.Laser==2:
-        trigRate = 49.9598e3
-    elif appObj.octSetupInfo.Laser==3:
-        trigRate = 100e3
-    elif appObj.octSetupInfo.Laser==4:      # test mode with a low laser rate
-        trigRate = 2000
-        
-    return trigRate
+
 
 
 dataTypeFileNames = [ 'OCT complex FFT ',  'OCT interp PD ', 'OCT raw PD/MZI ', 'Mic raw ']
