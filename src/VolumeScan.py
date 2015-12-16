@@ -719,12 +719,8 @@ def processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam):
     data3D = np.clip(data3D, nL, nH)
     data3D = np.uint16(65535*(data3D - nL)/(nH - nL))
     volDataIn.volumeImg = data3D
-    
+    volDataIn.volumeImg_corr_aspect = data3D
     return volDataIn
-
-def processDataWagonWheelScan(rawData, procOpts, scanDetails, plotParam):
-    pass
-    
 
 def initVolImgData(scanParams, img16b, img16b_corr, procOpts)    :
     volDataIn = VolumeData()
@@ -1198,7 +1194,6 @@ def runVolScan(appObj):
     downsample = scanParams.downsample
     trigRate = OCTtrigRate / (downsample + 1)  # calculate effective trigger rate
 
-    print('scanParams',dir(scanParams))
     scanDetails = None
     plotParam = None
     zROI = appObj.getZROI()    
@@ -1334,6 +1329,7 @@ def runVolScan(appObj):
         
                 if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.zigZag or scanParams.pattern == ScanPattern.wagonWheel:
                     spiralData = volData.spiralScanData
+                    
                     img8b = spiralData.bscanPlot
                     img8b = np.require(img8b, dtype=np.uint8)
                     appObj.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
@@ -1378,15 +1374,15 @@ def runVolScan(appObj):
                 appObj.acquisition_progressBar.setValue(round(100*frameNum/framesPerScan))
                 if appObj.getSaveState():
                     if not isSaveDirInit:
-                        saveDir = OCTCommon.initSaveDir(saveOpts, 'Volume', scanParams)
+                        saveDir = OCTCommon.initSaveDir(saveOpts, 'Volume', scanParams=scanParams, mirrorDriver=mirrorDriver, OCTtrigRate=OCTtrigRate, processMode=processMode, plotParam=plotParam)
                         isSaveDirInit = True
                     if saveOpts.saveRaw:
                         if processMode == OCTCommon.ProcessMode.FPGA:
                             OCTCommon.saveRawData(oct_data, saveDir, frameNum-1, dataType=0)
                         elif processMode == OCTCommon.ProcessMode.SOFTWARE:
-                            outfile = os.path.join(saveDir, 'testData %d.npz' % (frameNum-1))
-                            np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)
-                
+                            OCTCommon.saveRawDataSoftwareProcessing(ch0_data, ch1_data, saveDir, scanNum)                            
+                            print('saved raw scan number:', scanNum)
+                            
                 if frameNum % framesPerScan == 0:
                     if appObj.getSaveState():
                         saveVolumeData(volData, saveDir, saveOpts, scanNum)

@@ -212,7 +212,7 @@ class SaveOpts:
         return s
 
 
-def initSaveDir(saveOpts, protocolName, scanParams=None, audioParams=None):
+def initSaveDir(saveOpts, protocolName, scanParams=None, audioParams=None, mirrorDriver=None, OCTtrigRate=None, processMode=None, plotParam=None):
     baseDir = saveOpts.saveBaseDir
         
     nameScheme = saveOpts.dirNameScheme
@@ -232,11 +232,26 @@ def initSaveDir(saveOpts, protocolName, scanParams=None, audioParams=None):
         
     if not os.path.exists(saveDir):   # create directory if it does not exist
         os.makedirs(saveDir)
-    if saveOpts.notes != '':     # write notes 
-        filepath = os.path.join(saveDir, 'notes.txt')
-        f = open(filepath, 'w')
-        f.write(saveOpts.notes)
-        f.close()
+
+        
+    # make a text file with general information and notes
+    filepath = os.path.join(saveDir, 'miscellaneous information.txt')
+    f = open(filepath, 'w')
+    str1='processMode= ' + repr(processMode) + '\n'
+    f.write(str1)
+    str1='OCTtrigRate=' + repr(OCTtrigRate) + '\n'
+    f.write(str1)    
+    if plotParam is not None:      # write scan parameters to text file    
+        str1='plotParam.xPixelSize= ' + repr(plotParam.xPixelSize) + '\n'
+        f.write(str1)    
+        str1='plotParam.yPixelSize= ' + repr(plotParam.yPixelSize) + '\n'
+        f.write(str1)    
+        str1='plotParam.zPixelSize= ' + repr(plotParam.zPixelSize) + '\n'
+        f.write(str1)            
+    if saveOpts.notes != '':     # write notes     
+        f.write('Notes: \n')
+        f.write(saveOpts.notes)               
+    f.close()
     if scanParams is not None:      # write scan parameters to text file
         scanParamsStr = repr(scanParams)
         fileName = 'ScanParams.txt'
@@ -263,7 +278,20 @@ def initSaveDir(saveOpts, protocolName, scanParams=None, audioParams=None):
         f = open(filePath, 'wb')
         pickle.dump(audioParams, f)
         f.close()
+    if mirrorDriver is not None:      # write scan parameters to text file
+        mirrorDriverStr = repr(mirrorDriver)
+        fileName = 'mirrorDriver.txt'
+        filePath = os.path.join(saveDir, fileName)
+        f = open(filePath, 'w')
+        f.write(mirrorDriverStr)
+        f.close()
         
+        fileName = 'mirrorDriver.pickle'
+        filePath = os.path.join(saveDir, fileName)
+        f = open(filePath, 'wb')
+        pickle.dump(mirrorDriver, f)
+        f.close()
+
     return saveDir
 
 
@@ -295,6 +323,11 @@ def loadRawData(saveDir, frameNum, dataType=0, trialNum=None):
     oct_data = np.load(f)
     f.close()
     return oct_data
+
+def saveRawDataSoftwareProcessing(ch0_data, ch1_data, saveDir, frameNum): 
+    outfile = os.path.join(saveDir, 'RawData_%.5d.npz' % (frameNum))
+    np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)
+
 
 # tests    
 if __name__ == "__main__":   
