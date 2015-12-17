@@ -442,7 +442,7 @@ def runJSOraw(appObj):
         appObj.JSOsaveDispersion_pushButton.setEnabled(True)
         appObj.JSOloadDispersion_pushButton.setEnabled(False)
         dispData = appObj.dispData             # this class holds all the dispersion compensation data    
-        laserSweepFreq=appObj.oct_hw.GetTriggerRate()
+        laserSweepFreq=appObj.octSetupInfo.getTriggerRate()
         mirrorDriver = appObj.mirrorDriver
         
         if not appObj.oct_hw.IsOCTTestingMode():     # prepare to get new data            

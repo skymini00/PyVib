@@ -1374,7 +1374,7 @@ def runVolScan(appObj):
                 appObj.acquisition_progressBar.setValue(round(100*frameNum/framesPerScan))
                 if appObj.getSaveState():
                     if not isSaveDirInit:
-                        saveDir = OCTCommon.initSaveDir(saveOpts, 'Volume', scanParams=scanParams, mirrorDriver=mirrorDriver, OCTtrigRate=OCTtrigRate, processMode=processMode, plotParam=plotParam)
+                        saveDir = OCTCommon.initSaveDir(saveOpts, 'Volume', scanParams=scanParams, mirrorDriver=mirrorDriver, OCTtrigRate=OCTtrigRate, processMode=processMode, plotParam=plotParam, dispData=appObj.dispData)
                         isSaveDirInit = True
                     if saveOpts.saveRaw:
                         if processMode == OCTCommon.ProcessMode.FPGA:

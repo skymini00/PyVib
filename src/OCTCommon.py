@@ -212,7 +212,7 @@ class SaveOpts:
         return s
 
 
-def initSaveDir(saveOpts, protocolName, scanParams=None, audioParams=None, mirrorDriver=None, OCTtrigRate=None, processMode=None, plotParam=None):
+def initSaveDir(saveOpts, protocolName, scanParams=None, audioParams=None, mirrorDriver=None, OCTtrigRate=None, processMode=None, plotParam=None, dispData=None):
     baseDir = saveOpts.saveBaseDir
         
     nameScheme = saveOpts.dirNameScheme
@@ -290,6 +290,12 @@ def initSaveDir(saveOpts, protocolName, scanParams=None, audioParams=None, mirro
         filePath = os.path.join(saveDir, fileName)
         f = open(filePath, 'wb')
         pickle.dump(mirrorDriver, f)
+        f.close()
+    if dispData is not None:      # write scan parameters to text file       
+        fileName = 'dispData.pickle'
+        filePath = os.path.join(saveDir, fileName)
+        f = open(filePath, 'wb')
+        pickle.dump(dispData, f)
         f.close()
 
     return saveDir
