@@ -8,6 +8,7 @@ from PyQt4 import QtCore, QtGui, uic
 import numpy as np
 import pylab
 import copy
+from DebugLog import DebugLog
 
 class ROIImageGraphicsView(QtGui.QGraphicsView):
     clrMap=[]
@@ -219,9 +220,14 @@ class ROIImageGraphicsView(QtGui.QGraphicsView):
         
         self.singlePt = (-1, -1)
         
-        self.polygon_grItems = []
-        self.polygon_pts = []
         
+        self.ROI_poly =  QtGui.QPolygonF()
+        self.ROI_poly_item = scene.addPolygon(self.ROI_poly, pen=self.linePen)
+        
+        self.freedraw_poly =  QtGui.QPolygonF()
+        self.freedraw_poly_item = scene.addPolygon(self.freedraw_poly, pen=self.linePen)
+        self.freedraw_poly_item.setVisible(True)
+
         # reference to the main OCT object, used for calling funcitons when certain events occur (such as the defining box region)
         self.mainOCTObj = None
         
@@ -236,16 +242,27 @@ class ROIImageGraphicsView(QtGui.QGraphicsView):
         print("ROIImageGraphicsView.mouseMoveEvent x= %d y= %d button= %s ROIdragMode+ %s" % (pt[0], pt[1], repr(mouseEvent.button()), repr(self._ROIdragMode)))
 
         if self.isMouseDrag:
-            
             if self._ROIdragMode == ROIImgViewdDragMode.DRAWROI:
-                self.ROIBox_pt2 = pt 
-                ul = self.ROIBox_pt1
-                lr = self.ROIBox_pt2
-                x = min((ul[0], lr[0]))
-                y = min((ul[1], lr[1]))
-                w = abs(lr[0] - ul[0])
-                h = abs(lr[1] - ul[1])
-                self.rectItem.setRect(x, y, w, h)
+                if self._ROIdrawType == ROIImgViewROIDrawType.FREE:
+                    qptf = QtCore.QPointF(pt[0], pt[1])
+                    if qptf != self.freedraw_poly.last():
+                        self.freedraw_poly.append(qptf)
+                        scene = self.scene()
+                        scene.removeItem(self.freedraw_poly_item)
+                        self.freedraw_poly_item = scene.addPolygon(self.freedraw_poly, pen=self.linePen)
+                    print("ROIImageGraphicsView.mouseMoveEvent: FREE draw numpts= %d " % self.freedraw_poly.count())
+                else:
+                    self.ROIBox_pt2 = pt 
+                    ul = self.ROIBox_pt1
+                    lr = self.ROIBox_pt2
+                    x = min((ul[0], lr[0]))
+                    y = min((ul[1], lr[1]))
+                    w = abs(lr[0] - ul[0])
+                    h = abs(lr[1] - ul[1])
+                    self.rectItem.setRect(x, y, w, h)
+                
+
+                
             elif self._ROIdragMode == ROIImgViewdDragMode.MOVE_ITEM:
                 # pos = self.itemSelected.pos()
                 #pos.setY(ptf.y()) 
@@ -284,7 +301,7 @@ class ROIImageGraphicsView(QtGui.QGraphicsView):
         
         if self._ROIdragMode != ROIImgViewdDragMode.NONE:  
             return  # mouse press event already handled by items
-            
+
         pt = (mouseEvent.x(), mouseEvent.y())
         qpt = QtCore.QPoint(pt[0], pt[1])
         ptf = self.mapToScene(qpt)
@@ -305,6 +322,8 @@ class ROIImageGraphicsView(QtGui.QGraphicsView):
             self.dragLastPtF = ptf
             self.isMouseDrag = True
             return
+
+        DebugLog.log("ROIImageGraphicsView.mouseMoveEvent: drawtype = %s" % self._ROIdrawType.name)
             
         if self._ROIdrawType == ROIImgViewROIDrawType.BOX:
             self.isMouseDrag = True
@@ -371,26 +390,15 @@ class ROIImageGraphicsView(QtGui.QGraphicsView):
                 self.ptsList[ptNum] = img_pt
                 
         elif self._ROIdrawType == ROIImgViewROIDrawType.POLYGON:
-            scene = self.scene()
-            pen = self.linePen
-            ptNum = len(self.polygon_pts)
-            self.polygon_pts.append(copy.copy(pt))
-            x1 = pt[0]
-            x2 = pt[0]
-            y1 = pt[1]
-            y2 = pt[1]
-            lineItem = scene.addLine(x1, y1, x2, y2, pen)
-            self.polygon_grItems.append(lineItem)
-            if ptNum > 0:
-                lineItem = self.polygon_grItems[ptNum - 1]
-                pt_a = self.polygon_pts[ptNum - 1]
-                x1 = pt_a[0]
-                y1 = pt_a[1]
-                print("ROIImageGraphicsView polygon pt1= (%d, %d)  pt2 = (%d, %d)" % (x1, y1, x2, y2))
-                lineItem.setLine(x1, y1, x2, y2)
+            qptf = QtCore.QPointF(pt[0], pt[1])
+            if qptf != self.ROI_poly.last():
+                scene = self.scene()
+                self.ROI_poly.append(qptf)
+                scene.removeItem(self.ROI_poly_item)
+                self.ROI_poly_item = scene.addPolygon(self.ROI_poly, pen=self.linePen)
                 
         elif self._ROIdrawType == ROIImgViewROIDrawType.FREE:
-            pass
+            self.isMouseDrag = True
         
     def mouseReleaseEvent(self, mouseEvent):
         pt = (mouseEvent.x(), mouseEvent.y())
@@ -564,12 +572,12 @@ class ROIImageGraphicsView(QtGui.QGraphicsView):
         self.xhairItem1.setVisible(False)
         self.xhairItem2.setVisible(False)
         self.rectItem.setVisible(False)
+        self.freedraw_poly_item.setVisible(False)
         for grItems in self.multiPt_grItems:
             for itm in grItems:
                 itm.setVisible(False)
             
-        for li in self.polygon_grItems:
-            li.setVisible(True)
+        self.ROI_poly_item.setVisible(False)
             
         if drawType == ROIImgViewROIDrawType.NONE:
             pass
@@ -583,17 +591,15 @@ class ROIImageGraphicsView(QtGui.QGraphicsView):
                 for itm in grItems:
                     itm.setVisible(True)
         elif drawType == ROIImgViewROIDrawType.FREE:
-            pass
+            self.freedraw_poly_item.setVisible(True)
         elif drawType == ROIImgViewROIDrawType.POLYGON:
-            for li in self.polygon_grItems:
-                li.setVisible(True)
+            self.ROI_poly_item.setVisible(True)
         
         
     def clearPolygon(self):
+        self.ROI_poly.clear()
         scene = self.scene()
-        for li in self.polygon_grItems:
-            scene.removeItem(li)
-        self.polygon_pts.clear()
+        scene.removeItem(self.ROI_poly_item)
         
     def clearMultiPt(self):
         scene = self.scene()
@@ -609,6 +615,12 @@ class ROIImageGraphicsView(QtGui.QGraphicsView):
             grItems = self.multiPt_grItems.pop()
             for itm in grItems:
                 scene.removeItem(itm)
+
+    def clearFreeDrawROI(self):
+        self.freedraw_poly.clear()
+        scene = self.scene()
+        scene.removeItem(self.freedraw_poly_item)
+        # self.freedraw_poly_item = scene.addPolygon(self.freedraw_poly, pen=self.linePen)
         
         
     #def dragMoveEvent(self, dragEvent):
