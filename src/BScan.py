@@ -562,7 +562,6 @@ def runBScan(appObj):
         daq = DAQHardware()
         
     OCTtrigRate = appObj.octSetupInfo.getTriggerRate()
-    print('OCTtrigRate',OCTtrigRate)    
     
     mirrorDriver = appObj.mirrorDriver
     rset = appObj.imgDataScanParams is None
