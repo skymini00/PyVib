@@ -23,6 +23,7 @@ import tifffile
 import pickle
 import time
 import JSOraw
+import scipy
 
 def correctImageAspectRatio(imgData, xRes, zRes, interpMode=PIL.Image.BILINEAR, dataType=np.uint8, dim=0):
     if not np.isfinite(xRes) or not np.isfinite(zRes):
@@ -561,6 +562,8 @@ def runBScan(appObj):
         daq = DAQHardware()
         
     OCTtrigRate = appObj.octSetupInfo.getTriggerRate()
+    print('OCTtrigRate',OCTtrigRate)    
+    
     mirrorDriver = appObj.mirrorDriver
     rset = appObj.imgDataScanParams is None
         
@@ -587,9 +590,13 @@ def runBScan(appObj):
             trigRate = OCTtrigRate / (downsample + 1)  # calculate effective trigger rate
             
             # generate the mirrrour output function
-            (mirrorOutput, numTrigs) = makeBscanMirrorOutput(scanParams, mirrorDriver, trigRate)
+            (mirrorOut1, numTrigs) = makeBscanMirrorOutput(scanParams, mirrorDriver, trigRate)
             numTrigs = int(np.round(numTrigs))  # ensure numTrigs is an integer
-            
+            if mirrorDriver.MEMS==True:
+                mirrorOutput=scipy.signal.filtfilt(mirrorDriver.b_filt,mirrorDriver.a_filt,mirrorOut1)           
+            else:
+                mirrorOutput=mirrorOut1    
+        
             # setup the analog output DAQ device
             chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
             trigChan = mirrorDriver.trig_daqChan
@@ -643,6 +650,7 @@ def runBScan(appObj):
 
 
             x_cmd = mirrorOutput[0, :]
+            x_cmd_orig = mirrorOut1[0, :]
             y_cmd = mirrorOutput[1, :]
             npts = len(x_cmd)
             tEnd = npts/outputRate
@@ -652,6 +660,7 @@ def runBScan(appObj):
             pl.clear()
             pl.plot(t, x_cmd, pen='b')
             pl.plot(t, y_cmd, pen='r')
+            pl.plot(t, x_cmd_orig, pen='k')
             
             frameNum += 1
             # check for GUI events, particularly the "done" flag

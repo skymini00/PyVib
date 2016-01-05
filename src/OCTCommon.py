@@ -72,15 +72,16 @@ class OCTSetupInfo:
         return s
         
     def getTriggerRate(self):
+        trigRate=0
         if self.Laser == 1:
             trigRate = 200e3
         elif self.Laser==2:
             trigRate = 49.9598e3
         elif self.Laser==3:
             trigRate = 100e3
-        elif self.Laser==4:      # test mode with a low laser rate
+        elif self.Laser==4:     # test mode with a really low laser rate
             trigRate = 2000
-            
+        print('self.Laser, trigRate', self.Laser, trigRate)            
         return trigRate
         
 #class DispCorr:
