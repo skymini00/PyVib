@@ -148,9 +148,12 @@ def setupWagonWheelScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtri
     else:
         RFx=RFxPlanned
         plotParam.yPixel=plotParam.xPixel
+
+    DebugLog.log("VolumeScan.setupWagonWheelScan() plotParam xPixel= %d yPixel= %d zPixel= %d xCenter= %d yCenter= %d rangeCenter= %d" % (plotParam.xPixel, plotParam.yPixel, plotParam.zPixel, plotParam.xCenter, plotParam.yCenter, plotParam.rangeCenter))
+
     fv = scanParams.volScanFreq     # plotParam scan frequency   
     n_angle=np.floor(RFx/fv)        # the number of angles to sweep depends upon how fast we want to collect a volume
-       
+             
     # Create filtered triangle waveform, crop out the middle waveform, and stick the right number of them together to complete a full scan      
     faxis= RFx #fast axis frequency
     cycles=51  #number of cycles to use in to generate filtered waveform, we will use the middle cycle to avoid artifacts at the edges
@@ -170,8 +173,9 @@ def setupWagonWheelScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtri
     tcycleindexDAQ=np.where(((tDAQ>=(tlower+1/faxis/4))*(tDAQ<=(thigher+1/faxis/4)))>0) #find indicies coresponding to center cycle
     ufilcycle=xfil[tcycleindexs[0][0]:tcycleindexs[0][-1]] /np.max(xfil[tcycleindexs[0][0]:tcycleindexs[0][-1]]) #filtered cycle of sawtooth for generating scan waveform
     uDAQfilcycle=xDAQfil[tcycleindexDAQ[0][0]:tcycleindexDAQ[0][-1]]/np.max(xDAQfil[tcycleindexDAQ[0][1]:tcycleindexDAQ[0][-1]]) #filtered cycle of sawtooth for generating scan waveform
-    u=np.concatenate((np.tile(ufilcycle,n_angle),ufilcycle[0:np.ceil(ufilcycle.size/2)]),2)
-    uDAQ=np.concatenate((np.tile(uDAQfilcycle,n_angle),uDAQfilcycle[0:np.ceil(uDAQfilcycle.size/2)]),2)
+
+    u=np.concatenate((np.tile(ufilcycle,n_angle),ufilcycle[0:np.ceil(ufilcycle.size/2)]),0)
+    uDAQ=np.concatenate((np.tile(uDAQfilcycle,n_angle),uDAQfilcycle[0:np.ceil(uDAQfilcycle.size/2)]),0)
     angleRad=np.linspace(0,np.pi,num=u.size)
     angleRadDAQ=np.linspace(0,np.pi,num=uDAQ.size)
     xN=u*np.cos(angleRad) #build normalized, from -1 to 1, x-waveform
@@ -242,6 +246,7 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
         plotParam.yPixel=yPixelnew
     else:
         RFy=RFyPlanned
+    DebugLog.log("VolumeScan.setupZigZagScan() plotParam xPixel= %d yPixel= %d zPixel= %d xCenter= %d yCenter= %d rangeCenter= %d" % (plotParam.xPixel, plotParam.yPixel, plotParam.zPixel, plotParam.xCenter, plotParam.yCenter, plotParam.rangeCenter))
              
     # Create filtered triangle waveform, crop out the middle waveform, and stick the right number of them together to complete a full scan      
     faxis= RFx #fast axis frequency
@@ -274,11 +279,11 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     ADAQ=-xqDAQfilcycle #quarter cycle to begin scan at 0 V
     BDAQ=-np.flipud(xqDAQfilcycle) #quarter cycle to end scan at 0 V
     
-    xN=np.concatenate((A,np.tile(xfilcycle,plotParam.yPixel),B),2) #build normalized, from -1 to 1, x-waveform
-    yN=np.concatenate((A,np.linspace(-1,1,xfilcycle.size*plotParam.yPixel),-B),2) #build linear ramp for y-waveform
+    xN=np.concatenate((A,np.tile(xfilcycle,plotParam.yPixel),B),0) #build normalized, from -1 to 1, x-waveform
+    yN=np.concatenate((A,np.linspace(-1,1,xfilcycle.size*plotParam.yPixel),-B),0) #build linear ramp for y-waveform
 
-    xDAQ=np.concatenate((ADAQ,np.tile(xDAQfilcycle,plotParam.yPixel),BDAQ),2) #build normalized, from -1 to 1, x-waveform
-    yDAQ=np.concatenate((ADAQ,np.linspace(-1,1,xDAQfilcycle.size*plotParam.yPixel),-BDAQ),2) #build linear ramp for y-waveform
+    xDAQ=np.concatenate((ADAQ,np.tile(xDAQfilcycle,plotParam.yPixel),BDAQ),0) #build normalized, from -1 to 1, x-waveform
+    yDAQ=np.concatenate((ADAQ,np.linspace(-1,1,xDAQfilcycle.size*plotParam.yPixel),-BDAQ),0) #build linear ramp for y-waveform
      
     Vx=(scanParams.length*Vpmmx/2)/xAdjust
     x=Vx*xDAQ        
