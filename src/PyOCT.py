@@ -783,6 +783,10 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         audioParams.freq = np.tile(freq, (2, 1))
         audioParams.amp = np.linspace(ampStart, ampEnd, ampSteps)        
         audioParams.customSoundDir = self.customSoundDir_lineEdit.text()        
+        
+        if audioParams.stimType == AudioStimType.TONE_LASER:
+            audioParams.speakerSel = Speaker.BOTH
+
         return audioParams
         
         
@@ -1033,7 +1037,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             drawType = ROIImgViewROIDrawType.SINGLE_PT
             
         self.bscan_img_gv.setROIDrawType(drawType)
-        self.vol_plane_proj_gv(ROIImgViewROIDrawType.NONE)
+        self.vol_plane_proj_gv.setROIDrawType(ROIImgViewROIDrawType.NONE)
         self.mscan_single_pt_button.setChecked(isChecked)
 
     
@@ -1046,7 +1050,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             drawType = ROIImgViewROIDrawType.BOX
         
         self.bscan_img_gv.setROIDrawType(drawType)
-        self.vol_plane_proj_gv(ROIImgViewROIDrawType.NONE)
+        self.vol_plane_proj_gv.setROIDrawType(ROIImgViewROIDrawType.NONE)
         self.bmscan_box_region_button.setChecked(isChecked)
 
     def vol_boxROI_pushButton_clicked(self):

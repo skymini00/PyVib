@@ -750,17 +750,28 @@ def getXYPos(lenStep, widthStep, scanParams):
         
     return (xPos, yPos)
 
+
 def makeAudioOutput(audioParams, audioHW, spkNum, f, a):
+    outputRate = audioHW.DAQOutputRate
+    trialDur = 1e-3*audioParams.getTrialDuration(a)
+    trialPts = np.ceil(trialDur * outputRate)
+    
+    if spkNum == 1:
+        if audioParams.stimType == AudioStimType.TONE_LASER:
+            sig = np.zeros(trialPts)
+            i1 = trialPts // 3
+            i2 = 2 * trialPts // 3
+            sig[i1:i2] = 5
+            return (sig, 0)
+        
     (outV, attenLvl) = audioHW.getCalibratedOutputVoltageAndAttenLevel(f, a, spkNum)
     spkOut = []
     if(outV > 0):
-        outputRate = audioHW.DAQOutputRate
-        trialDur = 1e-3*audioParams.getTrialDuration(a)
         stimDur = 1e-3*audioParams.stimDuration
+        
         stimOffset = 1e-3*audioParams.stimOffset
         stimEnv = 1e-3*audioParams.stimEnvelope
         offsetPts = np.ceil(stimOffset * outputRate)
-        trialPts = np.ceil(trialDur * outputRate)
         stimPts = np.ceil(stimDur * outputRate)
         
          # in the case that stim + offset will excdeed trial duration, we must trim the stim 
@@ -776,6 +787,7 @@ def makeAudioOutput(audioParams, audioHW, spkNum, f, a):
         envFcn[stimPts-envPts:] = np.linspace(1, 0, envPts)
         sig = sig*envFcn
         spkOut[offsetPts:offsetPts+stimPts] = sig
+        
     return (spkOut, attenLvl)
         
         
@@ -1554,6 +1566,7 @@ def runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataD
     mirrorDriver = appObj.mirrorDriver
     saveOpts = appObj.getSaveOpts()
     audioParams = appObj.getAudioParams()
+
     rset = True
     isSaveDirInit = False
     audioHW = appObj.audioHW
@@ -1870,7 +1883,7 @@ def runMScan(appObj, multiProcess=False):
                 if processMode == OCTCommon.ProcessMode.FPGA:
                     if appObj.oct_hw.IsOCTTestingMode():
                         oct_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
-                        oct_data_tmp = oct_data_tmp[:, :, 0]
+                        oct_data_tmp = oct_data[:, :, 0]
                     else:
                         err, oct_data_tmp = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
                         

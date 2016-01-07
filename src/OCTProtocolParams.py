@@ -69,7 +69,8 @@ class AudioStimType(Enum):
     PURE_TONE = 1
     TWO_TONE_DP = 2
     NOISE = 3
-    CUSTOM = 4     
+    CUSTOM = 4
+    TONE_LASER = 5     
 
 class Speaker(Enum):
     LEFT = 1

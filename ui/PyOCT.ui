@@ -5931,6 +5931,11 @@
            <string>Custom</string>
           </property>
          </item>
+         <item>
+          <property name="text">
+           <string>Tone/Laser</string>
+          </property>
+         </item>
         </widget>
         <widget class="QLabel" name="label_38">
          <property name="geometry">
