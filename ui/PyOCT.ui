@@ -867,7 +867,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>2</number>
+         <number>7</number>
         </property>
         <widget class="QWidget" name="bscan_tab">
          <attribute name="title">
@@ -4402,7 +4402,7 @@
            <rect>
             <x>20</x>
             <y>910</y>
-            <width>81</width>
+            <width>221</width>
             <height>16</height>
            </rect>
           </property>
@@ -4412,7 +4412,7 @@
            </font>
           </property>
           <property name="text">
-           <string>Filename:</string>
+           <string>Dispersion Compensation Filename:</string>
           </property>
          </widget>
          <widget class="QLabel" name="dispCompFilename_label">
@@ -4966,19 +4966,22 @@
           </property>
          </widget>
          <widget class="QCheckBox" name="saveData_checkBox">
+          <property name="enabled">
+           <bool>true</bool>
+          </property>
           <property name="geometry">
            <rect>
             <x>24</x>
             <y>560</y>
-            <width>181</width>
+            <width>211</width>
             <height>21</height>
            </rect>
           </property>
           <property name="text">
-           <string>Save one set of data</string>
+           <string>Save one set of raw data</string>
           </property>
           <property name="checked">
-           <bool>true</bool>
+           <bool>false</bool>
           </property>
          </widget>
          <widget class="QLabel" name="label_140">
@@ -5466,6 +5469,42 @@
              <blue>255</blue>
             </color>
            </brush>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_156">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>590</y>
+            <width>221</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Select Raw Data File for test mode:</string>
+          </property>
+         </widget>
+         <widget class="QComboBox" name="rawDataFilename_comboBox">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>610</y>
+            <width>221</width>
+            <height>22</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>8</pointsize>
+           </font>
+          </property>
+          <property name="currentIndex">
+           <number>-1</number>
           </property>
          </widget>
         </widget>

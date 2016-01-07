@@ -72,6 +72,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             self.enableVolViewer = True
         except:
             DebugLog.log("OCTWindowClass.__init__: could not import pyqtgraph.opengl: volume viewer is disabled ")
+                     
             
         self.isShutdown = False            
         items = ['Single process (slower, simple code)', 'Multiprocess (faster, complex code)']
@@ -113,7 +114,10 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.JSOsaveDispersion_pushButton.setEnabled(False)
         
 #        self.dispData = Dispersion.DispersionData(fpgaOpts)        
-        # load up stuff for software processing (JSO) routines
+
+        # load up stuff for software processing (JSO) routines            
+        self.savedDataBuffer = JSOraw.SavedDataBuffer(self)     # This class holds data imported from a disk file, and loads a test data set (for software processing)
+        self.savedDataBuffer.listRawDataFilenames(self)     #fill up the list of raw data files to choose from in the GUI
         dispLoaded = False
         try:
             JSOraw.loadDispersion_onStartup(self)

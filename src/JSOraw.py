@@ -39,16 +39,26 @@ import time
 
                 
 class SavedDataBuffer: 
-    def __init__(self):
+    def __init__(self,appObj):
         self.ch0_data_file=[]
         self.ch1_data_file=[]
         self.count=0
         self.saveRawData=0
+        self.testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
         
-    def loadData(self,appObj, testDataDir, fileName):
+    def listRawDataFilenames(self,appObj):        
+        appObj.rawDataFilename_comboBox.clear()
+        count=0
+        for entry in os.listdir(self.testDataDir):
+            if entry.endswith('.npz'):
+                appObj.rawDataFilename_comboBox.insertItem(count,entry)
+                count=count+1
+                
+    def loadData(self,appObj):
         #testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
         #outfile=os.path.join(testDataDir,'testData.npz')
-        outfile=os.path.join(testDataDir, fileName)
+        fileName=appObj.rawDataFilename_comboBox.currentText()
+        outfile=os.path.join(self.testDataDir, fileName)
         x=np.load(outfile)                    
         self.ch0_data_file=x['ch0_data']
         self.ch1_data_file=x['ch1_data']
@@ -56,7 +66,18 @@ class SavedDataBuffer:
         self.saveRawData=0
         appObj.requestedSamplesPerTrig.setValue(self.ch1_data_file.shape[1])
         print('loaded saved data into buffer from :',outfile)
-       
+    
+    def saveData(self,appObj,dataToSave,fileName):
+        dateName=datetime.datetime.now().strftime("-%Y_%m_%d-%H_%M_%S.npz")
+        fName=fileName + dateName
+        print('fName',fName)
+        outfile=os.path.join(self.testDataDir,fName)
+        ch0_data = dataToSave[0]
+        ch1_data = dataToSave[1]
+        np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)       
+        print('data was saved to: ', fName)
+        self.listRawDataFilenames(appObj)
+        
 def processMZI(mzi_data, dispData, FIRcoeff=[0+0j]):
     t1 = time.time()
     complex_FIR = 1
@@ -331,13 +352,7 @@ def getNewRawData(numTrigs,requestedSamplesPerTrig,appObj):
     except Exception as ex:
         print('Error collecting data')
         raise ex
-    
-    if appObj.saveData_checkBox.isChecked()==True:      # get new data and save to disk for later use
-        outfile='testData.npz'
-        np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)
-        print('saved data in :',outfile)
-        appObj.saveData_checkBox.setChecked(False)                     
-    return ch0_data, ch1_data
+        return ch0_data, ch1_data
       
 def saveDispersion_pushButton_clicked(appObj):
     dispData=appObj.dispData
@@ -439,8 +454,8 @@ def runJSOraw(appObj):
         appObj.tabWidget.setCurrentIndex(7)
         appObj.doneFlag = False
         appObj.isCollecting = True
-        appObj.JSOsaveDispersion_pushButton.setEnabled(True)
-        appObj.JSOloadDispersion_pushButton.setEnabled(False)
+#        appObj.JSOsaveDispersion_pushButton.setEnabled(True)
+#        appObj.JSOloadDispersion_pushButton.setEnabled(False)
         dispData = appObj.dispData             # this class holds all the dispersion compensation data    
         laserSweepFreq=appObj.octSetupInfo.getTriggerRate()
         mirrorDriver = appObj.mirrorDriver
@@ -453,9 +468,7 @@ def runJSOraw(appObj):
             daq = DAQHardware()
             daq.writeValues(chanNames, data)
         else:
-            testDataDir = os.path.join(appObj.basePath, 'exampledata', 'JSOraw')
-            appObj.savedDataBuffer = SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set
-            appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData.npz')
+            appObj.savedDataBuffer.loadData(appObj)
     
         peakXPos=np.array([0],dtype=int)       
         peakYPos=np.array([0],dtype=float)       
@@ -485,6 +498,19 @@ def runJSOraw(appObj):
                 ch0_data,ch1_data=getNewRawData(numTrigs,dispData.requestedSamplesPerTrig,appObj)
             
             print('channel size',ch0_data.shape,ch1_data.shape)
+            if appObj.saveData_checkBox.isChecked()==True:      # save data to disk for later use if desired
+                fileName='Mirror_Raw'
+                x0=np.transpose(ch0_data).flatten()
+                x1=np.transpose(ch1_data).flatten()
+                print('ch0_datat',x0.shape)                
+                print('ch1_datat',x1.shape)                
+                dataToSave=np.array([x0, x1])
+               
+#                dataToSave=np.array([np.transpose(ch0_data), np.transpose(ch1_data)])
+                print('dataToSave.shape',dataToSave.shape)        
+                appObj.savedDataBuffer.saveData(appObj,dataToSave,fileName)                                
+                appObj.saveData_checkBox.setChecked(False)                     
+                
             # delay the MZI to account for it having a shorter optical path than the sample/reference arm path, then calculate k0 as the MZI phase
             pdData,mziData,actualSamplesPerTrig=channelShift(ch0_data,ch1_data,dispData)    
             textString='Actual samples per trigger: {actualSamplesPerTrig}'.format(actualSamplesPerTrig=actualSamplesPerTrig)            
@@ -562,7 +588,6 @@ def runJSOraw(appObj):
             phaseNoiseFFT = np.abs(np.fft.rfft(phaseNoiseTD))/(numTrigs/2)
 #            phaseNoiseFD = 20*np.log10(np.abs(phaseNoiseFFT))        
             freq = np.fft.rfftfreq(numTrigs)*laserSweepFreq
-            print(numTrigs,laserSweepFreq)
     
             # Clear all of the plots
             appObj.mzi_plot_2.clear() 
@@ -667,5 +692,5 @@ def runJSOraw(appObj):
     appObj.isCollecting = False
     QtGui.QApplication.processEvents() # check for GUI events
     appObj.finishCollection()
-    appObj.JSOsaveDispersion_pushButton.setEnabled(False)    
-    appObj.JSOloadDispersion_pushButton.setEnabled(True)
+#    appObj.JSOsaveDispersion_pushButton.setEnabled(False)    
+#    appObj.JSOloadDispersion_pushButton.setEnabled(True)

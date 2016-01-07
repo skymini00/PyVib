@@ -30,6 +30,7 @@ import pickle
 import multiprocessing as mproc
 import queue 
 from OCTProtocolParams import *
+import scipy.signal
 
 
 # Mscan processing options
@@ -1734,34 +1735,34 @@ def runMScan(appObj, multiProcess=False):
         if (scanParams.lengthSteps == 1 and scanParams.widthSteps == 1):
             regionMscan = False
             appObj.tabWidget.setCurrentIndex(3)
-            testDataDir = os.path.join(appObj.basePath, 'exampledata', 'MScan single pt')
         else:   # region mscan
             regionMscan = True
             appObj.tabWidget.setCurrentIndex(4)
-            testDataDir = os.path.join(appObj.basePath, 'exampledata', 'MScan B-Mscan')
         
         DebugLog.log("Mscan runMscan(): regionMscan= %s" % repr(regionMscan))
         
         # if in testing mode, load proper paramaeters instead of getting them from GUI
         if oct_hw.IsOCTTestingMode():
-            filePath = os.path.join(testDataDir, 'ScanParams.pickle')
-            f = open(filePath, 'rb')
-            scanParams = pickle.load(f)
-            f.close()
-            
+          
             processMode = OCTCommon.ProcessMode(appObj.processMode_comboBox.currentIndex())
             if processMode == OCTCommon.ProcessMode.SOFTWARE:
-                filePath = os.path.join(testDataDir, 'AudioParams-raw.pickle')
-                zROIIndices = [198]
+                appObj.savedDataBuffer.loadData(appObj)
             else:
+                if regionMscan:
+                    testDataDir = os.path.join(appObj.basePath, 'exampledata', 'MScan B-Mscan')
+                else:
+                    testDataDir = os.path.join(appObj.basePath, 'exampledata', 'MScan single pt')
+                filePath = os.path.join(testDataDir, 'ScanParams.pickle')
+                f = open(filePath, 'rb')
+                scanParams = pickle.load(f)
+                f.close()
                 filePath = os.path.join(testDataDir, 'AudioParams.pickle')
                 zROIIndices = [85]
-            f = open(filePath, 'rb')
-            audioParams = pickle.load(f)
-            f.close()
-            trigRate = 49.9598e3
-            
-            
+                f = open(filePath, 'rb')
+                audioParams = pickle.load(f)
+                f.close()
+                trigRate = 49.9598e3
+                        
         procOpts = MscanProcOpts()
         procOpts.bscanNormLow = appObj.normLow_spinBox.value()
         procOpts.bscanNormHigh = appObj.normHigh_spinBox.value()
@@ -1860,13 +1861,10 @@ def runMScan(appObj, multiProcess=False):
                     attenSig = AudioHardware.makeLM1972AttenSig(attenLvl)
                     #daq.sendDigOutCmd(attenLines, attenSig)
                     appObj.oct_hw.SetAttenLevel(attenLvl, attenLines)
-                    
-            
+                                
             numInputSamples = int(inputRate*numOutputSamples/outputRate) 
             if not oct_hw.IsDAQTestingMode():
                 daq.setupAnalogOutput(chanNamesOut, trigChan, outputRate, audioOutput.transpose())
-            
-                # setup the input task
                 daq.setupAnalogInput(chanNamesIn, trigChan, int(inputRate), numInputSamples) 
 
             numTrials = audioParams.numTrials
@@ -1890,8 +1888,6 @@ def runMScan(appObj, multiProcess=False):
                     dataIsRaw = False
                 elif processMode == OCTCommon.ProcessMode.SOFTWARE:
                     if appObj.oct_hw.IsOCTTestingMode():
-                        appObj.savedDataBuffer = JSOraw.SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set
-                        appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData %d.npz' % frameNum)
                         ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs,appObj.dispData.requestedSamplesPerTrig,appObj.savedDataBuffer)
                     else:
                         # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
@@ -1902,12 +1898,14 @@ def runMScan(appObj, multiProcess=False):
                 else:
                     QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
                     break
-                
+                                
                 if oct_data == None:
                     shp = oct_data_tmp.shape
                     oct_data = np.zeros((shp[0], shp[1], numTrials), np.complex)
+                print('n1, oct_data.size',n, oct_data.size)
                     
                 oct_data[:, :, n] = oct_data_tmp
+                print('n2, oct_data.size',n, oct_data.size)
                 
                 if not oct_hw.IsDAQTestingMode():
                     mic_data = daq.readAnalogInput()
@@ -1918,7 +1916,10 @@ def runMScan(appObj, multiProcess=False):
                     daq.waitDoneInput()
                     daq.stopAnalogInput()
                 else:
-                    mic_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=3)
+                    if processMode == OCTCommon.ProcessMode.SOFTWARE:
+                        mic_data=scipy.signal.resample(audioOutput,numInputSamples)                                                
+                    else:
+                        mic_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=3)
                 
                 # check for done flag
                 QtGui.QApplication.processEvents() 

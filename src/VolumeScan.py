@@ -1182,15 +1182,14 @@ def runVolScan(appObj):
     # Get scan paramaeters either from GUI (running or software process testmode) or from a file (hardware process testmode)
     testDataDir = '' 
     if appObj.oct_hw.IsOCTTestingMode():
-        testDataDir = os.path.join(appObj.basePath, 'exampledata', 'VolumeScan')
         if processMode == OCTCommon.ProcessMode.FPGA:
+            testDataDir = os.path.join(appObj.basePath, 'exampledata', 'VolumeScan')
             filePath = os.path.join(testDataDir, 'ScanParams.pickle')
             f = open(filePath, 'rb')
             scanParams = pickle.load(f)
             f.close()
         elif processMode == OCTCommon.ProcessMode.SOFTWARE:        
-            appObj.savedDataBuffer = JSOraw.SavedDataBuffer()     # This class holds data imported from a disk file, and loads a test data set (for software processing)
-            appObj.savedDataBuffer.loadData(appObj, testDataDir, 'testData.npz')
+            appObj.savedDataBuffer.loadData(appObj)
             scanParams = appObj.getScanParams()
     else:
         # get the scan paramters that the user has entered 
