@@ -362,7 +362,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
         # mscan event handlers
         self.mscan_single_pt_button.clicked.connect(self.mscan_single_pt_clicked)
-        self.bmscan_box_region_button.clicked.connect(self.bmscan_box_regionn_clicked)
+        self.bmscan_box_region_button.clicked.connect(self.bmscan_box_region_clicked)
         self.BMscan_resolution_dblSpinBox.valueChanged.connect(self.BMscan_resolution_changed)
         self.BMscan_numSteps_spinBox.valueChanged.connect(self.BMscan_numSteps_changed)
         
@@ -396,6 +396,13 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.enFace_imageGen_comboBox.currentIndexChanged.connect(self.enFaceChanged)
         
         self.vol_bscan_widthstep_slider.valueChanged.connect(self.volBScanWidthStepChanged)
+
+        self.vol_boxROI_pushButton.clicked.connect(self.vol_boxROI_pushButton_clicked)
+        self.vol_polyROI_pushButton.clicked.connect(self.vol_polyROI_pushButton_clicked)
+        self.vol_freeROI_pushButton.clicked.connect(self.vol_freeROI_pushButton_clicked)
+        
+        self.vol_clear_polyROI_pushButton.clicked.connect(self.vol_clear_polyROI_pushButton_clicked)
+        self.vol_clear_freeROI_pushButton.clicked.connect(self.vol_clear_freeROI_pushButton_clicked)
         
     def _initGraphVars(self):
         layout = QtGui.QHBoxLayout()
@@ -1009,22 +1016,81 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         newDir = QtGui.QFileDialog.getExistingDirectory (self, caption, directory)
         self.saveDir_lineEdit.setText(newDir)
         
-    def mscan_single_pt_clicked(self):
+        
+    def uncheckMScanROI(self):
         self.bmscan_box_region_button.setChecked(False)
+        self.mscan_single_pt_button.setChecked(False)
+        self.vol_boxROI_pushButton.setChecked(False)
+        self.vol_polyROI_pushButton.setChecked(False)
+        self.vol_freeROI_pushButton.setChecked(False)
+        
+    def mscan_single_pt_clicked(self):
+        isChecked = self.mscan_single_pt_button.isChecked()
+        self.uncheckMScanROI()
+        
         drawType = ROIImgViewROIDrawType.NONE
-        if self.mscan_single_pt_button.isChecked():
+        if isChecked:
             drawType = ROIImgViewROIDrawType.SINGLE_PT
             
         self.bscan_img_gv.setROIDrawType(drawType)
+        self.vol_plane_proj_gv(ROIImgViewROIDrawType.NONE)
+        self.mscan_single_pt_button.setChecked(isChecked)
+
     
-    def bmscan_box_regionn_clicked(self):
-        self.mscan_single_pt_button.setChecked(False)
+    def bmscan_box_region_clicked(self):
+        isChecked = self.bmscan_box_region_button.isChecked()
+        self.uncheckMScanROI()
+        
         drawType = ROIImgViewROIDrawType.NONE
-        if self.bmscan_box_region_button.isChecked():
+        if isChecked:
             drawType = ROIImgViewROIDrawType.BOX
         
         self.bscan_img_gv.setROIDrawType(drawType)
+        self.vol_plane_proj_gv(ROIImgViewROIDrawType.NONE)
+        self.bmscan_box_region_button.setChecked(isChecked)
 
+    def vol_boxROI_pushButton_clicked(self):
+        isChecked = self.vol_boxROI_pushButton.isChecked()
+        self.uncheckMScanROI()
+        
+        drawType = ROIImgViewROIDrawType.NONE
+        if isChecked:
+            drawType = ROIImgViewROIDrawType.BOX
+        
+        self.bscan_img_gv.setROIDrawType(ROIImgViewROIDrawType.NONE)
+        self.vol_plane_proj_gv.setROIDrawType(drawType)
+        self.vol_boxROI_pushButton.setChecked(isChecked)
+    
+    def vol_polyROI_pushButton_clicked(self):
+        isChecked = self.vol_polyROI_pushButton.isChecked()
+        self.uncheckMScanROI()
+        
+        drawType = ROIImgViewROIDrawType.NONE
+        if isChecked:
+            drawType = ROIImgViewROIDrawType.POLYGON
+        
+        self.bscan_img_gv.setROIDrawType(ROIImgViewROIDrawType.NONE)
+        self.vol_plane_proj_gv.setROIDrawType(drawType)
+        self.vol_polyROI_pushButton.setChecked(isChecked)
+    
+    def vol_freeROI_pushButton_clicked(self):
+        isChecked = self.vol_freeROI_pushButton.isChecked()
+        self.uncheckMScanROI()
+        
+        drawType = ROIImgViewROIDrawType.NONE
+        if isChecked:
+            drawType = ROIImgViewROIDrawType.FREE
+        
+        self.bscan_img_gv.setROIDrawType(ROIImgViewROIDrawType.NONE)
+        self.vol_plane_proj_gv.setROIDrawType(drawType)
+        self.vol_freeROI_pushButton.setChecked(isChecked)
+
+    def vol_clear_polyROI_pushButton_clicked(self):
+        self.vol_plane_proj_gv.clearPolygon()        
+        
+    def vol_clear_freeROI_pushButton_clicked(self):
+        self.vol_plane_proj_gv.clearFreeDrawROI()
+        
     def freqStartEndChanged(self):
         freqStart = self.freqStart_dblSpinBox.value()
         freqEnd = self.freqEnd_dblSpinBox.value()
@@ -1267,6 +1333,10 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         img8b = np.round(255.0*img16b/65335.0)  # remap image range
         img8b = np.require(img8b, dtype=np.uint8)
         self.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, False)
+
+
+
+        
             
     def shutdown(self):
         DebugLog.log("OCTWindowClass.shutdown(): closing FPGA")
