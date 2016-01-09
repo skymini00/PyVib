@@ -434,8 +434,18 @@ def saveBScanData(appObj, dataToSave, img16b, frameNum, scanParams, saveOpts, is
         saveImage(img16b, saveDir, saveOpts, frameNum)
         if saveOpts.saveRaw:
             if dataIsRaw:
-                fileName='BScan_Raw'
-                appObj.savedDataBuffer.saveData(appObj,dataToSave,fileName)                                
+                fileName = 'RawData'
+                if not saveOpts.saveOnlyMostRecentFrame:
+                    fileName = fileName + ("_%4d" % frameNum)                
+                fileName = fileName + '.npz'
+                outfile = os.path.join(saveDir, fileName)
+                ch0_data = dataToSave[0]
+                ch1_data = dataToSave[1]
+                np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)
+                
+# USE THESE TWO LINES IF YOU WANT TO SAVE RAW DATA FILE IN JSOraw FORMAT
+#                fileName='BScan_Raw'
+#                appObj.savedDataBuffer.saveData(appObj,dataToSave,fileName)                                
             else:
                 OCTCommon.saveRawData(dataToSave, saveDir, frameNum, dataType=0)            
     return isSaveDirInit, saveDir

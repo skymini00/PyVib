@@ -497,17 +497,9 @@ def runJSOraw(appObj):
             else:
                 ch0_data,ch1_data=getNewRawData(numTrigs,dispData.requestedSamplesPerTrig,appObj)
             
-            print('channel size',ch0_data.shape,ch1_data.shape)
             if appObj.saveData_checkBox.isChecked()==True:      # save data to disk for later use if desired
                 fileName='Mirror_Raw'
-                x0=np.transpose(ch0_data).flatten()
-                x1=np.transpose(ch1_data).flatten()
-                print('ch0_datat',x0.shape)                
-                print('ch1_datat',x1.shape)                
-                dataToSave=np.array([x0, x1])
-               
-#                dataToSave=np.array([np.transpose(ch0_data), np.transpose(ch1_data)])
-                print('dataToSave.shape',dataToSave.shape)        
+                dataToSave = (ch0_data, ch1_data)              
                 appObj.savedDataBuffer.saveData(appObj,dataToSave,fileName)                                
                 appObj.saveData_checkBox.setChecked(False)                     
                 

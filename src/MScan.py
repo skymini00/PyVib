@@ -1992,7 +1992,7 @@ def runMScan(appObj, multiProcess=False):
                         
                 if saveOpts.saveRaw:
                     if dataIsRaw:
-                        outfile = os.path.join(saveDir, 'testData %d.npz' % (frameNum-1))
+                        outfile = os.path.join(saveDir, 'RawData %d.npz' % (frameNum-1))
                         np.savez_compressed(outfile, ch0_data=ch0_data, ch1_data=ch1_data)
                     else:
                         OCTCommon.saveRawData(oct_data, saveDir, frameNum-1, dataType=0)
