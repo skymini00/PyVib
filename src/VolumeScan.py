@@ -1232,8 +1232,6 @@ def runVolScan(appObj):
     try: 
         frameNum = 0
         scanNum = 0
-        
-            
         while not appObj.doneFlag and frameNum < numFrames:
             startFrameTime = time.time()
             

@@ -595,7 +595,7 @@ def runBScan(appObj):
             downsample = scanParams.downsample
             trigRate = OCTtrigRate / (downsample + 1)  # calculate effective trigger rate
             
-            # generate the mirrrour output function
+            # generate the mirror output function
             (mirrorOut1, numTrigs) = makeBscanMirrorOutput(scanParams, mirrorDriver, trigRate)
             numTrigs = int(np.round(numTrigs))  # ensure numTrigs is an integer
             if mirrorDriver.MEMS==True:

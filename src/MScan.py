@@ -1902,11 +1902,8 @@ def runMScan(appObj, multiProcess=False):
                 if oct_data == None:
                     shp = oct_data_tmp.shape
                     oct_data = np.zeros((shp[0], shp[1], numTrials), np.complex)
-                print('n1, oct_data.size',n, oct_data.size)
                     
-                oct_data[:, :, n] = oct_data_tmp
-                print('n2, oct_data.size',n, oct_data.size)
-                
+                oct_data[:, :, n] = oct_data_tmp                
                 if not oct_hw.IsDAQTestingMode():
                     mic_data = daq.readAnalogInput()
                     mic_data = mic_data/audioHW.micVoltsPerPascal
