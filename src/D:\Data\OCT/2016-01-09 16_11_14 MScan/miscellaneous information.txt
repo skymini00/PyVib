@@ -1,0 +1,2 @@
+processMode= None
+OCTtrigRate=None

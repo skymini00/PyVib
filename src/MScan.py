@@ -45,14 +45,14 @@ class MscanProcOpts:
         self.spikeThreshold_nm = 50            # remove spikes from time domain signal  
         # self.FFTindex = 0
         
-        self.zRes = 8.38                    # z resolution in microns
+        self.zRes = 0                    # z resolution in microns (this 0 value will be changed to what is imported from oct.txt)
         self.correctAspectRatio = True      # whether to correct the aspect ratio in the image
         
         self.logAline = True
         self.bscanNormLow = 20               # range to normalize bscan after taking 20*log10 of magnitude
         self.bscanNormHigh = 150
-        self.refractiveIndex = 1
-        self.centerWavelength = 1310         # center wavelength in nm
+        self.refractiveIndex = 0            # changed based on oct.txt
+        self.centerWavelength = 0          # center wavelength in nm; changed based on oct.txt
         # [1.0590e-06 -1.0900e-10 4.4570e-15 -1.9210e-18]
       
       
@@ -115,7 +115,7 @@ class MscanRegionData:
         self.posLen = np.linspace(-hsl, hsl, len_steps)     # 1D array of length positions
         self.posWidth = np.linspace(-hsw, hsw, width_steps)   # 1D array of width positions
         # numZPts = (procOpts.zROIend - procOpts.zROIstart + 1)        
-        maxZ = procOpts.zRes*numZPts
+        maxZ =procOpts.zRes*numZPts
         self.posDepth = np.linspace(0, maxZ, numZPts)              # 1D array of depth positions
         self.audioOutputParams = audioParams       # audio output data for this  Mscan
         self.scanParams = scanParams
@@ -1770,6 +1770,8 @@ def runMScan(appObj, multiProcess=False):
         procOpts.singlePt_zROI_indices = zROIIndices
         procOpts.singlePt_zROI_spread = zROIspread
         zROI = [roiBegin, roiEnd]
+        procOpts.refractiveIndex= appObj.octSetupInfo.refractiveIndex
+        procOpts.centerWavelength= appObj.octSetupInfo.centerWavelength
         
         if multiProcess:
             runMscanMultiProcess(appObj, scanParams, zROI, procOpts, trigRate, testDataDir, regionMscan)

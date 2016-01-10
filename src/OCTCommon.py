@@ -44,6 +44,8 @@ class OCTSetupInfo:
         self.setupNum = -1
         self.dispFilename = 'dispComp-initial.pickle'
         self.zRes = 8.37
+        self.refractiveIndex = 1.4          # This is tissue dependent 
+        self.centerWavelength = 1310         # center wavelength in nm       
         self.imgNorms = (50, 120)
         self.ZROI = (100, 100 + 4*120 - 1 )
         self.defaultScanQuickSet = ''
@@ -149,6 +151,8 @@ def readOCTSetupInfo(filepath):
                 setupInfo.dispFilename = val
             elif(fld == 'zResolution'):            
                 setupInfo.zRes = float(val)
+            elif(fld == 'refractiveIndex'):            
+                setupInfo.refractiveIndex = float(val)
             elif(fld == 'imgNorms'):            
                 setupInfo.imgNorms = make_tuple(val)
             elif(fld == 'ZROI'):            
@@ -165,6 +169,14 @@ def readOCTSetupInfo(filepath):
                 setupInfo.FPGAOptsFile = val
             elif(fld == 'Laser'):
                 setupInfo.Laser = int(val)
+                if setupInfo.Laser == 1:
+                    setupInfo.centerWavelength = 1310
+                elif setupInfo.Laser==2:
+                    setupInfo.centerWavelength = 1310
+                elif setupInfo.Laser==3:
+                    setupInfo.centerWavelength = 1310
+                elif setupInfo.Laser==4:     # test mode with a really low laser rate
+                    setupInfo.centerWavelength = 1310
             elif(fld == 'ProcessMode'):
                 setupInfo.processMode = ProcessMode[val.upper()]
                     
