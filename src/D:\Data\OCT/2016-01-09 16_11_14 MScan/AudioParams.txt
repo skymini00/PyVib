@@ -1,8 +1,0 @@
-freq=  4.000
-amp=  50.000
-stimDuration= 50.000 trialDuration= 90.000 
-speakerSel= <Speaker.LEFT: 1> stimType= <AudioStimType.PURE_TONE: 1> 
-stimOffset= 0.000 stimEnvelope = 1.000
-useAmpDepTrialDuration= False 
-ampDepTrialDurationArray= [] 
-numTrials= 1 downsample= 0
