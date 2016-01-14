@@ -976,7 +976,7 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
                     procDataQ.put(volData, timeout=0.25)   # send this data last because it contains frame number which client uss to detect whether acquisition is complete                                
                     putTimeout = False
                 except queue.Full:
-                    DebugLog.log("VolScanProcessingProcess(): queue.Full exception")
+                    DebugLog.log("VolScanProcessingProcess(): queue.Full exception attempting to enqueue data")
                     putTimeout = True
         except Exception as ex:
             traceback.print_exc(file=sys.stdout) 
@@ -992,6 +992,7 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
         while not msgQ.empty():
             msg = msgQ.get()
             msgType = msg[0]
+            DebugLog.log("VolScanProcessingProcess(): received message '%s'" % msgType)
             if msgType == 'shutdown':
                 shutdown = True
             elif msgType == 'procOpts':
@@ -1059,8 +1060,11 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
     DebugLog.log("runVolScanMultiProcess(): starting processing process")
     procProcess.start()
     frameNum = 0
-        
-    while not appObj.doneFlag and frameNum < (numFrames-1):
+    scanNum = 0
+    isDone = False
+    
+    
+    while not isDone: 
         # update parameters in background process
         # start the acquisitio on first loop iteration
         # we don't just do this outside the loop because we haven't loaded function args yet
@@ -1068,7 +1072,19 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
             DebugLog.log("runVolScanMultiProcess: starting acquisition")
             oct_hw.StartAcquisition() 
             startAcq = False
-        
+            
+        # save the raw data
+        if appObj.getSaveState():
+            if not isSaveDirInit:
+                saveDir = OCTCommon.initSaveDir(saveOpts, 'VolScan', scanParams=scanParams)
+                isSaveDirInit = True
+                    
+            if saveOpts.saveRaw:
+                if not procRawDataQ.empty():
+                    rawData = procRawDataQ.get()
+                    OCTCommon.saveRawData(rawData.oct_data, saveDir, frameNum, dataType=0)
+                    OCTCommon.saveRawData(rawData.mic_data, saveDir, frameNum, dataType=3)
+                    
         if not procDataQ.empty():
             DebugLog.log("runVolScanMultiProcess: grabbing data")
             
@@ -1106,31 +1122,29 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
                     frameInScan = np.mod(frameNum, framesPerScan)
                     img16b = volData.volumeImg[frameInScan*bscansPerFrame, :, :]
                     img8b = np.round(255.0*img16b/65335.0)  # remap image range
-                    DebugLog.log("VolumeScan runVolScan(): frame= %d img16b max= %d min=%d " % (frameNum*bscansPerFrame, np.max(img8b), np.min(img8b)))
+                    DebugLog.log("VolumeScan runVolScanMultiProcess(): frame= %d img16b max= %d min=%d " % (frameNum*bscansPerFrame, np.max(img8b), np.min(img8b)))
     
                     img8b = np.require(img8b, dtype=np.uint8)
                     appObj.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
                     rset = False                
                     
-                if frameNum % framesPerScan == 0:
+                if (frameNum+1) == framesPerScan:
+                    if appObj.getSaveState():
+                        saveVolumeData(volData, saveDir, saveOpts, scanNum)
+    
                     appObj.volDataLast = volData
-                    appObj.displayVolumeImg3D(volData.volumeImg)  # update the volume image    
-
-            # save the mscan tuning curve
-            if appObj.getSaveState():
-                if not isSaveDirInit:
-                    saveDir = OCTCommon.initSaveDir(saveOpts, 'MScan', scanParams=scanParams, audioParams=audioParams)
-                    isSaveDirInit = True
+                    if volData.volumeImg_corr_aspect is not None:
+                        appObj.displayVolumeImg3D(volData.volumeImg_corr_aspect)  # update the volume image
+                    else:
+                        appObj.displayVolumeImg3D(volData.volumeImg)  # update the volume image
                         
-                if saveOpts.saveRaw:
-                    if not procRawDataQ.empty():
-                        rawData = procRawDataQ.get()
-                        OCTCommon.saveRawData(rawData.oct_data, saveDir, frameNum, dataType=0)
-                        OCTCommon.saveRawData(rawData.mic_data, saveDir, frameNum, dataType=3)
+                    appObj.enFaceChanged()  # update the enface image
+                    
+                    scanNum += 1
                     
             statusMsg = oct_hw.GetStatus()
             while statusMsg is not None:
-                DebugLog.log("runBScanMultiProcess: got status message type=" + repr(statusMsg.msgType))
+                DebugLog.log("runVolScanMultiProcess: got status message type=" + repr(statusMsg.msgType))
                 err = handleStatusMessage(statusMsg)
                 if err:
                     appObj.doneFlag = True  # if error occured, stop pcollecting
@@ -1152,9 +1166,10 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
         # check for GUI events, particularly the "done" flag
         QtGui.QApplication.processEvents() 
         time.sleep(0.005)
-    
-    msgQ.put(('shutdown'))  # tell processing process to stop
-    DebugLog.log("runBScanMultiProcess: finishd acquiring data")        
+        isDone = appObj.doneFlag or (frameNum >= (numFrames-1))
+            
+    msgQ.put(('shutdown', 0))  # tell processing process to stop
+    DebugLog.log("runVolScanMultiProcess: finishd acquiring data")        
     oct_hw.PauseAcquisition()        
     appObj.isCollecting = False
     QtGui.QApplication.processEvents() # check for GUI events
@@ -1205,8 +1220,6 @@ def runVolScan(appObj):
     bscansPerFrame = scanParams.volBscansPerFrame
     numFrames = scanParams.widthSteps // bscansPerFrame            
     framesPerScan = scanParams.widthSteps // bscansPerFrame        
-    if scanParams.continuousScan:
-        numFrames = np.inf
 
     procOpts = ProcOpts()
     procOpts.normLow = appObj.normLow_spinBox.value()
@@ -1217,10 +1230,13 @@ def runVolScan(appObj):
     procOpts.enFace_avgDepth=appObj.enFace_avgDepth_verticalSlider.value()
 
     timePoint1 = time.time()
-    if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel or scanParams.pattern == ScanPattern.zigZag:
+    if scanParams.pattern in (ScanPattern.spiral, ScanPattern.wagonWheel, ScanPattern.zigZag):
         plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, trigRate, procOpts)
         numFrames = 1
         framesPerScan = 1
+
+    if scanParams.continuousScan:
+        numFrames = np.inf
       
     saveOpts = appObj.getSaveOpts()
     if(appObj.multiProcess):
@@ -1330,7 +1346,7 @@ def runVolScan(appObj):
                 timePoint6 = time.time()
                 processTime = timePoint6 - timePoint4
         
-                if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.zigZag or scanParams.pattern == ScanPattern.wagonWheel:
+                if scanParams.pattern in (ScanPattern.spiral, ScanPattern.zigZag, ScanPattern.wagonWheel):
                     spiralData = volData.spiralScanData
                     
                     img8b = spiralData.bscanPlot
@@ -1339,13 +1355,13 @@ def runVolScan(appObj):
                     img8b = spiralData.surfacePlot
                     img8b = np.require(img8b, dtype=np.uint8)
                     appObj.vol_plane_proj_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
-                    if rset:
-                        gvs = (appObj.vol_bscan_gv, appObj.vol_plane_proj_gv)
-                        for gv in gvs:
-                            hscroll = gv.horizontalScrollBar()
-                            hscroll.setSliderPosition(-500)
-                            vscroll = gv.verticalScrollBar()
-                            vscroll.setSliderPosition(-500)
+#                    if rset:
+#                        gvs = (appObj.vol_bscan_gv, appObj.vol_plane_proj_gv)
+#                        for gv in gvs:
+#                            hscroll = gv.horizontalScrollBar()
+#                            hscroll.setSliderPosition(-500)
+#                            vscroll = gv.verticalScrollBar()
+#                            vscroll.setSliderPosition(-500)
                             
                     rset = False
                 else:
