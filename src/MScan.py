@@ -591,11 +591,13 @@ def makeVolMScanBoxROIScanParams():
     xyScanP.continuousScan = False
     
     return scanP
-    
-def makeVolMScanPolyROIScanParams():
+
+def makeVolMScanPolyROIScanParams(poly = None):
     scanP = ScanParams()
     
-    poly = appObj.vol_plane_proj_gv.ROI_poly
+    if poly is None:
+        poly = appObj.vol_plane_proj_gv.ROI_poly
+    
     rect = poly.boundingRect()  # get the bounding rectangle of the polygon
 
     ul = rect.topLeft()
@@ -604,7 +606,6 @@ def makeVolMScanPolyROIScanParams():
     roi_dh = lr.y() - ul.y()   # roi delta height
     roi_ow = ul.x() + (roi_dw // 2)
     roi_oh = ul.y() + (roi_dh // 2)
-    
 
     (img_w, img_h) = vol_plane_proj_gv.getImageWidthHeight()
     scanP = ScanParams()
@@ -615,16 +616,30 @@ def makeVolMScanPolyROIScanParams():
     scanP.rotation_Z = xyScanP.rotation_Z
     
     xyRes = appObj.volMscan_sampling_dblSpinBox.value()
-    scanP.lengthSteps = int(round(scanP.length / xyRes))
-    scanP.widthSteps = int(round(scanP.width / xyRes))
+    len_steps = int(round(scanP.length / xyRes))
+    width_steps = int(round(scanP.width / xyRes))
+    scanP.lengthSteps = len_steps 
+    scanP.widthSteps = width_steps
     xyScanP.continuousScan = False
+    
+    # create ROI mask 
+    shp = (len_steps, width_steps)
+    scanP.boxROIMaskXY = np.zeros(shp, np.bool)
+    for l in range(0, len_steps):
+        for w in range(0, width_steps):
+            x = roi_dw * l / len_steps + ul.x()
+            y = roi_dh * w / len_steps + ul.y()
+            ptf = QtCore.QPointF(x, y)
+            scanP.boxROIMaskXY[l, w] = poly.contains(ptf)
     
     return scanP    
 
 def makeVolMScanFreeROIScanParams():
-    scanP = ScanParams()
-    
+    # since the free draw ROI also consists of a polygon, we can use same method
+    # as the polygon ROI
     poly = appObj.vol_plane_proj_gv.freedraw_poly
+    scanP = makeVolMScanPolyROIScanParams(poly)
+    
     return scanP
     
 def makeMscanScanParamsAndZROI(appObj):

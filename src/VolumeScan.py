@@ -881,7 +881,8 @@ def VolScanCollectFcn(oct_hw, frameNum, OCTtrigRate, extraArgs):
         from DAQHardware import DAQHardware
         daq = DAQHardware()
     
-    if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel:
+    
+    if scanParams.pattern in (ScanPattern.spiral, ScanPattern.wagonWheel, ScanPattern.zigZag):
         mirrorOut = scanDetails.mirrOut
         startTrigOffset = 0
     else:
