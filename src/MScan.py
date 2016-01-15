@@ -1746,7 +1746,8 @@ def runMScan(appObj, multiProcess=False):
         saveOpts = appObj.getSaveOpts()
         isSaveDirInit = False
         audioParams = appObj.getAudioParams()
-        
+        locPixMap = QtGui.QPixmap.grabWidget(appObj.bscan_img_gv)
+
         if (scanParams.lengthSteps == 1 and scanParams.widthSteps == 1):
             regionMscan = False
             appObj.tabWidget.setCurrentIndex(3)
@@ -1808,6 +1809,7 @@ def runMScan(appObj, multiProcess=False):
         
         mirrChanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
         mirrOutData = np.zeros(2)
+        
         
         audioHW = appObj.audioHW
         outputRate = audioHW.DAQOutputRate
@@ -1990,10 +1992,13 @@ def runMScan(appObj, multiProcess=False):
                         posLenStep = 0
                         posWidthStep += 1
 
-            # save the mscan tuning curve
+            # save data
             if appObj.getSaveState():
                 if not isSaveDirInit:
                     saveDir = OCTCommon.initSaveDir(saveOpts, 'MScan', scanParams=scanParams, audioParams=audioParams)
+                    fName = 'location.png'
+                    fPath = os.path.join(saveDir, fName)
+                    locPixMap.save(fPath, 'PNG')
                     isSaveDirInit = True
                     # TODO add save code here
                 if regionMscan:
@@ -2011,10 +2016,8 @@ def runMScan(appObj, multiProcess=False):
                     else:
                         OCTCommon.saveRawData(oct_data, saveDir, frameNum-1, dataType=0)
                     
-                        
                     OCTCommon.saveRawData(mic_data, saveDir, frameNum-1, dataType=3)
 
-    
             framesPerScan = numAmpSteps*numFreqSteps*numLenSteps*numWidthSteps
             appObj.acquisition_progressBar.setValue(round(100*frameNum/framesPerScan))
             tElapsed = time.time() - startTime
