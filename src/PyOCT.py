@@ -398,6 +398,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.enFace_avgDepth_verticalSlider.valueChanged.connect(self.enFaceChanged)
         self.thresholdEnFace_verticalSlider.valueChanged.connect(self.enFaceChanged)
         self.enFace_imageGen_comboBox.currentIndexChanged.connect(self.enFaceChanged)
+        self.enFace_zStep_verticalSlider.valueChanged.connect(self.enFaceChanged)
         
         self.vol_bscan_widthstep_slider.valueChanged.connect(self.volBScanWidthStepChanged)
 

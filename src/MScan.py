@@ -564,20 +564,30 @@ def processMscanData(oct_data, mscanPosAndStim, scanParams, audioParams, procOpt
     return mscan, mscanTuningCurveList, mscanRegionData, volData
 
 
-def makeVolMScanBoxROIScanParams():
+def makeVolMScanBoxROIScanParams(appObj):
     xyScanP = appObj.volDataLast.scanParams
+    DebugLog.log("makeVolMScanBoxROIScanParams: xyScanP= %s" % (repr(xyScanP)))
     
     ul = appObj.vol_plane_proj_gv.ROIBox_pt1  # upper left point
     lr = appObj.vol_plane_proj_gv.ROIBox_pt2  # lower right point
+    # exchange box points if necessary
+    if ul[1] > lr[1]:
+        tmp = ul
+        ul = lr
+        lr = tmp
+        
+    DebugLog.log("makeVolMScanBoxROIScanParams: ul= %s lr= %s" % (repr(ul), repr(lr)))
+    
     if ul is not None and lr is not None:
-        roi_dw = lr[0] - ul[0]   # roi delta width
-        roi_dh = lr[1] - ul[1]   # roi delta height
+        roi_dw = np.abs(lr[0] - ul[0])   # roi delta width
+        roi_dh = np.abs(lr[1] - ul[1])   # roi delta height
         roi_ow = ul[0] + (roi_dw // 2)
         roi_oh = ul[1] + (roi_dh // 2)
     else: 
         return None
 
-    (img_w, img_h) = vol_plane_proj_gv.getImageWidthHeight()
+    (img_w, img_h) = appObj.vol_plane_proj_gv.getImageWidthHeight()
+    DebugLog.log("makeVolMScanBoxROIScanParams: img_w= %d img_h= %d" % (img_w, img_h))
     scanP = ScanParams()
     scanP.length = roi_dw * xyScanP.length / img_w 
     scanP.width = roi_dh * xyScanP.width / img_h
@@ -585,14 +595,15 @@ def makeVolMScanBoxROIScanParams():
     scanP.widthOffset = xyScanP.widthOffset + roi_oh * xyScanP.width / img_h
     scanP.rotation_Z = xyScanP.rotation_Z
     
-    xyRes = appObj.volMscan_sampling_dblSpinBox.value()
+    xyRes = appObj.volMscan_sampling_dblSpinBox.value()*1e-3
     scanP.lengthSteps = int(round(scanP.length / xyRes))
     scanP.widthSteps = int(round(scanP.width / xyRes))
+    DebugLog.log("makeVolMScanBoxROIScanParams: lengthSteps= %d widthSteps= %d" % (scanP.lengthSteps, scanP.widthSteps))
     xyScanP.continuousScan = False
     
     return scanP
 
-def makeVolMScanPolyROIScanParams(poly = None):
+def makeVolMScanPolyROIScanParams(appObj, poly = None):
     scanP = ScanParams()
     
     if poly is None:
@@ -602,12 +613,21 @@ def makeVolMScanPolyROIScanParams(poly = None):
 
     ul = rect.topLeft()
     lr = rect.bottomRight()
-    roi_dw = lr.x() - ul.x()   # roi delta width
-    roi_dh = lr.y() - ul.y()   # roi delta height
-    roi_ow = ul.x() + (roi_dw // 2)
-    roi_oh = ul.y() + (roi_dh // 2)
+    # exchange box points if necessary
+    if ul.y() > lr.y():
+        tmp = ul
+        ul = lr
+        lr = tmp
+        
+    if ul is not None and lr is not None:
+        roi_dw = np.abs(lr.x() - ul.x())   # roi delta width
+        roi_dh = np.abs(lr.y() - ul.y())   # roi delta height
+        roi_ow = ul.x() + (roi_dw // 2)
+        roi_oh = ul.y() + (roi_dh // 2)
+    else:
+        return None
 
-    (img_w, img_h) = vol_plane_proj_gv.getImageWidthHeight()
+    (img_w, img_h) = appObj.vol_plane_proj_gv.getImageWidthHeight()
     scanP = ScanParams()
     scanP.length = roi_dw * xyScanP.length / img_w 
     scanP.width = roi_dh * xyScanP.width / img_h 
@@ -615,11 +635,12 @@ def makeVolMScanPolyROIScanParams(poly = None):
     scanP.widthOffset = xyScanP.widthOffset + roi_oh * xyScanP.width / img_h
     scanP.rotation_Z = xyScanP.rotation_Z
     
-    xyRes = appObj.volMscan_sampling_dblSpinBox.value()
+    xyRes = appObj.volMscan_sampling_dblSpinBox.value()*1e-3
     len_steps = int(round(scanP.length / xyRes))
     width_steps = int(round(scanP.width / xyRes))
     scanP.lengthSteps = len_steps 
     scanP.widthSteps = width_steps
+    DebugLog.log("makeVolMScanBoxROIScanParams: lengthSteps= %d widthSteps= %d" % (scanP.lengthSteps, scanP.widthSteps))
     xyScanP.continuousScan = False
     
     # create ROI mask 
@@ -634,11 +655,11 @@ def makeVolMScanPolyROIScanParams(poly = None):
     
     return scanP    
 
-def makeVolMScanFreeROIScanParams():
+def makeVolMScanFreeROIScanParams(appObj):
     # since the free draw ROI also consists of a polygon, we can use same method
     # as the polygon ROI
     poly = appObj.vol_plane_proj_gv.freedraw_poly
-    scanP = makeVolMScanPolyROIScanParams(poly)
+    scanP = makeVolMScanPolyROIScanParams(appObj, poly)
     
     return scanP
     
@@ -717,14 +738,22 @@ def makeMscanScanParamsAndZROI(appObj):
         volFree = appObj.vol_freeROI_pushButton.isChecked()
         
         if volBox:
-            scanP = makeVolMScanBoxROIScanParams()
+            scanP = makeVolMScanBoxROIScanParams(appObj)
         elif volPoly:
-            scanP = makeVolMScanPolyROIScanParams()
+            scanP = makeVolMScanPolyROIScanParams(appObj)
         elif volFree:
-            scanP = makeVolMScanFreeROIScanParams()
+            scanP = makeVolMScanFreeROIScanParams(appObj)
         else:
             scanP = None  # this case indicates that no valid region has been selected
         
+        roiBegin = appObj.imgdata_zROI[0]
+        roiEnd = appObj.imgdata_zROI[1]
+        roiSize = roiEnd - roiBegin 
+        # ensure ROI is aligned to multiple of 4
+        # this is required if data is 16-bit 
+        if roiSize % 4 != 0:
+            roiEnd += 4 - roiSize % 4
+            
     DebugLog.log ("makeMscanScanParamsAndZROI scanP= %s" % (repr(scanP)))
     DebugLog.log ("makeMscanScanParamsAndZROI roiBegin= %d roiEnd= %d zROIindices= %s" % (roiBegin, roiEnd, repr(zROIIndices)))
     return (scanP, roiBegin, roiEnd, zROIIndices, zROIspread)

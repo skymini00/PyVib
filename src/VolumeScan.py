@@ -459,8 +459,7 @@ def makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, OCTtriggerRate):
     frameNum = np.mod(frameNum, framesPerScan)
     for n in range(0, bscansPerFrame):
         frameOffset = frameNum*bscansPerFrame + n
-        if DebugLog.isLogging:
-            DebugLog.log("makeVolumeScanCommand: frameNum= %d widthOffset= %g" % (frameNum // bscansPerFrame + n, scanParams.widthOffset))
+        DebugLog.log("makeVolumeScanCommand: frameNum= %d frameOffset= %d widthOffset= %g" % (frameNum // bscansPerFrame + n, frameOffset, scanParams.widthOffset))
         
         (cmd_x, cmd_y) = BScan.makeBscanCommand(scanParams, mirrorDriver, OCTtriggerRate, frameOffset)
         daqOutputTmp = np.vstack((cmd_x, cmd_y))

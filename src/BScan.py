@@ -193,6 +193,9 @@ def makeBscanCommand(scanParams, galvoMirror, OCTtriggerRate, volWidthStep=-1):
     dsFactor = scanParams.downsample + 1
     DebugLog.log("makeBscanCommand(): outputRate= %0.1f trigRate= %0.1f dsFactor=%d" % (DAQoutputRate, OCTtriggerRate, dsFactor))
     DAQptsPerTrig = DAQoutputRate/OCTtriggerRate
+    xskew = 1.0
+    if hasattr(scanParams, 'xskew'):
+        xskew = scanParams.xskew
 
     if scanParams.pattern != ScanPattern.rasterSlow:
         scanTime = scanParams.lengthSteps / OCTtriggerRate 
@@ -226,9 +229,6 @@ def makeBscanCommand(scanParams, galvoMirror, OCTtriggerRate, volWidthStep=-1):
         DebugLog.log("makeBscanCommand(): extraTrigs= %0.3f extraPts= %d" % (extraTrigs, extraPts))
         reversePts = reversePts + extraPts
 
-        xskew = 1.0
-        if hasattr(scanParams, 'xskew'):
-            xskew = scanParams.xskew
             
         (x1, y1, x2, y2) = makeScanXYcoords(scanParams, galv, volWidthStep, xskew)
         
@@ -295,7 +295,7 @@ def makeBscanCommand(scanParams, galvoMirror, OCTtriggerRate, volWidthStep=-1):
 
         flybackPts = np.floor(galvoMirror.flybackTime * DAQoutputRate)
         
-        (x1, y1, x2, y2) = makeScanXYcoords(scanParams, galvoMirror)
+        (x1, y1, x2, y2) = makeScanXYcoords(scanParams, galvoMirror, volWidthStep, xskew)
         
         scan_x = np.zeros(scanPts)
         scan_y = np.zeros(scanPts)
