@@ -140,11 +140,11 @@ def setupWagonWheelScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtri
     RFxPlanned=2*(OCTtrigRate/plotParam.xPixel)
     if RFxPlanned>RFMax:
         RFx=RFMax
-        xPixelnew=np.int(np.floor(2*(OCTtrigRate/RFx)))
-        plotParam.xPixelZoom=plotParam.xPixel/xPixelnew
-        plotParam.xPixel=xPixelnew
-        plotParam.yPixel=plotParam.xPixel
-        plotParam.yPixelZoom=plotParam.xPixelZoom
+#        xPixelnew=np.int(np.floor(2*(OCTtrigRate/RFx)))
+#        plotParam.xPixelZoom=plotParam.xPixel/xPixelnew
+#        plotParam.xPixel=xPixelnew
+#        plotParam.yPixel=plotParam.xPixel
+#        plotParam.yPixelZoom=plotParam.xPixelZoom
     else:
         RFx=RFxPlanned
         plotParam.yPixel=plotParam.xPixel
@@ -233,17 +233,17 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     RFxPlanned=2*(OCTtrigRate/plotParam.xPixel)
     if RFxPlanned>RFMax:
         RFx=RFMax
-        xPixelnew=np.int(np.floor(2*(OCTtrigRate/RFx)))
-        plotParam.xPixelZoom=plotParam.xPixel/xPixelnew
-        plotParam.xPixel=xPixelnew
+#        xPixelnew=np.int(np.floor(2*(OCTtrigRate/RFx)))
+#        plotParam.xPixelZoom=plotParam.xPixel/xPixelnew
+#        plotParam.xPixel=xPixelnew
     else:
         RFx=RFxPlanned
     RFyPlanned=2*RFx/(plotParam.yPixel/2)
     if RFyPlanned>RFMax:
         RFy=RFMax
-        yPixelnew=np.int(np.floor(2*(OCTtrigRate/RFy)))
-        plotParam.yPixelZoom=plotParam.yPixel/yPixelnew
-        plotParam.yPixel=yPixelnew
+#        yPixelnew=np.int(np.floor(2*(OCTtrigRate/RFy)))
+#        plotParam.yPixelZoom=plotParam.yPixel/yPixelnew
+#        plotParam.yPixel=yPixelnew
     else:
         RFy=RFyPlanned
     DebugLog.log("VolumeScan.setupZigZagScan() plotParam xPixel= %d yPixel= %d zPixel= %d xCenter= %d yCenter= %d rangeCenter= %d" % (plotParam.xPixel, plotParam.yPixel, plotParam.zPixel, plotParam.xCenter, plotParam.yCenter, plotParam.rangeCenter))
