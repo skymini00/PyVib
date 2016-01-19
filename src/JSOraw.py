@@ -352,7 +352,8 @@ def getNewRawData(numTrigs,requestedSamplesPerTrig,appObj):
     except Exception as ex:
         print('Error collecting data')
         raise ex
-        return ch0_data, ch1_data
+        
+    return ch0_data, ch1_data
       
 def saveDispersion_pushButton_clicked(appObj):
     dispData=appObj.dispData
@@ -457,6 +458,9 @@ def runJSOraw(appObj):
 #        appObj.JSOsaveDispersion_pushButton.setEnabled(True)
 #        appObj.JSOloadDispersion_pushButton.setEnabled(False)
         dispData = appObj.dispData             # this class holds all the dispersion compensation data    
+        if dispData is None:
+            dispData = Dispersion.DispersionData()
+            
         laserSweepFreq=appObj.octSetupInfo.getTriggerRate()
         mirrorDriver = appObj.mirrorDriver
         

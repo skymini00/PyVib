@@ -41,6 +41,11 @@ class StatusMsg:
 
 class OCTSetupInfo:
     def __init__(self):
+        # setup Num -1 = testMode (no hardware) 
+        # 0, 1 = old codes (should not be used)
+        # 2 = SD (linescane interface)
+        # 3 = room 1 NI-7966R FPGA (designed for 200 kHz laser)
+        # 4 = room 2 NI-7965R FPGA (designed for 50 kHz laser)
         self.setupNum = -1
         self.dispFilename = 'dispComp-initial.pickle'
         self.zRes = 8.37

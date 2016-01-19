@@ -11,4 +11,8 @@ Laser=4
 MirrorConfigFile=OIM 50kHz.txt
 DefaultScanQuickSet=spiralscan
 
-# Laser types: 1=ThorlabsVCSEL (200kHz); 2= ??? (50kHz); 3= Insight (100kHz); 4=test mode (2kHz)
+# OCTsetup: 	-1=test mode, 
+#		1,2=old codes (should not be used), 2=SD (linescane interface),
+# 		3=room 1 NI-7966R FPGA (designed for 200 kHz laser),
+# 		4=room 2 NI-7965R FPGA (designed for 50 kHz laser)
+# Laser types: 1=ThorlabsVCSEL (200kHz); 2= Axsun (50kHz); 3= Insight (100kHz); 4=test mode (2kHz)
