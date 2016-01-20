@@ -462,36 +462,40 @@ def calibrateScanMirror(appObj):
     if not appObj.oct_hw.IsOCTTestingMode():     # prepare to get new data            
         from DAQHardware import DAQHardware
         daq = DAQHardware()
-
+    audioHW=appObj.audioHW
     mirrorDriver = appObj.mirrorDriver    
     chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
-    trigChan = mirrorDriver.trig_daqChan
+    trigChan = audioHW.daqTrigChanIn   #use the audio trigger to start the scan
     outputRate = mirrorDriver.DAQoutputRate
 
     while appObj.doneFlag == False:        # keep running until the button is turned off 
         scanParams = appObj.getScanParams()
-    
-    #    create spiral scan pattern to drive the mirrors
-        Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
-        Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
-        xAdjust = 1    
-        yAdjust = scanParams.skew
-        phaseShift = scanParams.phaseAdjust
-        fr = mirrorDriver.resonantFreq  # angular scan rate (frequency of one rotation - resonant frequency)
-        fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
-        DebugLog.log("freq of one rotation (fr)= %d; scan frequency (fv)= %d" % (fr, fv))
-        diameter = scanParams.length
-        voltsPerMM = mirrorDriver.voltsPerMillimeterResonant
-        A1=(Vmaxx/2)/xAdjust
-        A2=(Vmaxy/2)/yAdjust
-        A3=voltsPerMM*diameter/2 
-        A=np.min([A1,A2,A3])           
-        fs=mirrorDriver.DAQoutputRate   # galvo output sampling rate
-        t=np.arange(0,np.around(fs/fv))*1/fs  # t is the array of times for the DAQ output to the mirrors
-        r=1/2*(1-np.cos(2*np.pi*fv*t))            
-        x=xAdjust*A*r*np.cos(2*np.pi*fr*t) # x and y are the coordinates of the laser at each point in time
-        y=yAdjust*A*r*np.sin(2*np.pi*fr*t+phaseShift*np.pi/180)
-        mirrorOut= np.vstack((x,y))
+       #    create scan pattern to drive the mirrors
+        mode=0
+        if mode==0:   # create a spiral scan (fast)
+            Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
+            Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
+            xAdjust = 1    
+            yAdjust = scanParams.skew
+            phaseShift = scanParams.phaseAdjust
+            fr = mirrorDriver.resonantFreq  # angular scan rate (frequency of one rotation - resonant frequency)
+            fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
+            DebugLog.log("freq of one rotation (fr)= %d; scan frequency (fv)= %d" % (fr, fv))
+            diameter = scanParams.length
+            voltsPerMM = mirrorDriver.voltsPerMillimeterResonant
+            A1=(Vmaxx/2)/xAdjust
+            A2=(Vmaxy/2)/yAdjust
+            A3=voltsPerMM*diameter/2 
+            A=np.min([A1,A2,A3])           
+            fs=mirrorDriver.DAQoutputRate   # galvo output sampling rate
+            t=np.arange(0,np.around(fs/fv))*1/fs  # t is the array of times for the DAQ output to the mirrors
+            r=1/2*(1-np.cos(2*np.pi*fv*t))            
+            x=xAdjust*A*r*np.cos(2*np.pi*fr*t) # x and y are the coordinates of the laser at each point in time
+            y=yAdjust*A*r*np.sin(2*np.pi*fr*t+phaseShift*np.pi/180)
+            mirrorOut= np.vstack((x,y))
+            
+        elif mode==1:   # create another scan type, if desired
+            pass         
            
         # plot mirror commands to GUI 
         pl = appObj.JSOmisc_plot1
@@ -518,17 +522,21 @@ def calibrateScanMirror(appObj):
             daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOut.transpose())        
             daq.startAnalogOutput()
             
-            # request one trigger collection in order to start the scan mirror output running
-            samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
-            startTrigOffset = 0
-            downsample = scanParams.downsample
-            numTrigs=1
-            err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset, downsample=downsample)
+            #start trigger
+            daq.sendDigTrig(audioHW.daqTrigChanOut)
+            daq.waitDoneOutput(timeout=3, stopAndClear=True)
+            
             QtGui.QApplication.processEvents() # check for GUI events
         else:
             appObj.doneFlag = True
             appObj.CalibrateScanMirror_pushButton.setChecked(False)
-         
+                  
+    # when testing is over, set the mirror position to (0,0)
+    if not appObj.oct_hw.IsDAQTestingMode():
+        chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
+        data = np.zeros(2)
+        daq.writeValues(chanNames, data)
+    
     appObj.JSOsaveDispersion_pushButton.setEnabled(False)    
     appObj.JSOloadDispersion_pushButton.setEnabled(True)        
     appObj.isCollecting = False

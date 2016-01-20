@@ -163,8 +163,12 @@ class DAQHardware:
             
         return err
         
-    def waitDoneOutput(self, timeout=-1):
+    def waitDoneOutput(self, timeout=-1, stopAndClear=False):
         err = DAQHardware.waitDoneTask(self.analog_output, timeout)        
+        if stopAndClear:
+            self.stopAnalogOutput()
+            self.clearAnalogOutput()
+        
         return err
         
     def waitDoneInput(self, timeout=-1):
