@@ -58,7 +58,8 @@ class DispersionData:  # this class holds all the dispersion compensation data
             self.numKlinPts = fpgaOpts.numKlinPts
             self.numShiftPts = fpgaOpts.Ch0Shift*2
             self.sampleOffset = fpgaOpts.SampleOffset*2
-        
+            
+            
 def loadDispData(appObj, fileName='dispersionLast.pickcle'):
     infile=os.path.join(appObj.configPath, 'Dispersion', fileName)  
     file2 = open(infile,'rb')

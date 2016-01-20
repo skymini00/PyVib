@@ -66,11 +66,13 @@ class SpiralScanData():
 
 # raw data used for multi processing
 class VolumeRawData:
-    def __init__(self, frameNum, packedData=None, oct_data=None, isPackedMagOnly=True):
+    def __init__(self, frameNum, packedData=None, oct_data=None, isPackedMagOnly=True, ch0_data=None, ch1_data=None):
         self.packedData = packedData
         self.isPackedMagOnly = isPackedMagOnly
         self.oct_data = oct_data
         self.frameNum = frameNum
+        self.ch0_data=ch0_data
+        self.ch1_data=ch1_data
 
         
 def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
@@ -89,7 +91,7 @@ def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
     plotParam.xCenter=np.int(plotParam.xPixel/2)
     plotParam.yCenter=np.int(plotParam.yPixel/2)            
     plotParam.rangeCenter=((plotParam.xCenter+plotParam.yCenter)//2)//4   
-    plotParam.xPixelZoom=1   # these zoom factors may change if the scan rate of the mirror doesn't permit the desired pixel resolution
+    plotParam.xPixelZoom=1   # these zoom factors may change if the scan rate of the mirror doesn't permit the desired pixel resolution (NO, I eliminated this poorly-designed feature)
     plotParam.yPixelZoom=1
     plotParam.zPixelZoom=1    
      
@@ -863,7 +865,9 @@ def VolScanCollectFcn(oct_hw, frameNum, OCTtrigRate, extraArgs):
     zROI = extraArgs[2]
     testDataDir =  extraArgs[3]
     scanDetails =  extraArgs[4]
-
+    dispData = extraArgs[5]
+    processMode = extraArgs[6]
+    
     downsample = scanParams.downsample
     OCTtrigRate = OCTtrigRate / (downsample + 1)  # effective trigger rate
     
@@ -903,18 +907,36 @@ def VolScanCollectFcn(oct_hw, frameNum, OCTtrigRate, extraArgs):
     
     # setup and grab the OCT data
     numTrigs = getNumTrigs(scanParams, scanDetails, OCTtrigRate, mirrorDriver)
-    if oct_hw.IsOCTTestingMode():
-        packedData = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
-    else:
-        t3 = time.time()
-        if oct_hw.setupNum == 4:
-            err, packedData = oct_hw.AcquireOCTDataMagOnly(numTrigs, zROI, startTrigOffset)
-            rawData = VolumeRawData(frameNum, packedData=packedData)
+        
+    t3 = time.time()
+    
+    if processMode == OCTCommon.ProcessMode.FPGA:
+        if oct_hw.IsOCTTestingMode():
+            # oct_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
+            packedData = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
         else:
-            err, oct_data = oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
-            rawData = VolumeRawData(frameNum, oct_data=oct_data)
-            
-        DebugLog.log("VolScanCollectFcn: acquire time= %0.1f ms" % (1000*(time.time() - t3)))
+            # err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, downsample=downsample)
+            if oct_hw.setupNum == 4:
+                err, packedData = oct_hw.AcquireOCTDataMagOnly(numTrigs, zROI, startTrigOffset)
+                rawData = VolumeRawData(frameNum, packedData=packedData)
+            else:
+                err, oct_data = oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
+                rawData = VolumeRawData(frameNum, oct_data=oct_data)
+    elif processMode == OCTCommon.ProcessMode.SOFTWARE:
+        if oct_hw.IsOCTTestingMode():
+            ch0_data,ch1_data=JSOraw.getSavedRawData(numTrigs, dispData.requestedSamplesPerTrig, appObj.savedDataBuffer)
+        else:
+            # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
+            # samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
+            samplesPerTrig = dispData.requestedSamplesPerTrig
+            err, ch0_data,ch1_data = oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset, downsample=downsample)
+         
+        
+        rawData = VolumeRawData(frameNum, ch0_data=ch0_data, ch1_data=ch1_data)
+    else:
+        QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
+    
+    DebugLog.log("VolScanCollectFcn: acquire time= %0.1f ms" % (1000*(time.time() - t3)))
     
     t4 = time.time()
     if not oct_hw.IsDAQTestingMode():
@@ -930,7 +952,7 @@ def VolScanCollectFcn(oct_hw, frameNum, OCTtrigRate, extraArgs):
 """
     VolScanProcessingProcess - function intended to be run as background process that processes volume scan data 
 """    
-def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, rawDataQ, procDataQ, procRawDataQ, msgQ, statusQ):
+def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, dispData, rawDataQ, procDataQ, procRawDataQ, msgQ, statusQ):
     shutdown = False
     volData = None
     
@@ -955,7 +977,13 @@ def VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRa
                             DebugLog.log("VolScanProcessingProcess(): unpack time = %0.1f ms " % (1000*(time.time() - t1)))
                             mag = mag*(2**8)
                         else:
-                            oct_data = rawData.oct_data
+                            if rawData.oct_data is not None:
+                                oct_data = rawData.oct_data
+                            else:  # software processing
+                                appObj = OCTCommon.blankRecord()
+                                appObj.dispData = dispData
+                                oct_data, klin = JSOraw.softwareProcessing(rawData.ch0_data, rawData.ch1_data, zROI, appObj)
+                                
                             mag = np.abs(oct_data)
                             phase = None
                         
@@ -1019,6 +1047,9 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
     isSaveDirInit = False
     oct_hw = appObj.oct_hw
     
+    
+    processMode = OCTCommon.ProcessMode(appObj.processMode_comboBox.currentIndex())
+    
     #procDataQ = mproc.Queue(4)        
 #    procMsgQ = mproc.Queue(4)        
  #   dataQ = oct_hw.
@@ -1031,19 +1062,24 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
     oct_hw.SetSendExtraInfo(False)   # do not send mirror output
     DebugLog.log("runVolScanMultiProcess: setting acquire function")
     oct_hw.SetAcqFunction(VolScanCollectFcn)
-    extraArgs = [scanParams, mirrorDriver, zROI, testDataDir, scanDetails]
+    dispData = appObj.dispData
+    extraArgs = [scanParams, mirrorDriver, zROI, testDataDir, scanDetails, dispData, processMode]
     DebugLog.log("runVolScanMultiProcess: setting acquire functiona args")
     oct_hw.SetAcqFunctionArgs(extraArgs)
     
     volData = None
     startAcq = True
     bscansPerFrame = scanParams.volBscansPerFrame
-
+    
+    
     DebugLog.log("runVolScanMultiProcess: cleaning status message log")
     statusMsg = oct_hw.GetStatus()
     while statusMsg is not None:
-        DebugLog.log("runVolScanMultiProcess: got status message type=" + repr(statusMsg.msgType))
-        err = handleStatusMessage(statusMsg)
+        if isinstance(statusMsg, OCTCommon.StatusMsg):
+            DebugLog.log("runVolScanMultiProcess: got status message type=" + repr(statusMsg.msgType))
+            err = handleStatusMessage(statusMsg)
+        else:
+            DebugLog.log("runVolScanMultiProcess: got status message")
         statusMsg = oct_hw.GetStatus()        
     
     procDataQ = mproc.Queue(3)
@@ -1055,7 +1091,7 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
     statusQ = oct_hw.statusQ
     # VolScanProcessingProcess(scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, rawDataQ, procDataQ, procRawDataQ, msgQ, statusQ):
     OCTtrigRate = appObj.octSetupInfo.getTriggerRate()
-    procProcess = mproc.Process(target=VolScanProcessingProcess, args=[scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, rawDataQ, procDataQ, procRawDataQ, msgQ, statusQ], daemon=True)
+    procProcess = mproc.Process(target=VolScanProcessingProcess, args=[scanParams, zROI, procOpts, mirrorDriver, OCTtrigRate, scanDetails, plotParam, dispData, rawDataQ, procDataQ, procRawDataQ, msgQ, statusQ], daemon=True)
     DebugLog.log("runVolScanMultiProcess(): starting processing process")
     procProcess.start()
     frameNum = 0

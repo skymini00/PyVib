@@ -293,6 +293,31 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 fpgaOpts = octfpga.FPGAOpts_t()
                 
             return fpgaOpts
+       
+    def loadDispersionIntoFPGA(self, dispFilePath, fpgaOpts):
+        # read in dispersion data
+        try:
+            # dispCorr = readDispersionFile(dispFilePath)
+            dispData = Dispersion.loadDispData(self, dispFilePath)
+            
+            fpgaOpts.SamplesPerTrig = dispData.requestedSamplesPerTrig // 2 
+            fpgaOpts.klinRoiBegin = dispData.startSample
+            fpgaOpts.klinRoiEnd = dispData.endSample
+            fpgaOpts.numKlinPts = dispData.numKlinPts
+            fpgaOpts.Ch0Shift = dispData.numShiftPts // 2
+            fpgaOpts.SampleOffset = dispData.sampleOffset // 2
+            if dispData.requestedSamplesPerTrig > 2048:
+                fpgaOpts.InterpDownsample = c_uint8(55)
+            else:
+                fpgaOpts.InterpDownsample = c_uint8(0)
+                
+#            oct_hw.LoadOCTDispersion(dispData.magWin, -dispData.phaseCorr)
+            self.oct_hw.LoadOCTDispersion(self.dispData.magWin, -self.dispData.phaseCorr)
+#            self.dispData = dispData
+        except Exception as ex:
+            print("Could not load dispersion file '%s'" % dispFilePath)
+            traceback.print_exc(file=sys.stdout)
+            QtGui.QMessageBox.critical (self, "Could not load dispersion", "Could not load dispersion file '%s' file may be missing of incorrect format " % dispFilePath)
         
     def _initOCTHardware(self, fpgaOpts):
         setup = self.octSetupInfo.setupNum
@@ -316,18 +341,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         dispFilePath = os.path.join(dispFilePath, self.octSetupInfo.dispFilename)
         self.oct_hw = oct_hw
         
-        # read in dispersion data
-        try:
-            # dispCorr = readDispersionFile(dispFilePath)
-#            dispData = Dispersion.loadDispData(self, dispFilePath)
-#            oct_hw.LoadOCTDispersion(dispData.magWin, -dispData.phaseCorr)
-            oct_hw.LoadOCTDispersion(self.dispData.magWin, -self.dispData.phaseCorr)
-#            self.dispData = dispData
-        except Exception as ex:
-            print("Could not load dispersion file '%s'" % dispFilePath)
-            traceback.print_exc(file=sys.stdout)
-            QtGui.QMessageBox.critical (self, "Could not load dispersion", "Could not load dispersion file '%s' file may be missing of incorrect format " % dispFilePath)
-        
+        self.loadDispersionIntoFPGA(dispFilePath, fpgaOpts)
+              
         
     def _bindEventHandlers(self):
         # protocol button event handlers
@@ -750,8 +765,10 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         JSOraw.saveDispersion_pushButton_clicked(self)
         
     def JSOloadDispersion_pushButton_clicked(self):  # CtoF button event handler
-        self.dispData = JSOraw.DispersionData()             # this should clear the previously-loaded dispersion data         
+        self.dispData = Dispersion.DispersionData()             # this should clear the previously-loaded dispersion data         
         JSOraw.loadDispersion_pushButton_clicked(self)
+        
+        
             
     def rotationZDialChanged(self):
         self.rotation_spinBox.setValue(self.rotZ_dial.value())

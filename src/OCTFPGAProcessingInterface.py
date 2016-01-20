@@ -724,11 +724,15 @@ class LV_DLLInterface_BGProcess:
             self.acqFunctionArgs = param
         elif msgType == 'setAttenLvl':
             err = self.oct_hw.SetAttenLevel(param[0], param[1])
+            #statusMsg = OCTCommon.StatusMsg(OCTCommon.StatusMsgSource.COLLECTION, OCTCommon.StatusMsgType.BLANK)
+            #statusMsg.param = err
             self.statusQ.put(err)
         elif msgType == 'loadDispersion':
             magWin = param[0]
             phaseCorr = param[1]
             err = self.oct_hw.LoadOCTDispersion(magWin, phaseCorr)
+            #statusMsg = OCTCommon.StatusMsg(OCTCommon.StatusMsgSource.COLLECTION, OCTCommon.StatusMsgType.BLANK)
+            #statusMsg.param = err
             self.statusQ.put(err)
         elif msgType == 'getFPGAOpts':
             self.statusQ.put(self.oct_hw.fpgaOpts)

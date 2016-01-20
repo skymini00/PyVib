@@ -363,7 +363,7 @@ def saveDispersion_pushButton_clicked(appObj):
     pickle.dump(dispData,file1)
     file1.close()
     appObj.dispCompFilename_label.setText(outfile)
-    
+    appObj.loadDispersionIntoFPGA(outfile, appObj.oct_hw.fpgaOpts)
     
 def updateDispersionGUI(appObj, dispData):
         # Clear all of the plots
@@ -414,6 +414,8 @@ def loadDispersion_pushButton_clicked(appObj):
     appObj.dispCompFilename_label.setText(infile) 
     updateDispersionGUI(appObj, appObj.dispData)
     
+    appObj.loadDispersionIntoFPGA(infile, appObj.oct_hw.fpgaOpts)
+    
 def loadDispersion_onStartup(appObj):   
 #    infile=os.path.join(appObj.configPath, 'Dispersion','dispComp-initial.pickle')  
     infile = appObj.octSetupInfo.dispFilename
@@ -455,8 +457,8 @@ def runJSOraw(appObj):
         appObj.tabWidget.setCurrentIndex(7)
         appObj.doneFlag = False
         appObj.isCollecting = True
-#        appObj.JSOsaveDispersion_pushButton.setEnabled(True)
-#        appObj.JSOloadDispersion_pushButton.setEnabled(False)
+        appObj.JSOsaveDispersion_pushButton.setEnabled(True)
+        appObj.JSOloadDispersion_pushButton.setEnabled(False)
         dispData = appObj.dispData             # this class holds all the dispersion compensation data    
         if dispData is None:
             dispData = Dispersion.DispersionData()
@@ -688,5 +690,5 @@ def runJSOraw(appObj):
     appObj.isCollecting = False
     QtGui.QApplication.processEvents() # check for GUI events
     appObj.finishCollection()
-#    appObj.JSOsaveDispersion_pushButton.setEnabled(False)    
-#    appObj.JSOloadDispersion_pushButton.setEnabled(True)
+    appObj.JSOsaveDispersion_pushButton.setEnabled(False)    
+    appObj.JSOloadDispersion_pushButton.setEnabled(True)
