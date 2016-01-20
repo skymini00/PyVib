@@ -804,8 +804,10 @@ def makeAudioOutput(audioParams, audioHW, spkNum, f, a):
     if spkNum == 1:
         if audioParams.stimType == AudioStimType.TONE_LASER:
             sig = np.zeros(trialPts)
-            i1 = trialPts // 3
-            i2 = 2 * trialPts // 3
+            laserStimDur = audioParams.stimDuration
+            stimPts = int(np.ceil(laserStimDur * outputRate ))
+            i1 = outputRate*1e-3*audioParams.stimOffset
+            i2 = i1 + stimPts
             sig[i1:i2] = 5
             return (sig, 0)
         
@@ -813,8 +815,12 @@ def makeAudioOutput(audioParams, audioHW, spkNum, f, a):
     spkOut = []
     if(outV > 0):
         stimDur = 1e-3*audioParams.stimDuration
-        
         stimOffset = 1e-3*audioParams.stimOffset
+        
+        if audioParams.stimType == AudioStimType.TONE_LASER:
+            stimDur = trialDur
+            stimOffset = 0
+            
         stimEnv = 1e-3*audioParams.stimEnvelope
         offsetPts = np.ceil(stimOffset * outputRate)
         stimPts = np.ceil(stimDur * outputRate)
