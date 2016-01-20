@@ -314,7 +314,9 @@ def processMscanData(oct_data, mscanPosAndStim, scanParams, audioParams, procOpt
         
         # remove DC/LF components by subtracting from mean 
         ph_mean = np.mean(ph, 0) 
-        ph_mean = np.tile(ph_mean, (numTrials, 1))                
+        shp = ph.shape
+        ph_mean = np.tile(ph_mean, (shp[0], 1))                
+#        ph_mean = np.transpose(ph_mean)
         if DebugLog.isLogging:        
             DebugLog.log("Mscan.processMscanData(): ph.shape= %s ph_mean.shape= %s " % (repr(ph.shape), repr(ph_mean.shape)))
 
@@ -801,44 +803,48 @@ def makeAudioOutput(audioParams, audioHW, spkNum, f, a):
     trialDur = 1e-3*audioParams.getTrialDuration(a)
     trialPts = np.ceil(trialDur * outputRate)
     
-    if spkNum == 1:
-        if audioParams.stimType == AudioStimType.TONE_LASER:
-            sig = np.zeros(trialPts)
-            laserStimDur = audioParams.stimDuration
-            stimPts = int(np.ceil(laserStimDur * outputRate ))
-            i1 = outputRate*1e-3*audioParams.stimOffset
-            i2 = i1 + stimPts
-            sig[i1:i2] = 5
-            return (sig, 0)
-        
-    (outV, attenLvl) = audioHW.getCalibratedOutputVoltageAndAttenLevel(f, a, spkNum)
     spkOut = []
-    if(outV > 0):
-        stimDur = 1e-3*audioParams.stimDuration
-        stimOffset = 1e-3*audioParams.stimOffset
+    DebugLog.log("makeAudioOutput: spkNum=%d trialDur=%f trialPts=%d stimType= %s" % (spkNum, trialDur, trialPts, audioParams.stimType))
+    if spkNum == 1 and (audioParams.stimType == AudioStimType.TONE_LASER):
+        spkOut = np.zeros((trialPts))    
+        laserStimDur = audioParams.stimDuration*1e-3
+        stimPts = int(np.ceil(laserStimDur * outputRate ))
+        DebugLog.log("makeAudioOutput: laserStimDurr=%f stimPts=%d" % (laserStimDur, stimPts))
+        i1 = int(np.ceil(outputRate*1e-3*audioParams.stimOffset))
+        i2 = i1 + stimPts
+        spkOut[i1:i2] = 5
+        attenLvl = 0
+    else:
+        (outV, attenLvl) = audioHW.getCalibratedOutputVoltageAndAttenLevel(f, a, spkNum)
         
-        if audioParams.stimType == AudioStimType.TONE_LASER:
-            stimDur = trialDur
-            stimOffset = 0
+        if(outV > 0):
+            stimDur = 1e-3*audioParams.stimDuration
+            stimOffset = 1e-3*audioParams.stimOffset
             
-        stimEnv = 1e-3*audioParams.stimEnvelope
-        offsetPts = np.ceil(stimOffset * outputRate)
-        stimPts = np.ceil(stimDur * outputRate)
-        
-         # in the case that stim + offset will excdeed trial duration, we must trim the stim 
-        if (stimPts + offsetPts) > trialPts:  
-            stimPts = trialPts - offsetPts
+            if audioParams.stimType == AudioStimType.TONE_LASER:
+                stimDur = trialDur
+                stimOffset = 0
+                
+            stimEnv = 1e-3*audioParams.stimEnvelope
+            offsetPts = np.ceil(stimOffset * outputRate)
+            stimPts = np.ceil(stimDur * outputRate)
+            
+             # in the case that stim + offset will excdeed trial duration, we must trim the stim 
+            if (stimPts + offsetPts) > trialPts:  
+                stimPts = trialPts - offsetPts
+    
+            envPts = np.ceil(stimEnv * outputRate)
+            spkOut = np.zeros((trialPts))
+            t = np.linspace(0, stimDur, stimPts)
+            sig = outV*np.sin(2*np.pi*1000*f*t)
+            envFcn = np.ones((stimPts))
+            envFcn[0:envPts] = np.linspace(0, 1, envPts)
+            envFcn[stimPts-envPts:] = np.linspace(1, 0, envPts)
+            sig = sig*envFcn
+            spkOut[offsetPts:offsetPts+stimPts] = sig
 
-        envPts = np.ceil(stimEnv * outputRate)
-        spkOut = np.zeros((trialPts))
-        t = np.linspace(0, stimDur, stimPts)
-        sig = outV*np.sin(2*np.pi*1000*f*t)
-        envFcn = np.ones((stimPts))
-        envFcn[0:envPts] = np.linspace(0, 1, envPts)
-        envFcn[stimPts-envPts:] = np.linspace(1, 0, envPts)
-        sig = sig*envFcn
-        spkOut[offsetPts:offsetPts+stimPts] = sig
-        
+            
+            
     return (spkOut, attenLvl)
         
         
@@ -1490,7 +1496,7 @@ def MscanCollectFcn(oct_hw, frameNum, trigRate, extraArgs):
         else:
             err, oct_data_tmp = oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset)
         
-        if oct_data == None:
+        if oct_data is None:
             shp = oct_data_tmp.shape
             oct_data = np.zeros((shp[0], shp[1], numTrials), np.complex)
             
@@ -1861,7 +1867,7 @@ def runMScan(appObj, multiProcess=False):
             spkNum = 1
             attenLines = audioHW.attenR_daqChan
         elif audioParams.speakerSel == Speaker.BOTH:
-            chanNamesOut = [audioHW.speakerl_daqChan, audioHW.speakerR_daqChan]
+            chanNamesOut = [audioHW.speakerL_daqChan, audioHW.speakerR_daqChan]
         
         mscanPosAndStim = MscanPosAndStim()
         
@@ -1890,6 +1896,7 @@ def runMScan(appObj, multiProcess=False):
             if audioParams.speakerSel == Speaker.BOTH:
                 audioOutputL, attenLvlL = makeAudioOutput(audioParams, audioHW, 0, freq, amp)
                 audioOutputR, attenLvlR = makeAudioOutput(audioParams, audioHW, 1, freq, amp)
+                DebugLog.log("Mscan runMscan(): len(audioOutputL)= %d len(audioOutputR) = %d" % (len(audioOutputL), len(audioOutputR)))
                 numOutputSamples = len(audioOutputL)
                 t = np.linspace(0, numOutputSamples/outputRate, numOutputSamples)
                 pl.plot(t[0:endIdx], audioOutputL[0:endIdx], pen='b')
@@ -1953,7 +1960,7 @@ def runMScan(appObj, multiProcess=False):
                     QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
                     break
                                 
-                if oct_data == None:
+                if oct_data is None:
                     shp = oct_data_tmp.shape
                     oct_data = np.zeros((shp[0], shp[1], numTrials), np.complex)
                     
@@ -1977,7 +1984,7 @@ def runMScan(appObj, multiProcess=False):
                 if appObj.doneFlag:
                     break
 
-            if appObj.doneFlag or oct_data == None:
+            if appObj.doneFlag or oct_data is None:
                 break
             
             mscanPosAndStim.ampIdx = ampStep
