@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1912</width>
+    <width>1986</width>
     <height>1085</height>
    </rect>
   </property>
@@ -5507,6 +5507,124 @@
            <number>-1</number>
           </property>
          </widget>
+         <widget class="QPushButton" name="CalibrateScanMirror_pushButton">
+          <property name="geometry">
+           <rect>
+            <x>1320</x>
+            <y>620</y>
+            <width>171</width>
+            <height>21</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Calibrate scan mirror</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <widget class="QDoubleSpinBox" name="scanPhaseAdjust_spinBox">
+          <property name="geometry">
+           <rect>
+            <x>1430</x>
+            <y>672</y>
+            <width>61</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="maximum">
+           <double>360.000000000000000</double>
+          </property>
+          <property name="value">
+           <double>1.000000000000000</double>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_54">
+          <property name="geometry">
+           <rect>
+            <x>1380</x>
+            <y>651</y>
+            <width>61</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Skew</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_104">
+          <property name="geometry">
+           <rect>
+            <x>1330</x>
+            <y>672</y>
+            <width>101</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Phase adjust</string>
+          </property>
+         </widget>
+         <widget class="QDoubleSpinBox" name="skew_dblSpinBox">
+          <property name="geometry">
+           <rect>
+            <x>1430</x>
+            <y>648</y>
+            <width>61</width>
+            <height>21</height>
+           </rect>
+          </property>
+          <property name="decimals">
+           <number>3</number>
+          </property>
+          <property name="minimum">
+           <double>0.000000000000000</double>
+          </property>
+          <property name="maximum">
+           <double>1000.000000000000000</double>
+          </property>
+          <property name="singleStep">
+           <double>0.010000000000000</double>
+          </property>
+          <property name="value">
+           <double>1.000000000000000</double>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_106">
+          <property name="geometry">
+           <rect>
+            <x>1360</x>
+            <y>690</y>
+            <width>61</width>
+            <height>20</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Vol Freq</string>
+          </property>
+         </widget>
+         <widget class="QDoubleSpinBox" name="volScanFreq_spinBox">
+          <property name="geometry">
+           <rect>
+            <x>1430</x>
+            <y>692</y>
+            <width>61</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="minimum">
+           <double>0.000000000000000</double>
+          </property>
+          <property name="maximum">
+           <double>100000.000000000000000</double>
+          </property>
+          <property name="singleStep">
+           <double>0.100000000000000</double>
+          </property>
+          <property name="value">
+           <double>5.000000000000000</double>
+          </property>
+         </widget>
         </widget>
        </widget>
        <widget class="QGroupBox" name="groupBox_3">
@@ -6493,31 +6611,6 @@
           <string>Steps</string>
          </property>
         </widget>
-        <widget class="QDoubleSpinBox" name="skew_dblSpinBox">
-         <property name="geometry">
-          <rect>
-           <x>130</x>
-           <y>258</y>
-           <width>61</width>
-           <height>21</height>
-          </rect>
-         </property>
-         <property name="decimals">
-          <number>3</number>
-         </property>
-         <property name="minimum">
-          <double>0.000000000000000</double>
-         </property>
-         <property name="maximum">
-          <double>1000.000000000000000</double>
-         </property>
-         <property name="singleStep">
-          <double>0.010000000000000</double>
-         </property>
-         <property name="value">
-          <double>1.000000000000000</double>
-         </property>
-        </widget>
         <widget class="QLabel" name="label_22">
          <property name="geometry">
           <rect>
@@ -7121,19 +7214,6 @@
           <bool>true</bool>
          </property>
         </widget>
-        <widget class="QLabel" name="label_54">
-         <property name="geometry">
-          <rect>
-           <x>90</x>
-           <y>260</y>
-           <width>31</width>
-           <height>16</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>skew</string>
-         </property>
-        </widget>
         <widget class="QDoubleSpinBox" name="lengthRes_dblSpinBox">
          <property name="geometry">
           <rect>
@@ -7150,35 +7230,6 @@
           <double>0.000000000000000</double>
          </property>
         </widget>
-        <widget class="QDoubleSpinBox" name="scanPhaseAdjust_spinBox">
-         <property name="geometry">
-          <rect>
-           <x>130</x>
-           <y>280</y>
-           <width>61</width>
-           <height>16</height>
-          </rect>
-         </property>
-         <property name="maximum">
-          <double>360.000000000000000</double>
-         </property>
-         <property name="value">
-          <double>1.000000000000000</double>
-         </property>
-        </widget>
-        <widget class="QLabel" name="label_104">
-         <property name="geometry">
-          <rect>
-           <x>60</x>
-           <y>280</y>
-           <width>61</width>
-           <height>16</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>Phase Adjust</string>
-         </property>
-        </widget>
         <widget class="QCheckBox" name="continuousVolume_checkBox">
          <property name="geometry">
           <rect>
@@ -7193,41 +7244,6 @@
          </property>
          <property name="checked">
           <bool>true</bool>
-         </property>
-        </widget>
-        <widget class="QDoubleSpinBox" name="volScanFreq_spinBox">
-         <property name="geometry">
-          <rect>
-           <x>130</x>
-           <y>240</y>
-           <width>61</width>
-           <height>16</height>
-          </rect>
-         </property>
-         <property name="minimum">
-          <double>0.000000000000000</double>
-         </property>
-         <property name="maximum">
-          <double>100000.000000000000000</double>
-         </property>
-         <property name="singleStep">
-          <double>0.100000000000000</double>
-         </property>
-         <property name="value">
-          <double>5.000000000000000</double>
-         </property>
-        </widget>
-        <widget class="QLabel" name="label_106">
-         <property name="geometry">
-          <rect>
-           <x>80</x>
-           <y>240</y>
-           <width>41</width>
-           <height>20</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>Vol Freq</string>
          </property>
         </widget>
        </widget>
@@ -7444,7 +7460,7 @@ focal plane adjust</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1912</width>
+     <width>1986</width>
      <height>21</height>
     </rect>
    </property>

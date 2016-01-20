@@ -275,6 +275,9 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 filepath = os.path.join(configBasePath, mirrorFile)
                 DebugLog.log("reading mirror file '%s'" % filepath)
                 self.mirrorDriver = MirrorDriver.readMirrorDriverConfig(filepath)
+                self.volScanFreq_spinBox.setValue(self.mirrorDriver.volScanFreq)
+                self.skew_dblSpinBox.setValue(self.mirrorDriver.skew)
+                self.scanPhaseAdjust_spinBox.setValue(self.mirrorDriver.phaseAdjust)
                 DebugLog.log("OCTMultiProcInterface.readHardwareConfig(): mirrorDriver=\n %s" % repr(self.mirrorDriver))
             except Exception as ex:
                 DebugLog.log("OCTMultiProcInterface.readHardwareConfig(): Could not read mirror settings")
@@ -354,6 +357,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.SpeakerCalTest_pushButton.clicked.connect(self.SpeakerCalTest_clicked)
         self.specialScan_pushButton.clicked.connect(self.SpecialScan_clicked)  
         self.JSOraw_pushButton.clicked.connect(self.JSOraw_clicked)  
+        self.CalibrateScanMirror_pushButton.clicked.connect(self.CalibrateScanMirror_clicked)  
         self.rawDataTest_pushButton.clicked.connect(self.RawDataTest_clicked)
         
         self.focalPlaneAdj_spinbox.valueChanged.connect(self.focalPlaneChanged)
@@ -750,6 +754,17 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             self.nextProtocol = None
             self.stopCollection()
  
+    def CalibrateScanMirror_clicked(self):  # CtoF button event handler
+        if self.CalibrateScanMirror_pushButton.isChecked():
+            if self.isCollecting:
+                self.nextProtocol = 'calibrateScanMirror'
+                self.stopCollection()
+            else:
+                JSOraw.calibrateScanMirror(self)
+        else:
+            self.nextProtocol = None
+            self.stopCollection()
+ 
     def RawDataTest_clicked(self):  # CtoF button event handler
         if self.rawDataTest_pushButton.isChecked():
             if self.isCollecting:
@@ -877,8 +892,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
         self.length_horizontalSlider.setValue(int(1000*scanParams.length))
         self.width_horizontalSlider.setValue(int(1000*scanParams.width))
-        if hasattr(scanParams, 'skew'):
-            self.skew_dblSpinBox.setValue(scanParams.skew)
+#        if hasattr(scanParams, 'skew'):
+#            self.skew_dblSpinBox.setValue(scanParams.skew)
 
         if hasattr(scanParams, 'volBscansPerFrame'):
             self.scan_volBscansPerFrame_spinBox.setValue(scanParams.volBscansPerFrame)
@@ -886,11 +901,11 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         if hasattr(scanParams, 'continuousScan'):            
             self.continuousVolume_checkBox.setChecked(scanParams.continuousScan)
             
-        if hasattr(scanParams, 'phaseAdjust'):            
-            self.scanPhaseAdjust_spinBox.setValue(scanParams.phaseAdjust)
+#        if hasattr(scanParams, 'phaseAdjust'):            
+#            self.scanPhaseAdjust_spinBox.setValue(scanParams.phaseAdjust)
             
-        if hasattr(scanParams, 'volScanFreq'):            
-            self.volScanFreq_spinBox.setValue(scanParams.volScanFreq)
+#        if hasattr(scanParams, 'volScanFreq'):            
+#            self.volScanFreq_spinBox.setValue(scanParams.volScanFreq)
             
         self.blockScanParamsSignals(False)
         

@@ -451,6 +451,89 @@ def softwareProcessing(ch0_data,ch1_data,zROI,appObj, returnPhase=False, unwrapP
     oct_data = pd_fftDispComp[:, zROI[0]:zROI[1]] 
     return oct_data, klin
     
+def calibrateScanMirror(appObj):
+    DebugLog.log("calibrateScanMirror")    
+    appObj.tabWidget.setCurrentIndex(7)
+    appObj.doneFlag = False
+    appObj.isCollecting = True
+    appObj.JSOsaveDispersion_pushButton.setEnabled(True)
+    appObj.JSOloadDispersion_pushButton.setEnabled(False)
+
+    if not appObj.oct_hw.IsOCTTestingMode():     # prepare to get new data            
+        from DAQHardware import DAQHardware
+        daq = DAQHardware()
+
+    mirrorDriver = appObj.mirrorDriver    
+    chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
+    trigChan = mirrorDriver.trig_daqChan
+    outputRate = mirrorDriver.DAQoutputRate
+
+    while appObj.doneFlag == False:        # keep running until the button is turned off 
+        scanParams = appObj.getScanParams()
+    
+    #    create spiral scan pattern to drive the mirrors
+        Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
+        Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
+        xAdjust = 1    
+        yAdjust = scanParams.skew
+        phaseShift = scanParams.phaseAdjust
+        fr = mirrorDriver.resonantFreq  # angular scan rate (frequency of one rotation - resonant frequency)
+        fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
+        DebugLog.log("freq of one rotation (fr)= %d; scan frequency (fv)= %d" % (fr, fv))
+        diameter = scanParams.length
+        voltsPerMM = mirrorDriver.voltsPerMillimeterResonant
+        A1=(Vmaxx/2)/xAdjust
+        A2=(Vmaxy/2)/yAdjust
+        A3=voltsPerMM*diameter/2 
+        A=np.min([A1,A2,A3])           
+        fs=mirrorDriver.DAQoutputRate   # galvo output sampling rate
+        t=np.arange(0,np.around(fs/fv))*1/fs  # t is the array of times for the DAQ output to the mirrors
+        r=1/2*(1-np.cos(2*np.pi*fv*t))            
+        x=xAdjust*A*r*np.cos(2*np.pi*fr*t) # x and y are the coordinates of the laser at each point in time
+        y=yAdjust*A*r*np.sin(2*np.pi*fr*t+phaseShift*np.pi/180)
+        mirrorOut= np.vstack((x,y))
+           
+        # plot mirror commands to GUI 
+        pl = appObj.JSOmisc_plot1
+        npts = mirrorOut.shape[1]
+        t = np.linspace(0, npts/outputRate, npts)
+        pl.clear()
+        pl.plot(t, mirrorOut[0, :], pen='b')  
+        pl.plot(t, mirrorOut[1, :], pen='r')  
+        labelStyle = appObj.xLblStyle
+        pl.setLabel('bottom', 'Time', 's', **labelStyle)
+        labelStyle = appObj.yLblStyle
+        pl.setLabel('left', 'Output', 'V', **labelStyle)
+    
+        pl2=appObj.JSOmisc_plot2
+        pl2.clear()
+        pl2.plot(mirrorOut[0, :],mirrorOut[1, :], pen='b')
+        labelStyle = appObj.xLblStyle
+        pl2.setLabel('bottom', 'X galvo', 'V', **labelStyle)
+        labelStyle = appObj.yLblStyle
+        pl2.setLabel('left', 'Y galvo', 'V', **labelStyle)
+     
+        if not appObj.oct_hw.IsDAQTestingMode():
+            # setup the analog output DAQ device
+            daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOut.transpose())        
+            daq.startAnalogOutput()
+            
+            # request one trigger collection in order to start the scan mirror output running
+            samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
+            startTrigOffset = 0
+            downsample = scanParams.downsample
+            numTrigs=1
+            err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset, downsample=downsample)
+            QtGui.QApplication.processEvents() # check for GUI events
+        else:
+            appObj.doneFlag = True
+            appObj.CalibrateScanMirror_pushButton.setChecked(False)
+         
+    appObj.JSOsaveDispersion_pushButton.setEnabled(False)    
+    appObj.JSOloadDispersion_pushButton.setEnabled(True)        
+    appObj.isCollecting = False
+    appObj.finishCollection()
+    
 def runJSOraw(appObj):
     DebugLog.log("runJSOraw")
     try:
@@ -687,8 +770,8 @@ def runJSOraw(appObj):
         traceback.print_exc(file=sys.stdout)
         QtGui.QMessageBox.critical (appObj, "Error", "Error during scan. Check command line output for details")
         
+    appObj.JSOsaveDispersion_pushButton.setEnabled(False)    
+    appObj.JSOloadDispersion_pushButton.setEnabled(True)
     appObj.isCollecting = False
     QtGui.QApplication.processEvents() # check for GUI events
     appObj.finishCollection()
-    appObj.JSOsaveDispersion_pushButton.setEnabled(False)    
-    appObj.JSOloadDispersion_pushButton.setEnabled(True)
