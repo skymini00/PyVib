@@ -239,13 +239,13 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
     def _readHardwareConfig(self, configBasePath):
         self.octSetupInfo = OCTSetupInfo()
         if not os.path.exists(configBasePath):
-            DebugLog.log("OCTMultiProcInterface.readHardwareConfig(): Config path does not exist, creating")
+            DebugLog.log("readHardwareConfig(): Config path does not exist, creating")
             try:
                 os.makedirs(configBasePath)
                 octSetupInfo = OCTSetupInfo()
                 writeOCTsetupInfo(configBasePath, octSetupInfo)
             except Exception as ex:
-                DebugLog.log("OCTMultiProcInterface.readHardwareConfig(): Critical error - could not create config base path '%s'" % configBasePath)
+                DebugLog.log("readHardwareConfig(): Critical error - could not create config base path '%s'" % configBasePath)
                 traceback.print_exc(file=sys.stdout)
         else:
             try:
@@ -253,7 +253,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 self.octSetupInfo = readOCTSetupInfo(filepath)
                 self.mirror_label.setText('Mirror driver: ' + self.octSetupInfo.mirrorConfigFile)
             except Exception as ex:
-                DebugLog.log("OCTMultiProcInterface.readHardwareConfig(): Could not read OCT setup '%s'" + repr(filepath))
+                DebugLog.log("readHardwareConfig(): Could not read OCT setup '%s'" + repr(filepath))
                 traceback.print_exc(file=sys.stdout)
                 self.octSetupInfo = OCTSetupInfo()
 
@@ -265,7 +265,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 self.audioHW = AudioHardware.readAudioHWConfig(filepath)
                 DebugLog.log("AudioHardware= " + self.audioHW.encodeToString('\t'))
             except Exception as ex:
-                DebugLog.log("OCTMultiProcInterface.readHardwareConfig(): Could not read audio hardwaare")
+                DebugLog.log("readHardwareConfig(): Could not read audio hardwaare")
                 traceback.print_exc(file=sys.stdout)
                 self.audioHW = AudioHardware.AudioHardware()                
     
@@ -278,9 +278,9 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 self.volScanFreq_spinBox.setValue(self.mirrorDriver.volScanFreq)
                 self.skew_dblSpinBox.setValue(self.mirrorDriver.skew)
                 self.scanPhaseAdjust_spinBox.setValue(self.mirrorDriver.phaseAdjust)
-                DebugLog.log("OCTMultiProcInterface.readHardwareConfig(): mirrorDriver=\n %s" % repr(self.mirrorDriver))
+                DebugLog.log("readHardwareConfig(): mirrorDriver=\n %s" % repr(self.mirrorDriver))
             except Exception as ex:
-                DebugLog.log("OCTMultiProcInterface.readHardwareConfig(): Could not read mirror settings")
+                DebugLog.log("readHardwareConfig(): Could not read mirror settings")
                 traceback.print_exc(file=sys.stdout)
                 self.mirrorDriver = MirrorDriver.MirrorDriver()
             
@@ -289,9 +289,10 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 fpgaOptsFile = self.octSetupInfo.FPGAOptsFile
                 filepath = os.path.join(configBasePath, fpgaOptsFile)
                 fpgaOpts = octfpga.readFPGAOptsConfig(filepath)
+                DebugLog.log("readHardwareConfig(): fpgaOpts= %s" % fpgaOpts.encodeToString())
 #                octfpga.LV_DLLInterface.fpgaOpts = fpgaOpts
             except Exception as ex:
-                DebugLog.log("OCTMultiProcInterface.readHardwareConfig(): Could not read FPGA Opts")
+                DebugLog.log("readHardwareConfig(): Could not read FPGA Opts")
                 traceback.print_exc(file=sys.stdout)
                 fpgaOpts = octfpga.FPGAOpts_t()
                 
@@ -303,17 +304,20 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             # dispCorr = readDispersionFile(dispFilePath)
             dispData = Dispersion.loadDispData(self, dispFilePath)
             
-            fpgaOpts.SamplesPerTrig = dispData.requestedSamplesPerTrig // 2 
+            samplesPerTrigActual = dispData.requestedSamplesPerTrig - dispData.numShiftPts - dispData.sampleOffset
+            
+            fpgaOpts.SamplesPerTrig = samplesPerTrigActual // 2 
             fpgaOpts.klinRoiBegin = dispData.startSample
             fpgaOpts.klinRoiEnd = dispData.endSample
             fpgaOpts.numKlinPts = dispData.numKlinPts
             fpgaOpts.Ch0Shift = dispData.numShiftPts // 2
             fpgaOpts.SampleOffset = dispData.sampleOffset // 2
-            if dispData.requestedSamplesPerTrig > 2048:
+            fpgaOpts.InterpDownsample = c_uint8(0)
+            
+            if dispData.numKlinPts > 2048:
                 fpgaOpts.InterpDownsample = c_uint8(55)
-            else:
-                fpgaOpts.InterpDownsample = c_uint8(0)
                 
+            DebugLog.log("loadDispersionIntoFPGA: fpgaOpts= %s" % fpgaOpts.encodeToString())
 #            oct_hw.LoadOCTDispersion(dispData.magWin, -dispData.phaseCorr)
             self.oct_hw.LoadOCTDispersion(self.dispData.magWin, -self.dispData.phaseCorr)
 #            self.dispData = dispData
@@ -338,6 +342,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         klinROI = [fpgaOpts.klinRoiBegin, fpgaOpts.klinRoiEnd]
         DebugLog.log("_initOCTHardware: initializing FPGA interface")
         
+        oct_hw.fpgaOpts = fpgaOpts
         err, klin = oct_hw.InitFPGA(setup, sampleOffset, samplesPerTrig, Ch0Shift, klinNumPts, klinROI)
         DebugLog.log("_initOCTHardware: InitFPGA err= %d" % err)
         dispFilePath = os.path.join(self.settingsPath, "Dispersion")
@@ -783,8 +788,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.dispData = Dispersion.DispersionData()             # this should clear the previously-loaded dispersion data         
         JSOraw.loadDispersion_pushButton_clicked(self)
         
-        
-            
     def rotationZDialChanged(self):
         self.rotation_spinBox.setValue(self.rotZ_dial.value())
         

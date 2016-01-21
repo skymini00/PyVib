@@ -8,6 +8,7 @@ Created on Thu Oct  1 09:47:06 2015
 import OCTCommon
 from ctypes import *
 import numpy.ctypeslib as np_ctypes
+
 from enum import Enum
 import numpy as np
 import matplotlib.pyplot as plt

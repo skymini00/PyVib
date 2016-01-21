@@ -357,6 +357,7 @@ def getNewRawData(numTrigs,requestedSamplesPerTrig,appObj):
       
 def saveDispersion_pushButton_clicked(appObj):
     dispData=appObj.dispData
+    dispData.sampleOffset = 2
     filename=datetime.datetime.now().strftime("dispComp-%Y_%m_%d-%H_%M_%S.pickle")
     outfile=os.path.join(appObj.configPath, 'Dispersion',filename)
     file1=open(outfile,'wb')
