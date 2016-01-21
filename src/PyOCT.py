@@ -892,8 +892,6 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
         self.length_horizontalSlider.setValue(int(1000*scanParams.length))
         self.width_horizontalSlider.setValue(int(1000*scanParams.width))
-#        if hasattr(scanParams, 'skew'):
-#            self.skew_dblSpinBox.setValue(scanParams.skew)
 
         if hasattr(scanParams, 'volBscansPerFrame'):
             self.scan_volBscansPerFrame_spinBox.setValue(scanParams.volBscansPerFrame)
@@ -901,11 +899,14 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         if hasattr(scanParams, 'continuousScan'):            
             self.continuousVolume_checkBox.setChecked(scanParams.continuousScan)
             
+#        if hasattr(scanParams, 'skew'):
+#            self.skew_dblSpinBox.setValue(scanParams.skew)            
+
 #        if hasattr(scanParams, 'phaseAdjust'):            
 #            self.scanPhaseAdjust_spinBox.setValue(scanParams.phaseAdjust)
             
-#        if hasattr(scanParams, 'volScanFreq'):            
-#            self.volScanFreq_spinBox.setValue(scanParams.volScanFreq)
+        if hasattr(scanParams, 'volScanFreq'):            
+            self.volScanFreq_spinBox.setValue(scanParams.volScanFreq)
             
         self.blockScanParamsSignals(False)
         

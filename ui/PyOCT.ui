@@ -5532,6 +5532,17 @@
             <height>16</height>
            </rect>
           </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="decimals">
+           <number>1</number>
+          </property>
+          <property name="minimum">
+           <double>-180.000000000000000</double>
+          </property>
           <property name="maximum">
            <double>360.000000000000000</double>
           </property>
@@ -5544,9 +5555,14 @@
            <rect>
             <x>1380</x>
             <y>651</y>
-            <width>61</width>
+            <width>41</width>
             <height>16</height>
            </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
           </property>
           <property name="text">
            <string>Skew</string>
@@ -5555,11 +5571,16 @@
          <widget class="QLabel" name="label_104">
           <property name="geometry">
            <rect>
-            <x>1330</x>
-            <y>672</y>
-            <width>101</width>
+            <x>1340</x>
+            <y>673</y>
+            <width>81</width>
             <height>16</height>
            </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
           </property>
           <property name="text">
            <string>Phase adjust</string>
@@ -5574,55 +5595,71 @@
             <height>21</height>
            </rect>
           </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
           <property name="decimals">
-           <number>3</number>
+           <number>1</number>
           </property>
           <property name="minimum">
            <double>0.000000000000000</double>
           </property>
           <property name="maximum">
-           <double>1000.000000000000000</double>
-          </property>
-          <property name="singleStep">
-           <double>0.010000000000000</double>
-          </property>
-          <property name="value">
-           <double>1.000000000000000</double>
-          </property>
-         </widget>
-         <widget class="QLabel" name="label_106">
-          <property name="geometry">
-           <rect>
-            <x>1360</x>
-            <y>690</y>
-            <width>61</width>
-            <height>20</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>Vol Freq</string>
-          </property>
-         </widget>
-         <widget class="QDoubleSpinBox" name="volScanFreq_spinBox">
-          <property name="geometry">
-           <rect>
-            <x>1430</x>
-            <y>692</y>
-            <width>61</width>
-            <height>16</height>
-           </rect>
-          </property>
-          <property name="minimum">
-           <double>0.000000000000000</double>
-          </property>
-          <property name="maximum">
-           <double>100000.000000000000000</double>
+           <double>50.000000000000000</double>
           </property>
           <property name="singleStep">
            <double>0.100000000000000</double>
           </property>
           <property name="value">
-           <double>5.000000000000000</double>
+           <double>1.000000000000000</double>
+          </property>
+         </widget>
+         <widget class="QComboBox" name="scanShape_comboBox">
+          <property name="geometry">
+           <rect>
+            <x>1430</x>
+            <y>691</y>
+            <width>61</width>
+            <height>22</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="currentIndex">
+           <number>0</number>
+          </property>
+          <item>
+           <property name="text">
+            <string>Spiral</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Circle</string>
+           </property>
+          </item>
+         </widget>
+         <widget class="QLabel" name="label_158">
+          <property name="geometry">
+           <rect>
+            <x>1349</x>
+            <y>694</y>
+            <width>71</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Scan shape</string>
           </property>
          </widget>
         </widget>
@@ -6798,7 +6835,7 @@
          <property name="geometry">
           <rect>
            <x>210</x>
-           <y>200</y>
+           <y>203</y>
            <width>51</width>
            <height>16</height>
           </rect>
@@ -7089,7 +7126,7 @@
          <property name="geometry">
           <rect>
            <x>200</x>
-           <y>220</y>
+           <y>223</y>
            <width>61</width>
            <height>16</height>
           </rect>
@@ -7233,17 +7270,58 @@
         <widget class="QCheckBox" name="continuousVolume_checkBox">
          <property name="geometry">
           <rect>
-           <x>200</x>
+           <x>207</x>
            <y>280</y>
            <width>111</width>
            <height>21</height>
           </rect>
+         </property>
+         <property name="layoutDirection">
+          <enum>Qt::RightToLeft</enum>
          </property>
          <property name="text">
           <string>Continuous Volume</string>
          </property>
          <property name="checked">
           <bool>true</bool>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_106">
+         <property name="geometry">
+          <rect>
+           <x>220</x>
+           <y>260</y>
+           <width>41</width>
+           <height>20</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>Vol Freq</string>
+         </property>
+        </widget>
+        <widget class="QDoubleSpinBox" name="volScanFreq_spinBox">
+         <property name="geometry">
+          <rect>
+           <x>270</x>
+           <y>260</y>
+           <width>51</width>
+           <height>20</height>
+          </rect>
+         </property>
+         <property name="decimals">
+          <number>1</number>
+         </property>
+         <property name="minimum">
+          <double>0.000000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>60.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>1.000000000000000</double>
+         </property>
+         <property name="value">
+          <double>5.000000000000000</double>
          </property>
         </widget>
        </widget>

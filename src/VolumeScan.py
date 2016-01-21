@@ -1264,7 +1264,6 @@ def runVolScan(appObj):
     procOpts.thresholdEnFace=appObj.thresholdEnFace_verticalSlider.value()
     procOpts.enFace_avgDepth=appObj.enFace_avgDepth_verticalSlider.value()
 
-    timePoint1 = time.time()
     if scanParams.pattern in (ScanPattern.spiral, ScanPattern.wagonWheel, ScanPattern.zigZag):
         plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, trigRate, procOpts)
         numFrames = 1
@@ -1279,8 +1278,6 @@ def runVolScan(appObj):
         return
 
     isSaveDirInit = False
-    timePoint2 = time.time()
-
     try: 
         frameNum = 0
         scanNum = 0
@@ -1300,7 +1297,34 @@ def runVolScan(appObj):
                 mirrorOut = scanDetails.mirrOut
                 startTrigOffset = 0
                 # no need to filter the mirror commands here, because the necessary filtering has already been done in the setupScan routine                  
-            else:
+
+                # if first time running through, plot out the mirror commands and program the galvo analog output
+                if scanNum==0:                                       
+                    # plot command to GUI 
+                    pl = appObj.JSOmisc_plot1
+                    npts = mirrorOut.shape[1]
+                    t = np.linspace(0, npts/outputRate, npts)
+                    pl.clear()
+                    pl.plot(t, mirrorOut[0, :], pen='b')  
+                    pl.plot(t, mirrorOut[1, :], pen='r')  
+                    labelStyle = appObj.xLblStyle
+                    pl.setLabel('bottom', 'Time', 's', **labelStyle)
+                    labelStyle = appObj.yLblStyle
+                    pl.setLabel('left', 'Output', 'V', **labelStyle)
+        
+                    pl2=appObj.JSOmisc_plot2
+                    pl2.clear()
+                    pl2.plot(mirrorOut[0, :],mirrorOut[1, :], pen='b')
+                    labelStyle = appObj.xLblStyle
+                    pl2.setLabel('bottom', 'X galvo', 'V', **labelStyle)
+                    labelStyle = appObj.yLblStyle
+                    pl2.setLabel('left', 'Y galvo', 'V', **labelStyle)
+                    
+                    if not appObj.oct_hw.IsDAQTestingMode():
+                        # setup the analog output DAQ device
+                        daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOut.transpose())
+                        
+            else:       # regular volume scan
                 mirrorOut1 = makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, trigRate)
                 startTrigOffset = int(np.round(trigRate*mirrorDriver.settleTime))                
                 # if a MEMS mirror is being used, filter the mirrorOut commands to prevent damaging the device
@@ -1308,33 +1332,12 @@ def runVolScan(appObj):
                     mirrorOut=scipy.signal.filtfilt(mirrorDriver.b_filt,mirrorDriver.a_filt,mirrorOut1)           
                 else:
                     mirrorOut=mirrorOut1    
-                    
-            # plot command to GUI 
-            pl = appObj.JSOmisc_plot1
-            npts = mirrorOut.shape[1]
-            t = np.linspace(0, npts/outputRate, npts)
-            pl.clear()
-            pl.plot(t, mirrorOut[0, :], pen='b')  
-            pl.plot(t, mirrorOut[1, :], pen='r')  
-            labelStyle = appObj.xLblStyle
-            pl.setLabel('bottom', 'Time', 's', **labelStyle)
-            labelStyle = appObj.yLblStyle
-            pl.setLabel('left', 'Output', 'V', **labelStyle)
-
-            pl2=appObj.JSOmisc_plot2
-            pl2.clear()
-            pl2.plot(mirrorOut[0, :],mirrorOut[1, :], pen='b')
-            labelStyle = appObj.xLblStyle
-            pl2.setLabel('bottom', 'X galvo', 'V', **labelStyle)
-            labelStyle = appObj.yLblStyle
-            pl2.setLabel('left', 'Y galvo', 'V', **labelStyle)
-            
-            timePoint3 = time.time()
-
-            if not appObj.oct_hw.IsDAQTestingMode():
-                # setup the analog output DAQ device
-                daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOut.transpose())        
-                daq.startAnalogOutput()
+                if not appObj.oct_hw.IsDAQTestingMode():    # regular volume scan needs to change the mirror output every time
+                    # setup the analog output DAQ device
+                    daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOut.transpose())
+ 
+            if not appObj.oct_hw.IsDAQTestingMode():                   
+                daq.startAnalogOutput()     #start the galvo analog output, but it will wait for a trigger from the laser to start scanning
             
             # setup and grab the OCT data
             numTrigs = getNumTrigs(scanParams, scanDetails, trigRate, mirrorDriver)
@@ -1354,8 +1357,7 @@ def runVolScan(appObj):
                         oct_data = OCTCommon.loadRawData(testDataDir, frameNum, dataType=0)
                     else:
                         err, oct_data = appObj.oct_hw.AcquireOCTDataFFT(numTrigs, zROI, startTrigOffset, downsample=downsample)
-                    dataCollectionTime = time.time() - t1
-                        
+                    dataCollectionTime = time.time() - t1                        
                     timePoint4 = time.time()                        
                 elif processMode == OCTCommon.ProcessMode.SOFTWARE:
                     if appObj.oct_hw.IsOCTTestingMode():
@@ -1363,18 +1365,14 @@ def runVolScan(appObj):
                     else:
                         # def AcquireOCTDataRaw(self, numTriggers, samplesPerTrig=-1, Ch0Shift=-1, startTrigOffset=0):
                         samplesPerTrig = appObj.oct_hw.fpgaOpts.SamplesPerTrig*2
-                        err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset, downsample=downsample)
-                        
+                        err, ch0_data,ch1_data = appObj.oct_hw.AcquireOCTDataRaw(numTrigs, samplesPerTrig, startTrigOffset=startTrigOffset, downsample=downsample)                       
                     dataCollectionTime = time.time() - t1
-                    timePoint4 = time.time()
-                     
+                    timePoint4 = time.time()                    
                     oct_data, klin = JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
                 else:
                     QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
                     dataCollectionTime = 0
-                
-                timePoint5 = time.time()
-    
+                    
                 # process the data
                 oct_data_mag = np.abs(oct_data)
                 volData = processData(oct_data_mag, scanParams, mirrorDriver, trigRate, procOpts, volData, frameNum, scanDetails, plotParam)
@@ -1412,18 +1410,14 @@ def runVolScan(appObj):
                     rset = False                
                     
                 if not appObj.oct_hw.IsDAQTestingMode():
-                    daq.waitDoneOutput()
-                    daq.stopAnalogOutput()
-                    daq.clearAnalogOutput()
-                timePoint7 = time.time()
-    
-                print('timePoint2-timePoint1 = ',timePoint2-timePoint1)
-                print('timePoint3-timePoint2 = ',timePoint3-timePoint2)
-                print('timePoint4-timePoint3 = ',timePoint4-timePoint3)
-                print('timePoint5-timePoint4 = ',timePoint5-timePoint4)
-                print('timePoint6-timePoint5 = ',timePoint6-timePoint5)
-                print('timePoint7-timePoint6 = ',timePoint7-timePoint6)            
-    
+                    if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel or scanParams.pattern == ScanPattern.zigZag:
+                        daq.waitDoneOutput()
+                        daq.stopAnalogOutput()
+                    else:
+                        daq.waitDoneOutput()
+                        daq.stopAnalogOutput()
+                        daq.clearAnalogOutput()  # clear mirror file for regular volume scan
+                    
                 frameNum += 1
                 appObj.acquisition_progressBar.setValue(round(100*frameNum/framesPerScan))
                 if appObj.getSaveState():
