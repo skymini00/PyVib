@@ -193,6 +193,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
 
         self.nextProtocol = None
         self.volDataLast = None
+        self.mscanVolDataLast = None
+        
         # Bind the event handlers
         self._bindEventHandlers()
         
@@ -432,6 +434,10 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
         self.vol_clear_polyROI_pushButton.clicked.connect(self.vol_clear_polyROI_pushButton_clicked)
         self.vol_clear_freeROI_pushButton.clicked.connect(self.vol_clear_freeROI_pushButton_clicked)
+        
+        self.mscan_vol_enFace_avgDepth_verticalSlider.valueChanged.connect(self.enFaceChanged)
+        self.mscan_vol_enFace_imageGen_comboBox.currentIndexChanged.connect(self.enFaceChanged)
+        self.mscan_vol_enFace_zStep_verticalSlider.valueChanged.connect(self.enFaceChanged)
         
     def _initGraphVars(self):
         layout = QtGui.QHBoxLayout()
@@ -1363,7 +1369,21 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 
             if imgData is not None:
                 self.vol_plane_proj_gv.setImage(imgData, ROIImageGraphicsView.COLORMAP_HOT)
-        
+                
+    def mscanEnFaceChanged(self):
+        if hasattr(self, 'mscaVolDataLast') and (self.mscanVolDataLast is not None):
+            volData = self.volDataLast
+            zStep = self.mscan_vol_enFace_zStep_verticalSlider.value()
+            zDepth = self.mscan_vol_enFace_avgDepth_verticalSlider.value()
+            projType = VolumeScan.EnFaceProjType(self.mscan_vol_enFace_imageGen_comboBox.currentIndex())
+            if volData.spiralScanData is not None:
+                imgData = volData.spiralScanData.surfacePlot
+            else:
+                imgData = VolumeScan.makeEnfaceImgSliceFromVolume(volData, zStep, zDepth, projType)
+                
+            if imgData is not None:
+                self.mscan_img_vol_roi_enface_gv.setImage(imgData, ROIImageGraphicsView.COLORMAP_HOT)
+                
     def volBScanWidthStepChanged(self):
         volData = self.volDataLast
         if volData is None: 

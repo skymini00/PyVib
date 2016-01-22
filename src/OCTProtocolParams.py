@@ -17,8 +17,8 @@ class ScanParams:
         self.widthSteps = int(200)   # number of width steps (size of image)
         self.rotation_Z = 0           # rotation in degrees
         self.pattern = ScanPattern.rasterFast   # pattern of the scan
-        self.ptsList = [[]]          # a list of points, fist dimension is pt #, second is the x/y 
-        self.boxROIMaskXY = [[]]       # a 2D grid of True/False values, used for scans that are based off of a restriction region of a volume
+        self.ptsList = None          # a list of points, fist dimension is pt #, second is the x/y 
+        self.boxROIMaskXY = None     # a 2D grid of True/False values, used for scans that are based off of a restriction region of a volume
         self.numAverages = 1         # number of times to repeat scan
         self.downsample = 0          # used for FPGA downsampling  
         

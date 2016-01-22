@@ -856,7 +856,7 @@
         <property name="geometry">
          <rect>
           <x>370</x>
-          <y>10</y>
+          <y>0</y>
           <width>1501</width>
           <height>991</height>
          </rect>
@@ -867,7 +867,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>7</number>
+         <number>4</number>
         </property>
         <widget class="QWidget" name="bscan_tab">
          <attribute name="title">
@@ -1343,6 +1343,19 @@
           </property>
           <property name="value">
            <number>0</number>
+          </property>
+         </widget>
+         <widget class="QLabel" name="mirror_label">
+          <property name="geometry">
+           <rect>
+            <x>1190</x>
+            <y>10</y>
+            <width>231</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>TextLabel</string>
           </property>
          </widget>
         </widget>
@@ -2469,7 +2482,7 @@
            <rect>
             <x>560</x>
             <y>910</y>
-            <width>81</width>
+            <width>91</width>
             <height>22</height>
            </rect>
           </property>
@@ -2477,7 +2490,7 @@
            <string> um</string>
           </property>
           <property name="value">
-           <double>0.000000000000000</double>
+           <double>20.000000000000000</double>
           </property>
          </widget>
          <widget class="QLabel" name="label_157">
@@ -2981,10 +2994,10 @@
          <widget class="QLabel" name="label_59">
           <property name="geometry">
            <rect>
-            <x>680</x>
-            <y>20</y>
-            <width>131</width>
-            <height>31</height>
+            <x>740</x>
+            <y>10</y>
+            <width>141</width>
+            <height>16</height>
            </rect>
           </property>
           <property name="font">
@@ -2999,30 +3012,30 @@
          <widget class="ROIImageGraphicsView" name="mscan_img_mag_roi_gv">
           <property name="geometry">
            <rect>
-            <x>670</x>
-            <y>50</y>
-            <width>461</width>
-            <height>321</height>
+            <x>730</x>
+            <y>30</y>
+            <width>591</width>
+            <height>391</height>
            </rect>
           </property>
          </widget>
          <widget class="ROIImageGraphicsView" name="mscan_img_vol_roi_gv">
           <property name="geometry">
            <rect>
-            <x>10</x>
-            <y>50</y>
-            <width>461</width>
-            <height>321</height>
+            <x>60</x>
+            <y>40</y>
+            <width>581</width>
+            <height>381</height>
            </rect>
           </property>
          </widget>
          <widget class="QLabel" name="label_61">
           <property name="geometry">
            <rect>
-            <x>20</x>
+            <x>60</x>
             <y>20</y>
             <width>71</width>
-            <height>31</height>
+            <height>16</height>
            </rect>
           </property>
           <property name="font">
@@ -3037,18 +3050,18 @@
          <widget class="ROIImageGraphicsView" name="mscan_img_phase_roi_gv">
           <property name="geometry">
            <rect>
-            <x>670</x>
-            <y>440</y>
-            <width>461</width>
-            <height>321</height>
+            <x>730</x>
+            <y>490</y>
+            <width>591</width>
+            <height>451</height>
            </rect>
           </property>
          </widget>
          <widget class="QLabel" name="label_64">
           <property name="geometry">
            <rect>
-            <x>680</x>
-            <y>410</y>
+            <x>730</x>
+            <y>460</y>
             <width>131</width>
             <height>31</height>
            </rect>
@@ -3065,9 +3078,9 @@
          <widget class="QSlider" name="mscan_intensityThresh_slider">
           <property name="geometry">
            <rect>
-            <x>490</x>
-            <y>280</y>
-            <width>160</width>
+            <x>1070</x>
+            <y>440</y>
+            <width>241</width>
             <height>19</height>
            </rect>
           </property>
@@ -3084,8 +3097,8 @@
          <widget class="QLabel" name="label_6">
           <property name="geometry">
            <rect>
-            <x>490</x>
-            <y>250</y>
+            <x>940</x>
+            <y>440</y>
             <width>151</width>
             <height>16</height>
            </rect>
@@ -3102,8 +3115,8 @@
          <widget class="QDoubleSpinBox" name="mscan_noise_numSD_dblSpinBox">
           <property name="geometry">
            <rect>
-            <x>490</x>
-            <y>330</y>
+            <x>1070</x>
+            <y>460</y>
             <width>62</width>
             <height>22</height>
            </rect>
@@ -3123,8 +3136,8 @@
          <widget class="QLabel" name="label_7">
           <property name="geometry">
            <rect>
-            <x>490</x>
-            <y>310</y>
+            <x>910</x>
+            <y>460</y>
             <width>151</width>
             <height>16</height>
            </rect>
@@ -3141,8 +3154,8 @@
          <widget class="QLabel" name="label_9">
           <property name="geometry">
            <rect>
-            <x>1120</x>
-            <y>30</y>
+            <x>1340</x>
+            <y>50</y>
             <width>41</width>
             <height>19</height>
            </rect>
@@ -3159,8 +3172,8 @@
          <widget class="QLabel" name="mscan_img_mag_max_lbl">
           <property name="geometry">
            <rect>
-            <x>1160</x>
-            <y>30</y>
+            <x>1380</x>
+            <y>50</y>
             <width>31</width>
             <height>19</height>
            </rect>
@@ -3177,8 +3190,8 @@
          <widget class="QLabel" name="label_18">
           <property name="geometry">
            <rect>
-            <x>1130</x>
-            <y>380</y>
+            <x>1350</x>
+            <y>400</y>
             <width>41</width>
             <height>19</height>
            </rect>
@@ -3195,8 +3208,8 @@
          <widget class="QLabel" name="mscan_img_mag_min_lbl">
           <property name="geometry">
            <rect>
-            <x>1170</x>
-            <y>380</y>
+            <x>1390</x>
+            <y>400</y>
             <width>31</width>
             <height>19</height>
            </rect>
@@ -3213,8 +3226,8 @@
          <widget class="QLabel" name="mscan_img_mag_clrbar_lbl">
           <property name="geometry">
            <rect>
-            <x>1140</x>
-            <y>50</y>
+            <x>1360</x>
+            <y>70</y>
             <width>21</width>
             <height>321</height>
            </rect>
@@ -3231,10 +3244,10 @@
          <widget class="QLabel" name="mscan_img_phase_clrbar_lbl">
           <property name="geometry">
            <rect>
-            <x>1140</x>
-            <y>440</y>
-            <width>21</width>
-            <height>321</height>
+            <x>1360</x>
+            <y>570</y>
+            <width>16</width>
+            <height>331</height>
            </rect>
           </property>
           <property name="font">
@@ -3249,8 +3262,8 @@
          <widget class="QLabel" name="label_65">
           <property name="geometry">
            <rect>
-            <x>1160</x>
-            <y>430</y>
+            <x>1380</x>
+            <y>570</y>
             <width>41</width>
             <height>19</height>
            </rect>
@@ -3267,8 +3280,8 @@
          <widget class="QLabel" name="label_66">
           <property name="geometry">
            <rect>
-            <x>1160</x>
-            <y>750</y>
+            <x>1380</x>
+            <y>890</y>
             <width>41</width>
             <height>19</height>
            </rect>
@@ -3285,8 +3298,8 @@
          <widget class="QLabel" name="label_67">
           <property name="geometry">
            <rect>
-            <x>1160</x>
-            <y>590</y>
+            <x>1380</x>
+            <y>730</y>
             <width>41</width>
             <height>19</height>
            </rect>
@@ -3303,8 +3316,8 @@
          <widget class="QLabel" name="mscan_img_mag_half_max_lbl">
           <property name="geometry">
            <rect>
-            <x>1170</x>
-            <y>200</y>
+            <x>1390</x>
+            <y>220</y>
             <width>41</width>
             <height>19</height>
            </rect>
@@ -3321,8 +3334,8 @@
          <widget class="QLabel" name="label_74">
           <property name="geometry">
            <rect>
-            <x>1160</x>
-            <y>510</y>
+            <x>1380</x>
+            <y>650</y>
             <width>41</width>
             <height>19</height>
            </rect>
@@ -3339,8 +3352,8 @@
          <widget class="QLabel" name="label_75">
           <property name="geometry">
            <rect>
-            <x>1160</x>
-            <y>670</y>
+            <x>1380</x>
+            <y>810</y>
             <width>41</width>
             <height>19</height>
            </rect>
@@ -3357,8 +3370,8 @@
          <widget class="QLabel" name="mscan_img_mag_qtr_max_lbl">
           <property name="geometry">
            <rect>
-            <x>1170</x>
-            <y>290</y>
+            <x>1390</x>
+            <y>310</y>
             <width>41</width>
             <height>19</height>
            </rect>
@@ -3375,8 +3388,8 @@
          <widget class="QLabel" name="mscan_img_mag_3qtr_max_lbl">
           <property name="geometry">
            <rect>
-            <x>1170</x>
-            <y>120</y>
+            <x>1390</x>
+            <y>140</y>
             <width>41</width>
             <height>19</height>
            </rect>
@@ -3393,8 +3406,8 @@
          <widget class="QComboBox" name="mscan_vol_freq_comboBox">
           <property name="geometry">
            <rect>
-            <x>490</x>
-            <y>110</y>
+            <x>650</x>
+            <y>80</y>
             <width>69</width>
             <height>22</height>
            </rect>
@@ -3403,8 +3416,8 @@
          <widget class="QLabel" name="label_73">
           <property name="geometry">
            <rect>
-            <x>490</x>
-            <y>90</y>
+            <x>650</x>
+            <y>60</y>
             <width>71</width>
             <height>16</height>
            </rect>
@@ -3421,8 +3434,8 @@
          <widget class="QLabel" name="label_76">
           <property name="geometry">
            <rect>
-            <x>490</x>
-            <y>150</y>
+            <x>650</x>
+            <y>120</y>
             <width>71</width>
             <height>16</height>
            </rect>
@@ -3439,8 +3452,8 @@
          <widget class="QComboBox" name="mscan_vol_amp_comboBox">
           <property name="geometry">
            <rect>
-            <x>490</x>
-            <y>170</y>
+            <x>650</x>
+            <y>140</y>
             <width>69</width>
             <height>22</height>
            </rect>
@@ -3449,10 +3462,10 @@
          <widget class="QLabel" name="mscanProcessTime_label">
           <property name="geometry">
            <rect>
-            <x>150</x>
-            <y>420</y>
-            <width>81</width>
-            <height>19</height>
+            <x>660</x>
+            <y>290</y>
+            <width>61</width>
+            <height>20</height>
            </rect>
           </property>
           <property name="font">
@@ -3467,10 +3480,10 @@
          <widget class="QLabel" name="label_94">
           <property name="geometry">
            <rect>
-            <x>30</x>
-            <y>420</y>
-            <width>111</width>
-            <height>19</height>
+            <x>650</x>
+            <y>270</y>
+            <width>61</width>
+            <height>20</height>
            </rect>
           </property>
           <property name="font">
@@ -3479,19 +3492,16 @@
            </font>
           </property>
           <property name="text">
-           <string>Process time:</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           <string>Process</string>
           </property>
          </widget>
          <widget class="QLabel" name="label_95">
           <property name="geometry">
            <rect>
-            <x>30</x>
-            <y>400</y>
-            <width>111</width>
-            <height>19</height>
+            <x>650</x>
+            <y>210</y>
+            <width>71</width>
+            <height>20</height>
            </rect>
           </property>
           <property name="font">
@@ -3500,7 +3510,7 @@
            </font>
           </property>
           <property name="text">
-           <string>Collection time:</string>
+           <string>Collection</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -3509,10 +3519,10 @@
          <widget class="QLabel" name="mscanCollectionTime_label">
           <property name="geometry">
            <rect>
-            <x>150</x>
-            <y>400</y>
-            <width>81</width>
-            <height>19</height>
+            <x>660</x>
+            <y>230</y>
+            <width>61</width>
+            <height>20</height>
            </rect>
           </property>
           <property name="font">
@@ -3524,6 +3534,258 @@
            <string>0</string>
           </property>
          </widget>
+         <widget class="ROIImageGraphicsView" name="mscan_img_vol_roi_enface_gv">
+          <property name="geometry">
+           <rect>
+            <x>60</x>
+            <y>490</y>
+            <width>581</width>
+            <height>451</height>
+           </rect>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_159">
+          <property name="geometry">
+           <rect>
+            <x>60</x>
+            <y>460</y>
+            <width>71</width>
+            <height>21</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>12</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>En Face</string>
+          </property>
+         </widget>
+         <widget class="QSlider" name="mscan_vol_enFace_zStep_verticalSlider">
+          <property name="geometry">
+           <rect>
+            <x>40</x>
+            <y>40</y>
+            <width>16</width>
+            <height>381</height>
+           </rect>
+          </property>
+          <property name="maximum">
+           <number>400</number>
+          </property>
+          <property name="pageStep">
+           <number>10</number>
+          </property>
+          <property name="value">
+           <number>20</number>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="invertedAppearance">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <widget class="QSpinBox" name="mscan_vol_widthstep_spinBox">
+          <property name="geometry">
+           <rect>
+            <x>540</x>
+            <y>430</y>
+            <width>51</width>
+            <height>21</height>
+           </rect>
+          </property>
+          <property name="maximum">
+           <number>500</number>
+          </property>
+         </widget>
+         <widget class="QSlider" name="mscan_vol_widthstep_slider">
+          <property name="geometry">
+           <rect>
+            <x>100</x>
+            <y>430</y>
+            <width>421</width>
+            <height>19</height>
+           </rect>
+          </property>
+          <property name="maximum">
+           <number>500</number>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="tickPosition">
+           <enum>QSlider::TicksAbove</enum>
+          </property>
+          <property name="tickInterval">
+           <number>10</number>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_160">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>320</y>
+            <width>41</width>
+            <height>51</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>EnFace Avg. Depth</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <widget class="QSlider" name="mscan_vol_enFace_avgDepth_verticalSlider">
+          <property name="geometry">
+           <rect>
+            <x>10</x>
+            <y>100</y>
+            <width>20</width>
+            <height>211</height>
+           </rect>
+          </property>
+          <property name="maximum">
+           <number>100</number>
+          </property>
+          <property name="pageStep">
+           <number>10</number>
+          </property>
+          <property name="value">
+           <number>30</number>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="invertedAppearance">
+           <bool>false</bool>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_161">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>10</y>
+            <width>51</width>
+            <height>31</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>EnFace ZStep</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_162">
+          <property name="geometry">
+           <rect>
+            <x>310</x>
+            <y>460</y>
+            <width>161</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>EnFace Image Gneration</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <widget class="QComboBox" name="mscan_vol_enFace_imageGen_comboBox">
+          <property name="geometry">
+           <rect>
+            <x>470</x>
+            <y>460</y>
+            <width>71</width>
+            <height>21</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <item>
+           <property name="text">
+            <string>Average</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Max</string>
+           </property>
+          </item>
+         </widget>
+         <zorder>label_59</zorder>
+         <zorder>mscan_img_mag_roi_gv</zorder>
+         <zorder>mscan_img_vol_roi_gv</zorder>
+         <zorder>label_61</zorder>
+         <zorder>mscan_img_phase_roi_gv</zorder>
+         <zorder>label_64</zorder>
+         <zorder>mscan_intensityThresh_slider</zorder>
+         <zorder>label_6</zorder>
+         <zorder>mscan_noise_numSD_dblSpinBox</zorder>
+         <zorder>label_7</zorder>
+         <zorder>label_9</zorder>
+         <zorder>mscan_img_mag_max_lbl</zorder>
+         <zorder>label_18</zorder>
+         <zorder>mscan_img_mag_min_lbl</zorder>
+         <zorder>mscan_img_mag_clrbar_lbl</zorder>
+         <zorder>mscan_img_phase_clrbar_lbl</zorder>
+         <zorder>label_65</zorder>
+         <zorder>label_66</zorder>
+         <zorder>label_67</zorder>
+         <zorder>mscan_img_mag_half_max_lbl</zorder>
+         <zorder>label_74</zorder>
+         <zorder>label_75</zorder>
+         <zorder>mscan_img_mag_qtr_max_lbl</zorder>
+         <zorder>mscan_img_mag_3qtr_max_lbl</zorder>
+         <zorder>mscan_vol_freq_comboBox</zorder>
+         <zorder>label_73</zorder>
+         <zorder>label_76</zorder>
+         <zorder>mscan_vol_amp_comboBox</zorder>
+         <zorder>mscanProcessTime_label</zorder>
+         <zorder>label_94</zorder>
+         <zorder>label_95</zorder>
+         <zorder>mscanCollectionTime_label</zorder>
+         <zorder>mscan_img_vol_roi_enface_gv</zorder>
+         <zorder>label_159</zorder>
+         <zorder>mscan_vol_widthstep_spinBox</zorder>
+         <zorder>mscan_vol_widthstep_slider</zorder>
+         <zorder>label_160</zorder>
+         <zorder>mscan_vol_enFace_avgDepth_verticalSlider</zorder>
+         <zorder>mscan_vol_enFace_zStep_verticalSlider</zorder>
+         <zorder>label_161</zorder>
+         <zorder>label_162</zorder>
+         <zorder>mscan_vol_enFace_imageGen_comboBox</zorder>
         </widget>
         <widget class="QWidget" name="dispcorr_tab">
          <attribute name="title">
@@ -7496,19 +7758,6 @@ focal plane adjust</string>
          <bool>false</bool>
         </property>
        </widget>
-       <widget class="QLabel" name="mirror_label">
-        <property name="geometry">
-         <rect>
-          <x>360</x>
-          <y>-2</y>
-          <width>301</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>TextLabel</string>
-        </property>
-       </widget>
        <zorder>acquisition_progressBar</zorder>
        <zorder>label_142</zorder>
        <zorder>tabWidget_2</zorder>
@@ -7527,7 +7776,6 @@ focal plane adjust</string>
        <zorder>Volume_pushButton</zorder>
        <zorder>rawDataTest_pushButton</zorder>
        <zorder>tabWidget</zorder>
-       <zorder>mirror_label</zorder>
       </widget>
      </widget>
     </item>
