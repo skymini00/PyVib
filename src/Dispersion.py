@@ -372,7 +372,7 @@ def runDispersion(appObj):
                     numklinpts = 1400
                 else:
                     err, pd_data = appObj.oct_hw.AcquireOCTDataInterpPD(numTrigs)
-                    DebugLog.log("runBScan(): AcquireOCTDataInterpPD() err = %d" % err)
+                    DebugLog.log("runDispersion(): AcquireOCTDataInterpPD() err = %d" % err)
                     # process the data
                     dispData = processData(pd_data, dispData, numklinpts, PDfiltCutoffs, magWin_LPfilterCutoff, pd_background, collectBG)
 

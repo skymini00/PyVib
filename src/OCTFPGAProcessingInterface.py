@@ -179,7 +179,16 @@ class FPGAOpts_t(Structure):
 class LV_DLLInterface:
     def __init__(self):
         self.isInitialized = False
-        self.fpgaOpts = FPGAOpts_t()        
+        self.fpgaOpts = FPGAOpts_t()
+
+        # these variables store the state and memory buffer for the last acquisition
+        # if repeated calls are made to the same AcquireXXX functions,
+        # with the same paramters, the buffer is reused 
+        # this ensures a new buffer is not allocated and subsequently garbage collected
+        self.bufferLast = None
+        self.lastAcqType = ''
+        self.ROIsizeLast = -1
+        self.trigNumLast =  -1       
     
     """ InitInterface: loads the LabVIEW OCT FPGA interface DLL and maps C routines to Python equivalents
     """ 
@@ -396,13 +405,23 @@ class LV_DLLInterface:
         len_data = c_int32(numDataPts)
         len_packed_data = c_int32(numPackedDataPts)
         
-        d_re = np.zeros((numDataPts), np.float32)
-        d_im = np.zeros((numDataPts), np.float32)        
-        d_re = np.require(d_re, np.float32, ['C', 'W'])
-        d_im = np.require(d_im, np.float32, ['C', 'W'])
-        
-        packedData = np.zeros((numPackedDataPts), np.uint64)
-        packedData = np.require(packedData, np.uint64, ['C', 'W'])
+        useLastBuffer = (self.lastAcqType == 'FFT') and (self.ROIsizeLast == zROI) and (self.trigNumLast == numTriggers)
+        DebugLog.log("AcquireOCTDataFFT  useLastBuffer= %s" % repr(useLastBuffer))
+        if useLastBuffer:
+            d_re = self.bufferLast[0]
+            d_im = self.bufferLast[1]
+            packedData = self.bufferLast[2]
+        else:
+            d_re = np.zeros((numDataPts), np.float32)
+            d_im = np.zeros((numDataPts), np.float32)        
+            d_re = np.require(d_re, np.float32, ['C', 'W'])
+            d_im = np.require(d_im, np.float32, ['C', 'W'])
+            packedData = np.zeros((numPackedDataPts), np.uint64)
+            packedData = np.require(packedData, np.uint64, ['C', 'W'])
+            self.lastAcqType = 'FFT'
+            self.ROIsizeLast = zROI
+            self.trigNumLast =  numTriggers
+            self.bufferLast = [d_re, d_im, packedData, None]
         
         #trigOffset = fpgaOpts.StartTriggerOfffset
         timeElapsed = c_uint32(0)
@@ -414,7 +433,13 @@ class LV_DLLInterface:
         # DebugLog.log("OCTDataCollector.startFrameGetData(): isSynchOCT = " + repr(self.protocol.isSynchOCT()))
         err = self.acq_fpga_data(setupNum, c_uint32(numTrigsOut.value), c_uint32(numSamples), trigOffset, unpackData, d_re, d_im, byref(len_data), packedData, byref(len_packed_data), byref(timeElapsed), byref(transferTime), byref(unpackTime))
         DebugLog.log("AcquireOCTDataFFT  len_data= " + repr(len_data.value))
-        oct_data = np.zeros(len_data.value, np.complex)
+        
+        if useLastBuffer:
+            oct_data = self.bufferLast[3]
+        else:
+            oct_data = np.zeros(len_data.value, np.complex)
+            self.bufferLast[3] = oct_data
+            
         oct_data[:] = d_re + 1j * d_im;
         oct_data = oct_data.reshape((numTrigsOut.value, roiSizeOut.value))
     
@@ -452,14 +477,23 @@ class LV_DLLInterface:
         len_data = c_int32(numDataPts)
         len_packed_data = c_int32(numPackedDataPts)
         
-        d_re = np.zeros((numDataPts), np.float32)
-        d_im = np.zeros((numDataPts), np.float32)        
-        d_re = np.require(d_re, np.float32, ['C', 'W'])
-        d_im = np.require(d_im, np.float32, ['C', 'W'])
-        
-        packedData = np.zeros((numPackedDataPts), np.uint64)
-        packedData = np.require(packedData, np.uint64, ['C', 'W'])
-        
+        useLastBuffer = (self.lastAcqType == 'InterpPD') and (self.trigNumLast == numTrigs)
+        DebugLog.log("AcquireOCTDataInterpPD  useLastBuffer= %s" % repr(useLastBuffer))
+        if useLastBuffer:
+            d_re = self.bufferLast[0]
+            d_im = self.bufferLast[1]
+            packedData = self.bufferLast[2]
+        else:
+            d_re = np.zeros((numDataPts), np.float32)
+            d_im = np.zeros((numDataPts), np.float32)        
+            d_re = np.require(d_re, np.float32, ['C', 'W'])
+            d_im = np.require(d_im, np.float32, ['C', 'W'])
+            packedData = np.zeros((numPackedDataPts), np.uint64)
+            packedData = np.require(packedData, np.uint64, ['C', 'W'])
+            self.lastAcqType = 'InterpPD'
+            self.trigNumLast =  numTrigs
+            self.bufferLast = [d_re, d_im, packedData, None]
+
         #trigOffset = fpgaOpts.StartTriggerOfffset
         timeElapsed = c_uint32(0)
         transferTime = c_uint32(0)
@@ -470,7 +504,12 @@ class LV_DLLInterface:
         # DebugLog.log("OCTDataCollector.startFrameGetData(): isSynchOCT = " + repr(self.protocol.isSynchOCT()))
         err = self.acq_fpga_data(setupNum, c_uint32(numTrigsOut.value), c_uint32(numSamples), trigOffset, unpackData, d_re, d_im, byref(len_data), packedData, byref(len_packed_data), byref(timeElapsed), byref(transferTime), byref(unpackTime))
         
-        interp_pd = np.zeros(len_data.value, np.double)
+        if useLastBuffer:
+            interp_pd  = self.bufferLast[3]
+        else:
+            interp_pd = np.zeros(len_data.value, np.double)
+            self.bufferLast[3] = interp_pd 
+            
         interp_pd[:] = d_re 
         interp_pd = interp_pd.reshape((numTrigsOut.value, roiSizeOut.value))
     
@@ -517,16 +556,23 @@ class LV_DLLInterface:
         len_packed_data = c_int32(numPackedDataPts)
         
         t1 = time.time()
-        
-        d_re = np.zeros((numDataPts), np.float32)
-        d_im = np.zeros((numDataPts), np.float32)        
-        d_re = np.require(d_re, np.float32, ['C', 'W'])
-        d_im = np.require(d_im, np.float32, ['C', 'W'])
-        
-        packedData = np.zeros((numPackedDataPts), np.uint64)
-        packedData = np.require(packedData, np.uint64, ['C', 'W'])
-
-        DebugLog.log("AcquireOCTDataMagOnly: mem alloc time= %0.1f ms " % (1000*(time.time() - t1)))
+        useLastBuffer = (self.lastAcqType == 'MagOnly') and (self.trigNumLast == numTriggers)
+        DebugLog.log("AcquireOCTDataMagOnly  useLastBuffer= %s" % repr(useLastBuffer))
+        if useLastBuffer:
+            d_re = self.bufferLast[0]
+            d_im = self.bufferLast[1]
+            packedData = self.bufferLast[2]
+        else:
+            d_re = np.zeros((numDataPts), np.float32)
+            d_im = np.zeros((numDataPts), np.float32)        
+            d_re = np.require(d_re, np.float32, ['C', 'W'])
+            d_im = np.require(d_im, np.float32, ['C', 'W'])
+            packedData = np.zeros((numPackedDataPts), np.uint64)
+            packedData = np.require(packedData, np.uint64, ['C', 'W'])
+            self.lastAcqType = 'MagOnly'
+            self.trigNumLast =  numTriggers
+            self.bufferLast = [d_re, d_im, packedData]
+            DebugLog.log("AcquireOCTDataMagOnly: mem alloc time= %0.1f ms " % (1000*(time.time() - t1)))
 
         
         #trigOffset = fpgaOpts.StartTriggerOfffset
@@ -595,14 +641,24 @@ class LV_DLLInterface:
         len_data = c_int32(numDataPts)
         len_packed_data = c_int32(numPackedDataPts)
         
-        d_re = np.zeros((numDataPts), np.float32)
-        d_im = np.zeros((numDataPts), np.float32)        
-        d_re = np.require(d_re, np.float32, ['C', 'W'])
-        d_im = np.require(d_im, np.float32, ['C', 'W'])
-        
-        packedData = np.zeros((numPackedDataPts), np.uint64)
-        packedData = np.require(packedData, np.uint64, ['C', 'W'])
-        
+        useLastBuffer = (self.lastAcqType == 'Raw') and (self.ROIsizeLast == samplesPerTrig) and (self.trigNumLast == numTriggers)
+        DebugLog.log("AcquireOCTDataFFT  useLastBuffer= %s" % repr(useLastBuffer))
+        if useLastBuffer:
+            d_re = self.bufferLast[0]
+            d_im = self.bufferLast[1]
+            packedData = self.bufferLast[2]
+        else:
+            d_re = np.zeros((numDataPts), np.float32)
+            d_im = np.zeros((numDataPts), np.float32)        
+            d_re = np.require(d_re, np.float32, ['C', 'W'])
+            d_im = np.require(d_im, np.float32, ['C', 'W'])
+            packedData = np.zeros((numPackedDataPts), np.uint64)
+            packedData = np.require(packedData, np.uint64, ['C', 'W'])
+            self.lastAcqType = 'Raw'
+            self.ROIsizeLast = samplesPerTrig
+            self.trigNumLast =  numTriggers
+            self.bufferLast = [d_re, d_im, packedData, None, None]
+            
         #trigOffset = fpgaOpts.StartTriggerOfffset
         timeElapsed = c_uint32(0)
         transferTime = c_uint32(0)
@@ -614,8 +670,18 @@ class LV_DLLInterface:
         DebugLog.log("AcquireOCTDataRaw numSamples= " + repr(numSamples))
         err = self.acq_fpga_data(setupNum, c_uint32(numTrigsOut.value), c_uint32(numSamples), trigOffset, unpackData, d_re, d_im, byref(len_data), packedData, byref(len_packed_data), byref(timeElapsed), byref(transferTime), byref(unpackTime))
         DebugLog.log("AcquireOCTDataRaw len_data= " + repr(len_data.value) + " transferTime= " + repr(transferTime.value))
-        pd_data = np.zeros(len_data.value, np.float32)
-        mzi_data = np.zeros(len_data.value, np.float32)
+        
+        if useLastBuffer:
+            pd_data = np.zeros(len_data.value, np.float32)
+            mzi_data = np.zeros(len_data.value, np.float32)
+            pd_data = self.bufferLast[3]
+            mzi_data = self.bufferLast[4]
+        else:
+            pd_data = np.zeros(len_data.value, np.float32)
+            mzi_data = np.zeros(len_data.value, np.float32)
+            self.bufferLast[3] = pd_data
+            self.bufferLast[4] = mzi_data
+        
         pd_data[:] = d_re
         pd_data = pd_data.reshape((numTrigsOut.value, roiSizeOut.value))
         pd_data = pd_data[:, 0:samplesPerTrig*2]
@@ -746,7 +812,8 @@ class LV_DLLInterface_BGProcess:
             err, oct_data = self.oct_hw.AcquireOCTDataFFT(param[0], param[1], param[2], param[3])
             self.rawDataQ.put((err, oct_data))
         elif msgType == 'acquireInterpPD':
-            err, interp_pd = self.oct_hw.AcquireOCTDataInterpPD(param)
+            err, interp_pd = self.oct_hw.AcquireOCTDataInterpPD(param[0], param[1])
+            
             self.rawDataQ.put((err, interp_pd))
         elif msgType == 'acquireRaw':
             err, pd_data, mzi_data = self.oct_hw.AcquireOCTDataRaw(param[0], param[1], param[2], param[3])

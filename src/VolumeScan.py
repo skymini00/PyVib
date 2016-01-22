@@ -42,6 +42,9 @@ class ProcOpts:
         self.biDirTrigVolAdj = 0
         self.zRes = 8.3e-6
         
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+        
 # processed data of a single stim of single pt
 class VolumeData:
     def __init__(self):
@@ -1097,7 +1100,7 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
     frameNum = 0
     scanNum = 0
     isDone = False
-    
+    procOptsLast = None
     
     while not isDone: 
         # update parameters in background process
@@ -1185,13 +1188,20 @@ def runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, sca
                     appObj.doneFlag = True  # if error occured, stop pcollecting
                 statusMsg = oct_hw.GetStatus()
                 
+            
         procOpts.normLow = appObj.normLow_spinBox.value()
         procOpts.normHigh = appObj.normHigh_spinBox.value()
         procOpts.biDirTrigVolFix = appObj.volBidirTrigFix_spinBox.value()
         procOpts.thresholdEnFace = appObj.thresholdEnFace_verticalSlider.value()
         procOpts.enFace_avgDepth = appObj.enFace_avgDepth_verticalSlider.value()
+        
+        sendProcOpts = True
+        if procOptsLast is not None and procOpts == procOptsLast:
+            sendProcOpts = False
 
-        msgQ.put(('procOpts', procOpts))  # update processing options
+        procOptsLast = copy.copy(procOpts)
+        if sendProcOpts:
+            msgQ.put(('procOpts', procOpts))  # update processing options
 
         tElapsed = time.time() - startTime
         tMins = int(np.floor(tElapsed / 60))
