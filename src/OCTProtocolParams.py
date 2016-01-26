@@ -45,8 +45,9 @@ class ScanParams:
         s = s + '\n\tbscansPerFrame= %d xskew= %0.3f phaseAdjust= %0.3f' % (self.volBscansPerFrame, self.xskew, self.phaseAdjust)
         s = s + '\n\tcontinuousScan= %s angularScanFreq= %0.3f volScanFreq= %0.3f' % (repr(self.continuousScan), self.angularScanFreq, self.volScanFreq)
         ptsListStr = ''
-        for n in range(0, len(self.ptsList)):
-            ptsListStr = ptsListStr + repr(self.ptsList[n])
+        if self.ptsList is not None:
+            for n in range(0, len(self.ptsList)):
+                ptsListStr = ptsListStr + repr(self.ptsList[n])
         s = s + '\nptList= %s' % ptsListStr
         return s
         
