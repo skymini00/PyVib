@@ -287,6 +287,8 @@ def saveDispersionData(dispData, basePath):
     f.write(s)           
     f.close()
     
+    return filepath
+    
 def plotDispData(appObj, dispData, PDfiltCutoffs):
     pl = appObj.plot_disp_phdiode
     pl.clear()
@@ -347,7 +349,8 @@ def runDispersion(appObj):
         testDataDir = os.path.join(appObj.basePath, 'exampledata', 'Dispersion')
         dispData = DispersionData(fpgaOpts)
         klin = None # initialze klin to None so it will be computed first iteration
-
+        savedFPGADisp = False
+        
         while not appObj.doneFlag: 
             # setup and grab the OCT data - this will also fire the mirror output
             numTrigs = appObj.disp_numTrigs_spinBox.value()
@@ -397,7 +400,7 @@ def runDispersion(appObj):
             plotDispData(appObj, dispData, PDfiltCutoffs)
             
             if appObj.getSaveState():
-                saveDispersionData(dispData, appObj.settingsPath)
+                dispFilePath = saveDispersionData(dispData, appObj.settingsPath)
             
                 saveOpts = appObj.getSaveOpts()
                 if saveOpts.saveRaw:
@@ -406,10 +409,19 @@ def runDispersion(appObj):
                         saveDirInit = True
                     
                     OCTCommon.saveRawData(pd_data, saveDir, frameNum, dataType=1)
-                appObj.dispData = dispData
+                if processMode == OCTCommon.ProcessMode.FPGA:
+                    appObj.dispDataFPGA = dispData
+                    dispFilePathFPGA = dispFilePath
+                    savedFPGADisp = True
+                else:
+                    appObj.dispData = dispData
                 
             frameNum += 1
             QtGui.QApplication.processEvents() # check for GUI events, particularly the "done" flag
+            
+        if savedFPGADisp:
+            appObj.loadDispersionIntoFPGA(dispFilePathFPGA, appObj.oct_hw.fpgaOpts)
+            
     except Exception as ex:
         # raise ex
         traceback.print_exc(file=sys.stdout)

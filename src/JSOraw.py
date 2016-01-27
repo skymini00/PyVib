@@ -364,7 +364,7 @@ def saveDispersion_pushButton_clicked(appObj):
     pickle.dump(dispData,file1)
     file1.close()
     appObj.dispCompFilename_label.setText(outfile)
-    appObj.loadDispersionIntoFPGA(outfile, appObj.oct_hw.fpgaOpts)
+    # appObj.loadDispersionIntoFPGA(outfile, appObj.oct_hw.fpgaOpts)
     
 def updateDispersionGUI(appObj, dispData):
         # Clear all of the plots
@@ -415,7 +415,7 @@ def loadDispersion_pushButton_clicked(appObj):
     appObj.dispCompFilename_label.setText(infile) 
     updateDispersionGUI(appObj, appObj.dispData)
     
-    appObj.loadDispersionIntoFPGA(infile, appObj.oct_hw.fpgaOpts)
+#    appObj.loadDispersionIntoFPGA(infile, appObj.oct_hw.fpgaOpts)
     
 def loadDispersion_onStartup(appObj):   
 #    infile=os.path.join(appObj.configPath, 'Dispersion','dispComp-initial.pickle')  

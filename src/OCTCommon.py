@@ -60,6 +60,7 @@ class OCTSetupInfo:
         self.FPGAOptsFile = 'FPGA Opts.txt'
         self.Laser = 1       
         self.processMode = ProcessMode.SOFTWARE
+        self.dispFilenameFPGA = 'dispersionLast.pickle'
         
     def encodeToString(self):
         s = ''
@@ -184,6 +185,8 @@ def readOCTSetupInfo(filepath):
                     setupInfo.centerWavelength = 1310
             elif(fld == 'ProcessMode'):
                 setupInfo.processMode = ProcessMode[val.upper()]
+            elif(fld == 'DispersionFilenameFPGA'):
+                setupInfo.dispFilenameFPGA = val
                     
         except Exception as ex:
             pass

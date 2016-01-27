@@ -132,6 +132,11 @@ def runSpeakerCalTest(appObj):
             spkIdx = 1
 
         freq_array = audioParams.freq[spkIdx, :]
+        if (audioParams.stimType == AudioStimType.TWO_TONE_DP) and (numSpk == 1):
+            freq2 = audioParams.freq[1, :]
+            freq_array = np.concatenate((freq_array, freq2))
+            freq_array = np.sort(freq_array)
+            
         DebugLog.log("freq_array=" + repr(freq_array))
         amp_array = audioParams.amp
         numAmp = len(amp_array)

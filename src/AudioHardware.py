@@ -47,8 +47,8 @@ class AudioHardware:
             self.speakerCalPhase = None
         
     def getCalibratedOutputVoltageAndAttenLevel(self, freq, ampdB, speakerNum):
-        freqArray = self.speakerCalFreq[speakerNum]
-        calArray = self.speakerCal[speakerNum]
+        freqArray = self.speakerCalFreq[speakerNum, :]
+        calArray = self.speakerCal[speakerNum, :]
         DebugLog.log("AudioHardware.getCalibratedOutputVoltageAndAttenLevel freq= %f freqArray= %s calArray= %s" % (freq, repr(freqArray), repr(calArray)))
         caldBarr = np.interp([freq], freqArray, calArray)
         caldB = caldBarr[0]

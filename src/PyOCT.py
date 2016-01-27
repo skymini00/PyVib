@@ -126,13 +126,12 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             traceback.print_exc(file=sys.stdout)
             DebugLog.log('OCTWindowClass.__init__: Error loading dispersion file %s' % self.octSetupInfo.dispFilename)
             # fall back to default dispersion data
-            
+        
 
         self._initOCTHardware(fpgaOpts)
         if not dispLoaded:  # initialize disperino to default given the FPGA options
-            fpgaOpts = self.oct_hw.fpgaOpts
-            self.dispData = Dispersion.DispersionData(fpgaOpts)  
-
+            self.dispData = Dispersion.DispersionData(fpgaOpts)
+            
         # these are JSO's variables for testing stuff
         self.useGUI=1   # 1=use gui information for spiral/WW/ZZ scans; 0= use values from the mirrorDriver file
         self.maxTrigs=20000 # max number of triggers to collect at once
@@ -346,7 +345,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         err, klin = oct_hw.InitFPGA(setup, sampleOffset, samplesPerTrig, Ch0Shift, klinNumPts, klinROI)
         DebugLog.log("_initOCTHardware: InitFPGA err= %d" % err)
         dispFilePath = os.path.join(self.settingsPath, "Dispersion")
-        dispFilePath = os.path.join(dispFilePath, self.octSetupInfo.dispFilename)
+        dispFilePath = os.path.join(dispFilePath, self.octSetupInfo.dispFilenameFPGA)
         self.oct_hw = oct_hw
         
         self.loadDispersionIntoFPGA(dispFilePath, fpgaOpts)
@@ -815,12 +814,17 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         
         DebugLog.log("getAudioParams(): freqStart= %f freqEnd= %f freqSteps= %d speakerSel= %s" % (freqStart, freqEnd, freqSteps, repr(audioParams.speakerSel)))
         freq = np.linspace(freqStart, freqEnd, freqSteps)
+        freq2 = freq
+        if audioParams.stimType == AudioStimType.TWO_TONE_DP:
+            freq2 = freq/1.22
+            
         s = ""
         for n in range(0, freq.shape[0]):
             s = s + " " + repr(freq[n])
         
         DebugLog.log("getAudioParams(): freq== " + s)
-        audioParams.freq = np.tile(freq, (2, 1))
+        # audioParams.freq = np.tile(freq, (2, 1))
+        audioParams.freq = np.vstack((freq, freq2))
         audioParams.amp = np.linspace(ampStart, ampEnd, ampSteps)        
         audioParams.customSoundDir = self.customSoundDir_lineEdit.text()        
         

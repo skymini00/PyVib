@@ -337,7 +337,7 @@ def processMscanData(oct_data, mscanPosAndStim, scanParams, audioParams, procOpt
         # take the FFT
         mscan_fft = np.fft.fft(ph * winfcn, numfftpts)
         mscan_fft = mscan_fft[0:numfftpts_2] * win_magcorr / numTrigs
-        if DebugLog.isLogging:        
+        if DebugLog.isLogging:
             DebugLog.log("Mscan.processMscanData(): numfftpts= %d mscan_fft.shape= %s " % (numfftpts, repr(mscan_fft.shape)))
         
         fftmag = np.abs(mscan_fft)
@@ -798,7 +798,7 @@ def getXYPos(lenStep, widthStep, scanParams):
     return (xPos, yPos)
 
 
-def makeAudioOutput(audioParams, audioHW, spkNum, f, a):
+def makeAudioOutput(audioParams, audioHW, spkNum, f, a, freq2=None):
     outputRate = audioHW.DAQOutputRate
     trialDur = 1e-3*audioParams.getTrialDuration(a)
     trialPts = np.ceil(trialDur * outputRate)
@@ -816,6 +816,18 @@ def makeAudioOutput(audioParams, audioHW, spkNum, f, a):
         attenLvl = 0
     else:
         (outV, attenLvl) = audioHW.getCalibratedOutputVoltageAndAttenLevel(f, a, spkNum)
+        if freq2 is not None:
+            (outV2, attenLvl2) = audioHW.getCalibratedOutputVoltageAndAttenLevel(freq2, a, spkNum)
+            if outV2 < 0:   # if we cannot play second tone, we should not play either tone
+                outV = -1
+                
+            # if there is a difference in attenuator level, pick lower attenuator level and adjust output volume
+            dlvl = attenLvl2 - attenLvl
+            if dlvl > 0:
+                outV = outV*(10**(dlvl/20))
+                attenLvl = attenLvl2
+            elif dlvl < 0:
+                outV2 = outV2*(10**(-dlvl/20))
         
         if(outV > 0):
             stimDur = 1e-3*audioParams.stimDuration
@@ -837,13 +849,14 @@ def makeAudioOutput(audioParams, audioHW, spkNum, f, a):
             spkOut = np.zeros((trialPts))
             t = np.linspace(0, stimDur, stimPts)
             sig = outV*np.sin(2*np.pi*1000*f*t)
+            if freq2 is not None:
+                sig = sig + outV2*np.sin(2*np.pi*1000*freq2*t)
+
             envFcn = np.ones((stimPts))
             envFcn[0:envPts] = np.linspace(0, 1, envPts)
             envFcn[stimPts-envPts:] = np.linspace(1, 0, envPts)
             sig = sig*envFcn
             spkOut[offsetPts:offsetPts+stimPts] = sig
-
-            
             
     return (spkOut, attenLvl)
         
@@ -877,7 +890,29 @@ def saveMscanDataTimeDomain(mscanData, freq, amp, frameNum, saveDir):
     
     # pickle.dump(spCal, f)
     f.close()
-
+    
+def readMscanDataTimeDomain(freq, amp, frameNum, dataDir):
+    fileName = 'Mscan TD Phase %0.2f kHz %0.1f dB frame %d' % (freq, amp, frameNum)
+    filePath = os.path.join(dataDir, fileName)
+    f = open(filePath, 'rb')
+    
+    file_data = f.read()
+    f.close();
+    
+    mscanData = MScanData()
+    
+    trTime = struct.unpack_from('d', file_data, 0)
+    mscanData.trialTime = trTime[0]
+    DebugLog.log("readMscanDataTimeDomain(): trialTime= %f" % mscanData.trialTime)
+    numpts = struct.unpack_from('I', file_data, 8)
+    numpts = numpts[0]
+    DebugLog.log("readMscanDataTimeDomain(): numpts= %d" % numpts)
+    TD_data = struct.unpack_from('%sd' % (numpts), file_data, 12)
+    mscanData.mscanTD = np.array(TD_data)
+    mscanData.mscanSampleRate = numpts/mscanData.trialTime
+    
+    return mscanData
+    
 def writeExcelFreqAmpHeader(ws, freq, amp, row=0, col=1):
     # write amplitude header in first row
     r = row
@@ -1888,16 +1923,22 @@ def runMScan(appObj, multiProcess=False):
         
             # set up audio output
             freq = audioParams.freq[spkNum, freqStep]
+            
             amp = audioParams.amp[ampStep]
             pl = appObj.plot_spkOut
             pl.clear()
-            endIdx = int(5e-3 * outputRate)        # only plot first 5 ms
+            # endIdx = int(5e-3 * outputRate)        # only plot first 5 ms
             
+            if audioParams.stimType == AudioStimType.TWO_TONE_DP:
+                freq2 = audioParams.freq[1, freqStep]
+                
             if audioParams.speakerSel == Speaker.BOTH:
                 audioOutputL, attenLvlL = makeAudioOutput(audioParams, audioHW, 0, freq, amp)
-                audioOutputR, attenLvlR = makeAudioOutput(audioParams, audioHW, 1, freq, amp)
+                audioOutputR, attenLvlR = makeAudioOutput(audioParams, audioHW, 1, freq2, amp)
+                
                 DebugLog.log("Mscan runMscan(): len(audioOutputL)= %d len(audioOutputR) = %d" % (len(audioOutputL), len(audioOutputR)))
                 numOutputSamples = len(audioOutputL)
+                endIdx = numOutputSamples
                 t = np.linspace(0, numOutputSamples/outputRate, numOutputSamples)
                 pl.plot(t[0:endIdx], audioOutputL[0:endIdx], pen='b')
                 pl.plot(t[0:endIdx], audioOutputR[0:endIdx], pen='r')
@@ -1912,10 +1953,15 @@ def runMScan(appObj, multiProcess=False):
                     #daq.sendDigOutCmd(audioHW.attenL_daqChan, attenSig)
                     appObj.oct_hw.SetAttenLevel(attenLvlR, attenLines)
             else:
-                audioOutput, attenLvl = makeAudioOutput(audioParams, audioHW, spkNum, freq, amp)
+                freq2 = None
+                if audioParams.stimType == AudioStimType.TWO_TONE_DP:
+                    freq2 = audioParams.freq[1, freqStep]
+                    
+                audioOutput, attenLvl = makeAudioOutput(audioParams, audioHW, spkNum, freq, amp, freq2)
                 DebugLog.log("Mscan runMscan(): attenLvL= %s " %  repr(attenLvl))
 
                 numOutputSamples = len(audioOutput)
+                endIdx = numOutputSamples
                 t = np.linspace(0, numOutputSamples/outputRate, numOutputSamples)
                 pl.plot(t[0:endIdx], audioOutput[0:endIdx], pen='b')
                 if not oct_hw.IsDAQTestingMode():

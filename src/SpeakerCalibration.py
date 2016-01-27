@@ -18,10 +18,11 @@ import sys
 import traceback
 
 class SpeakerCalData:
-    def __init__(self, audioParams):
+    def __init__(self, freqArray):
         self.voltsOut = 0.1
-        self.freq = audioParams.freq
-        numFreq = audioParams.getNumFrequencies()
+        self.freq = freqArray
+        numFreq = freqArray.shape[1]
+        DebugLog.log("SpeakerCalData: numFreq= %d" % numFreq)
         self.magResp = np.zeros((2, numFreq))
         self.magResp[:, :] = np.NaN
         self.phaseResp = np.zeros((2, numFreq))
@@ -149,7 +150,9 @@ def runSpeakerCal(appObj, testMode=False):
     chanNamesIn= [ audioHW.mic_daqChan]
     micVoltsPerPascal = audioHW.micVoltsPerPascal
 
-    spCal = SpeakerCalData(audioParams)
+
+    spCal = None
+    freq_array2 = audioParams.freq[1, :]
     try:
         frameNum = 0
         isSaveDirInit = False
@@ -165,7 +168,15 @@ def runSpeakerCal(appObj, testMode=False):
                 spkIdx = 1
     
             freq_array = audioParams.freq[spkIdx, :]
-            DebugLog.log("freq_array=" + repr(freq_array))
+            if (audioParams.stimType == AudioStimType.TWO_TONE_DP) and (numSpk == 1):
+                freq_array = np.concatenate((freq_array, freq_array2))
+                freq_array = np.sort(freq_array)
+                freq_array2 = freq_array
+                
+            if spCal is None:
+                spCal = SpeakerCalData(np.vstack((freq_array, freq_array2)))
+                
+            DebugLog.log("runSpeakerCal freq_array=" + repr(freq_array))
             freq_idx = 0
 
             attenSig = AudioHardware.makeLM1972AttenSig(0)
@@ -175,6 +186,7 @@ def runSpeakerCal(appObj, testMode=False):
                 appObj.oct_hw.SetAttenLevel(0, attenLines)
             
             for freq in freq_array:
+                DebugLog.log("runSpeakerCal freq=" + repr(freq))
                 spkOut = makeSpeakerCalibrationOutput(freq, audioHW, audioParams)    
                 npts = len(spkOut)
                 t = np.linspace(0, npts/outputRate, npts)
@@ -239,7 +251,8 @@ def runSpeakerCal(appObj, testMode=False):
                 
                 pl = appObj.plot_micMagResp
                 pl.clear()
-                pl.plot(1000*spCal.freq[spkIdx, :], spCal.magResp[spkIdx, :], pen="b", symbol='o')
+#                pl.plot(1000*spCal.freq[spkIdx, :], spCal.magResp[spkIdx, :], pen="b", symbol='o')
+                pl.plot(freq_array, spCal.magResp[spkIdx, :], pen="b", symbol='o')
                 labelStyle = appObj.xLblStyle
                 pl.setLabel('bottom', 'Frequency', 'Hz', **labelStyle)
                 labelStyle = appObj.yLblStyle
