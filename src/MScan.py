@@ -1392,6 +1392,8 @@ def displayMscanRegionData(mscanRegionData, volumeData, appObj, useLastFreqAmpId
             vscroll = gv.verticalScrollBar()
             vscroll.setSliderPosition(-500)
                     
+    appObj.mscanEnFaceChanged()
+    
 def GetTestData(frameNum):
     return oct_data
 
@@ -1441,6 +1443,10 @@ def MscanCollectFcn(oct_hw, frameNum, trigRate, extraArgs):
     if posLenStep < 0:
         return None, None
     
+    if scanParams.boxROIMaskXY is not None:
+        if not scanParams.boxROIMaskXY[posLenStep, posWidthStep]:
+            return None, None
+            
     mirrChanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
     mirrOutData = np.zeros(2)
     
@@ -1911,6 +1917,16 @@ def runMScan(appObj, multiProcess=False):
         volData = None
         
         while not appObj.doneFlag and posWidthStep < numWidthSteps:
+            # deteect whehter or not we are skipping this point
+            if scanParams.boxROIMaskXY is not None:
+                if not scanParams.boxROIMaskXY[posLenStep, posWidthStep]:
+                    frameNum += numAmpSteps*numFreqSteps
+                    posLenStep += 1
+                    if posLenStep == numLenSteps:
+                        posLenStep = 0
+                        posWidthStep += 1
+                    continue
+            
             # set mirror position
             (xPos, yPos) = getXYPos(posLenStep, posWidthStep, scanParams)
             (x_cmd, y_cmd) = mirrorDriver.makeMirrorCommand(xPos, yPos)
