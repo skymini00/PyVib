@@ -269,10 +269,11 @@ def saveDispersionData(dispData, basePath):
     filepath = os.path.join(saveDir, '%s.pickle' % fileName)
     f = open(filepath, 'wb')
     pickle.dump(dispData, f)
+    f.flush()   # ensure I/o operation is complete
     f.close()
     
-    filepath = os.path.join(saveDir, '%s.txt' % fileName)
-    f = open(filepath, 'w')
+    filepathtxt = os.path.join(saveDir, '%s.txt' % fileName)
+    f = open(filepathtxt, 'w')
     s = "%0.5f" % dispData.magWin[0]
     magWin = dispData.magWin[1:]
     for xi in magWin:
@@ -285,6 +286,8 @@ def saveDispersionData(dispData, basePath):
         s = s + ", %0.5f" % xi
         
     f.write(s)           
+    f.flush()   # ensure I/o operation is complete
+
     f.close()
     
     return filepath
@@ -420,6 +423,7 @@ def runDispersion(appObj):
             QtGui.QApplication.processEvents() # check for GUI events, particularly the "done" flag
             
         if savedFPGADisp:
+            DebugLog.log("runDispersion(): loading dispersion file into FPGA")
             appObj.loadDispersionIntoFPGA(dispFilePathFPGA, appObj.oct_hw.fpgaOpts)
             
     except Exception as ex:

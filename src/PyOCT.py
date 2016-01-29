@@ -320,8 +320,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 
             DebugLog.log("loadDispersionIntoFPGA: fpgaOpts= %s" % fpgaOpts.encodeToString())
 #            oct_hw.LoadOCTDispersion(dispData.magWin, -dispData.phaseCorr)
-            self.oct_hw.LoadOCTDispersion(self.dispData.magWin, -self.dispData.phaseCorr)
-#            self.dispData = dispData
+            self.oct_hw.LoadOCTDispersion(dispData.magWin, -dispData.phaseCorr)
+            self.dispDataFPGA = dispData
         except Exception as ex:
             print("Could not load dispersion file '%s'" % dispFilePath)
             traceback.print_exc(file=sys.stdout)

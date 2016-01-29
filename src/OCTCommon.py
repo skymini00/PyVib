@@ -66,6 +66,7 @@ class OCTSetupInfo:
         s = ''
         s = s + 'OCTsetup=' +  repr(self.setupNum)
         s = s + '\nDispersionFilename=' +  self.dispFilename
+        s = s + '\nDispersionFilename=' +  self.dispFilenameFPGA
         s = s + '\nzResolution=' +  repr(self.zRes)
         s = s + '\nimgNorms=' +  repr(self.imgNorms)
         s = s + '\nZROI=' +  repr(self.ZROI)
@@ -76,6 +77,7 @@ class OCTSetupInfo:
         s = s + '\nFPGAOptsFile=' + self.FPGAOptsFile
         s = s + '\nLaser=' + self.Laser
         s = s + '\nProcessMode=' + self.processMode.name
+        
         
         return s
         
