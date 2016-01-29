@@ -249,7 +249,10 @@ def processMscanData(oct_data, mscanPosAndStim, scanParams, audioParams, procOpt
             audioP = audioParams
     
             tcurves = []
-            numPts = len(scanP.ptsList)
+            if scanP.ptsList is None:
+                numPts = 1
+            else:
+                numPts = len(scanP.ptsList)
             numPts = max((numPts, 1))
             for n in range(0, numPts):
                 tcurves.append(MscanTuningCurve(audioP))
@@ -1945,6 +1948,7 @@ def runMScan(appObj, multiProcess=False):
             pl.clear()
             # endIdx = int(5e-3 * outputRate)        # only plot first 5 ms
             
+            freq2 = None
             if audioParams.stimType == AudioStimType.TWO_TONE_DP:
                 freq2 = audioParams.freq[1, freqStep]
                 
