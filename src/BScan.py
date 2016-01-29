@@ -560,11 +560,12 @@ def runBScan(appObj):
     appObj.isCollecting = True
 
     processMode = OCTCommon.ProcessMode(appObj.processMode_comboBox.currentIndex())
-    if processMode == OCTCommon.ProcessMode.FPGA:
-        testDataDir = os.path.join(appObj.basePath, 'exampledata', 'Bscan')
-        scanParams = loadScanParams(testDataDir)
-    elif processMode == OCTCommon.ProcessMode.SOFTWARE:
-        appObj.savedDataBuffer.loadData(appObj)
+    if appObj.oct_hw.IsOCTTestingMode():
+        if processMode == OCTCommon.ProcessMode.FPGA:
+            testDataDir = os.path.join(appObj.basePath, 'exampledata', 'Bscan')
+            scanParams = loadScanParams(testDataDir)
+        elif processMode == OCTCommon.ProcessMode.SOFTWARE:
+            appObj.savedDataBuffer.loadData(appObj)
     
     if(appObj.multiProcess):
         runBScanMultiProcess(appObj, testDataDir)
