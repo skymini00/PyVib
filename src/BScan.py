@@ -566,7 +566,9 @@ def runBScan(appObj):
             scanParams = loadScanParams(testDataDir)
         elif processMode == OCTCommon.ProcessMode.SOFTWARE:
             appObj.savedDataBuffer.loadData(appObj)
-    
+    else:
+        testDataDir = os.path.join(appObj.basePath, 'exampledata', 'Bscan')
+          
     if(appObj.multiProcess):
         runBScanMultiProcess(appObj, testDataDir)
         return

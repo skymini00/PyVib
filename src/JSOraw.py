@@ -792,7 +792,8 @@ def runJSOraw(appObj):
     #            pl.setImage(bscan)            
             
     #            print('alineMagDispComp ',alineMagDispComp.shape)
-            appObj.bscan_plot.setImage(alineMagDispComp)
+            if ~np.all(np.isnan(alineMagDispComp)):  # only make the bscan plot if there is data to show (this prevents an error from occurring)
+                appObj.bscan_plot.setImage(alineMagDispComp)
             QtGui.QApplication.processEvents() # check for GUI events  
     except:
         traceback.print_exc(file=sys.stdout)
