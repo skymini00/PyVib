@@ -602,7 +602,9 @@ def runBScan(appObj):
             (mirrorOut1, numTrigs) = makeBscanMirrorOutput(scanParams, mirrorDriver, trigRate)
             numTrigs = int(np.round(numTrigs))  # ensure numTrigs is an integer
             if mirrorDriver.MEMS==True:
+                print('before filtering mirror signals',mirrorOut1.shape)
                 mirrorOutput=scipy.signal.filtfilt(mirrorDriver.b_filt,mirrorDriver.a_filt,mirrorOut1)           
+                print('after filtering mirror signals',mirrorOutput.shape)
             else:
                 mirrorOutput=mirrorOut1    
         
@@ -658,6 +660,7 @@ def runBScan(appObj):
             x_cmd = mirrorOutput[0, :]
             x_cmd_orig = mirrorOut1[0, :]
             y_cmd = mirrorOutput[1, :]
+            y_cmd_orig = mirrorOut1[1, :]
             npts = len(x_cmd)
             tEnd = npts/outputRate
             t = np.linspace(0, tEnd, npts)
@@ -667,6 +670,7 @@ def runBScan(appObj):
             pl.plot(t, x_cmd, pen='b')
             pl.plot(t, y_cmd, pen='r')
             pl.plot(t, x_cmd_orig, pen='k')
+            pl.plot(t, y_cmd_orig, pen='k')
             
             frameNum += 1
             # check for GUI events, particularly the "done" flag
