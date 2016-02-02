@@ -718,26 +718,11 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             
     def Dispersion_clicked(self):  # CtoF button event handler
         if self.Dispersion_pushButton.isChecked():
-            mode=self.processMode_comboBox.currentIndex()
-            processMode = ProcessMode(mode)  
-            if processMode == ProcessMode.FPGA:
-                if self.isCollecting:
-                    self.nextProtocol = 'Dispersion'
-                    self.stopCollection()
-                else:
-                    Dispersion.runDispersion(self)
-            elif processMode == ProcessMode.SOFTWARE:
-                if self.isCollecting:
-                    self.nextProtocol = 'JSOraw'
-                    self.stopCollection()
-                else:
-                    JSOraw.runJSOraw(self)
-            elif processMode == ProcessMode.GPU:
-                if self.isCollecting:
-                    self.nextProtocol = 'JSOraw'
-                    self.stopCollection()
-                else:
-                    JSOraw.runJSOraw(self)                    
+            if self.isCollecting:
+                self.nextProtocol = 'Dispersion'
+                self.stopCollection()
+            else:
+                Dispersion.runDispersion(self)
         else:
             self.nextProtocol = None
             self.stopCollection()            

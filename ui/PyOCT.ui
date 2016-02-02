@@ -7674,6 +7674,45 @@
           <double>5.000000000000000</double>
          </property>
         </widget>
+        <widget class="QDoubleSpinBox" name="focalPlaneAdj_spinbox">
+         <property name="geometry">
+          <rect>
+           <x>120</x>
+           <y>260</y>
+           <width>71</width>
+           <height>22</height>
+          </rect>
+         </property>
+         <property name="suffix">
+          <string> mm</string>
+         </property>
+         <property name="minimum">
+          <double>-40.000000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>40.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.500000000000000</double>
+         </property>
+         <property name="value">
+          <double>0.000000000000000</double>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_103">
+         <property name="geometry">
+          <rect>
+           <x>25</x>
+           <y>257</y>
+           <width>91</width>
+           <height>31</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>OR microscope
+focal plane adjust</string>
+         </property>
+        </widget>
        </widget>
        <widget class="QPushButton" name="Dispersion_pushButton">
         <property name="geometry">
@@ -7685,7 +7724,7 @@
          </rect>
         </property>
         <property name="text">
-         <string>Dispersion / hardware setup</string>
+         <string>Dispersion (FPGA only) </string>
         </property>
         <property name="checkable">
          <bool>true</bool>
@@ -7697,7 +7736,7 @@
        <widget class="QPushButton" name="SpeakerCal_pushButton">
         <property name="geometry">
          <rect>
-          <x>150</x>
+          <x>140</x>
           <y>50</y>
           <width>101</width>
           <height>41</height>
@@ -7711,20 +7750,6 @@
         </property>
         <property name="checked">
          <bool>false</bool>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_103">
-        <property name="geometry">
-         <rect>
-          <x>155</x>
-          <y>137</y>
-          <width>91</width>
-          <height>31</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>OR microscope
-focal plane adjust</string>
         </property>
        </widget>
        <widget class="QLabel" name="timeElapsed_label">
@@ -7746,16 +7771,19 @@ focal plane adjust</string>
         </property>
        </widget>
        <widget class="QPushButton" name="JSOraw_pushButton">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="geometry">
          <rect>
-          <x>260</x>
+          <x>140</x>
           <y>100</y>
-          <width>81</width>
-          <height>31</height>
+          <width>171</width>
+          <height>41</height>
          </rect>
         </property>
         <property name="text">
-         <string>JSOraw</string>
+         <string>Dispersion (Software and GPU)</string>
         </property>
         <property name="checkable">
          <bool>true</bool>
@@ -7764,35 +7792,10 @@ focal plane adjust</string>
          <bool>false</bool>
         </property>
        </widget>
-       <widget class="QDoubleSpinBox" name="focalPlaneAdj_spinbox">
-        <property name="geometry">
-         <rect>
-          <x>250</x>
-          <y>140</y>
-          <width>71</width>
-          <height>22</height>
-         </rect>
-        </property>
-        <property name="suffix">
-         <string> mm</string>
-        </property>
-        <property name="minimum">
-         <double>-40.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>40.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>0.500000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.000000000000000</double>
-        </property>
-       </widget>
        <widget class="QPushButton" name="Mscan_pushButton">
         <property name="geometry">
          <rect>
-          <x>150</x>
+          <x>140</x>
           <y>0</y>
           <width>91</width>
           <height>41</height>
@@ -7830,14 +7833,16 @@ focal plane adjust</string>
        <widget class="QPushButton" name="rawDataTest_pushButton">
         <property name="geometry">
          <rect>
-          <x>150</x>
-          <y>100</y>
-          <width>91</width>
-          <height>31</height>
+          <x>320</x>
+          <y>90</y>
+          <width>41</width>
+          <height>51</height>
          </rect>
         </property>
         <property name="text">
-         <string>Raw Data Test</string>
+         <string>Raw 
+ Data 
+ Test</string>
         </property>
         <property name="checkable">
          <bool>true</bool>
@@ -7856,10 +7861,8 @@ focal plane adjust</string>
        <zorder>scanControls_groupBox</zorder>
        <zorder>Dispersion_pushButton</zorder>
        <zorder>SpeakerCal_pushButton</zorder>
-       <zorder>label_103</zorder>
        <zorder>timeElapsed_label</zorder>
        <zorder>JSOraw_pushButton</zorder>
-       <zorder>focalPlaneAdj_spinbox</zorder>
        <zorder>Mscan_pushButton</zorder>
        <zorder>Volume_pushButton</zorder>
        <zorder>rawDataTest_pushButton</zorder>
