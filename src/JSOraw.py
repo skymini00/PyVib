@@ -473,7 +473,8 @@ def calibrateScanMirror(appObj):
         scanParams = appObj.getScanParams()
        #    create scan pattern to drive the mirrors
         mode=appObj.scanShape_comboBox.currentIndex()
-        if mode=='0':   # create a spiral scan using fast (resonant) scanning
+        print('mode',mode)
+        if mode==0:   # create a spiral scan using fast (resonant) scanning
             Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
             Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
             xAdjust = 1    
@@ -495,7 +496,7 @@ def calibrateScanMirror(appObj):
             y=yAdjust*A*r*np.sin(2*np.pi*fr*t+phaseShift*np.pi/180)
             mirrorOut= np.vstack((x,y))
             
-        elif mode=='1':   # create a square scan using slow parameters
+        elif mode==1:   # create a square scan using slow parameters
             Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
             Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
             diameter = scanParams.length
@@ -510,10 +511,19 @@ def calibrateScanMirror(appObj):
             fs=mirrorDriver.DAQoutputRate   # galvo output sampling rate
             t=np.arange(0,np.around(fs/freq))*1/fs  # t is the array of times for the DAQ output to the mirrors
             n=np.around(t.shape[0]/4)   # number of points in each 4th of the cycle
-           
+            corner=(diameter/2)*voltsPerMM     # voltage at each corner of the square
+            
             # x and y are the coordinates of the laser at each point in time
-            x[0:n]=np.linspace()
-
+            x=np.zeros(t.shape)            
+            y=np.zeros(t.shape)            
+            x[0:n]=np.linspace(-corner,corner,n)
+            y[0:n]=-corner
+            x[n:2*n]=corner
+            y[n:2*n]=np.linspace(-corner,corner,n)
+            x[2*n:3*n]=np.linspace(corner,-corner,n)
+            y[2*n:3*n]=corner
+            x[3*n:]=-corner
+            y[3*n:]=np.linspace(corner,-corner,n)
             mirrorOut= np.vstack((x,y))
             
         # plot mirror commands to GUI 
