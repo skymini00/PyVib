@@ -324,8 +324,6 @@ def initSaveDir(saveOpts, protocolName, scanParams=None, audioParams=None, mirro
     return saveDir
 
 
-
-
 dataTypeFileNames = [ 'OCT complex FFT ',  'OCT interp PD ', 'OCT raw PD/MZI ', 'Mic raw ']
 # save teh raw data
 # dataType = 0 for complex FFT, 1 for interpolated photodioe, 2 for raw PD/MZI    
@@ -352,6 +350,7 @@ def loadRawData(saveDir, frameNum, dataType=0, trialNum=None):
     oct_data = np.load(f)
     f.close()
     return oct_data
+
 
 def saveRawDataSoftwareProcessing(ch0_data, ch1_data, saveDir, frameNum): 
     outfile = os.path.join(saveDir, 'RawData_%.5d.npz' % (frameNum))

@@ -632,6 +632,8 @@ def makeVolMScanPolyROIScanParams(appObj, poly = None):
     else:
         return None
 
+    xyScanP = appObj.volDataLast.scanParams
+    
     (img_w, img_h) = appObj.vol_plane_proj_gv.getImageWidthHeight()
     scanP = ScanParams()
     scanP.length = roi_dw * xyScanP.length / img_w 
@@ -1332,6 +1334,9 @@ def displayMscanRegionData(mscanRegionData, volumeData, appObj, useLastFreqAmpId
     intThreshVal = 65535*appObj.mscan_intensityThresh_slider.value()/100
     numSD = appObj.mscan_noise_numSD_dblSpinBox.value()
     
+    appObj.mscanVolDataLast = volumeData
+    appObj.mscanRegionDataLast = mscanRegionData
+    
     if not useLastFreqAmpIdx:
         # TODO set frequency, amp and width sstep indices based off UI elements (probably fromcombo boxes )
         mscanRegionData.freqIdx = appObj.mscan_vol_freq_comboBox.currentIndex()
@@ -1387,13 +1392,13 @@ def displayMscanRegionData(mscanRegionData, volumeData, appObj, useLastFreqAmpId
     
     rset = (rgnData.widthStep, rgnData.lengthStep, rgnData.freqIdx, rgnData.ampIdx) == (0, 0, 0, 0)
     appObj.mscan_img_vol_roi_gv.setImage(imgData, ROIImageGraphicsView.COLORMAP_HOT, rset)
-    if rset:
-        gvs = (appObj.mscan_img_vol_roi_gv, appObj.mscan_img_mag_roi_gv, appObj.mscan_img_phase_roi_gv)
-        for gv in gvs:
-            hscroll = gv.horizontalScrollBar()
-            hscroll.setSliderPosition(-500)
-            vscroll = gv.verticalScrollBar()
-            vscroll.setSliderPosition(-500)
+#    if rset:
+#        gvs = (appObj.mscan_img_vol_roi_gv, appObj.mscan_img_mag_roi_gv, appObj.mscan_img_phase_roi_gv)
+#        for gv in gvs:
+#            hscroll = gv.horizontalScrollBar()
+#            hscroll.setSliderPosition(-500)
+#            vscroll = gv.verticalScrollBar()
+#            vscroll.setSliderPosition(-500)
                     
     appObj.mscanEnFaceChanged()
     

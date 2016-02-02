@@ -193,6 +193,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.nextProtocol = None
         self.volDataLast = None
         self.mscanVolDataLast = None
+        self.mscanRegionDataLast = None
         
         # Bind the event handlers
         self._bindEventHandlers()
@@ -201,7 +202,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         if self.octSetupInfo.setupNum == 3:
             for chkbox in fpgaChkBoxes:
                 chkbox.setChecked(False)
-                chkbox.setEnabled(False)
+                chkbox.setEnabled(False) 
         
         # mag_plt = self.plot_mscan_mag_tuning
         if self.mirrorDriver.mirrorType == MirrorDriver.MirrorType.MEMS_MICROSCOPE:
@@ -434,9 +435,15 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.vol_clear_polyROI_pushButton.clicked.connect(self.vol_clear_polyROI_pushButton_clicked)
         self.vol_clear_freeROI_pushButton.clicked.connect(self.vol_clear_freeROI_pushButton_clicked)
         
-        self.mscan_vol_enFace_avgDepth_verticalSlider.valueChanged.connect(self.enFaceChanged)
-        self.mscan_vol_enFace_imageGen_comboBox.currentIndexChanged.connect(self.enFaceChanged)
-        self.mscan_vol_enFace_zStep_verticalSlider.valueChanged.connect(self.enFaceChanged)
+        self.mscan_vol_enFace_avgDepth_verticalSlider.valueChanged.connect(self.mscanEnFaceChanged)
+        self.mscan_vol_enFace_imageGen_comboBox.currentIndexChanged.connect(self.mscanEnFaceChanged)
+        self.mscan_vol_enFace_zStep_verticalSlider.valueChanged.connect(self.mscanEnFaceChanged)
+        
+        self.mscan_vol_widthstep_slider.valueChanged.connect(self.mscanVolDataChanged)
+        self.mscan_vol_freq_comboBox.currentIndexChanged.connect(self.mscanVolDataChanged)
+        self.mscan_vol_amp_comboBox.currentIndexChanged.connect(self.mscanVolDataChanged)
+        self.mscan_intensityThresh_slider.valueChanged.connect(self.mscanVolDataChanged)
+        self.mscan_noise_numSD_dblSpinBox.valueChanged.connect(self.mscanVolDataChanged)
         
     def _initGraphVars(self):
         layout = QtGui.QHBoxLayout()
@@ -1375,11 +1382,12 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 self.vol_plane_proj_gv.setImage(imgData, ROIImageGraphicsView.COLORMAP_HOT)
                 
     def mscanEnFaceChanged(self):
-        if hasattr(self, 'mscaVolDataLast') and (self.mscanVolDataLast is not None):
-            volData = self.volDataLast
+        if hasattr(self, 'mscanVolDataLast') and (self.mscanVolDataLast is not None):
+            volData = self.mscanVolDataLast
             zStep = self.mscan_vol_enFace_zStep_verticalSlider.value()
             zDepth = self.mscan_vol_enFace_avgDepth_verticalSlider.value()
             projType = VolumeScan.EnFaceProjType(self.mscan_vol_enFace_imageGen_comboBox.currentIndex())
+            DebugLog.log('mscanEnFaceChanged: zStep= %d zDepth= %d projType= %s' % (zStep, zDepth, projType))
             if volData.spiralScanData is not None:
                 imgData = volData.spiralScanData.surfacePlot
             else:
@@ -1387,6 +1395,11 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 
             if imgData is not None:
                 self.mscan_img_vol_roi_enface_gv.setImage(imgData, ROIImageGraphicsView.COLORMAP_HOT)
+                
+    def mscanVolDataChanged(self):
+        if hasattr(self, 'mscanRegionDataLast') and (self.mscanRegionDataLast is not None):
+            volData = self.mscanVolDataLast
+            MScan.displayMscanRegionData(self.mscanRegionDataLast, volData, self, useLastFreqAmpIdx=False)
                 
     def volBScanWidthStepChanged(self):
         volData = self.volDataLast

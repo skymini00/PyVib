@@ -156,6 +156,7 @@ def runSpeakerCalTest(appObj):
                 
                 if spkOut is None:
                     DebugLog.log('runSpeakerCalTest freq= %0.3f kHz cannot output %d dB' % (freq, amp))
+                    frameNum = frameNum + 1
                     continue
                 
                 npts = len(spkOut)
