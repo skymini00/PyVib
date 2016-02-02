@@ -607,7 +607,9 @@ def runBScan(appObj):
                 print('after filtering mirror signals',mirrorOutput.shape)
             else:
                 mirrorOutput=mirrorOut1    
-        
+            
+            print('MirrorOut max,min',np.max(mirrorOutput),np.min(mirrorOutput))
+            print('mirrorDriver.voltRange',mirrorDriver.voltRange)
             # setup the analog output DAQ device
             chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
             trigChan = mirrorDriver.trig_daqChan

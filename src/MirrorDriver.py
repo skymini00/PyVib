@@ -112,6 +112,7 @@ class MirrorDriver:
                 maxVin=(self.maxVoltage/7.5)-9.333  # these formulas come from the MEMS mirror manufacturer instructions
                 minVin=9.333-(self.maxVoltage/7.5)
                 self.voltRange= (minVin,maxVin)
+                print('self.voltRange',self.voltRange)
             elif(fld == "resonantFreq"):
                 self.resonantFreq = float(val)
             elif(fld == "volScanFreq"):
