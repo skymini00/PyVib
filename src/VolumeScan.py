@@ -125,7 +125,7 @@ def setupWagonWheelScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtri
     The diameter and number of x/y pixels all come from the length and number of length steps selected. Width is not used in this scan.
     """
     LPFcutoff=mirrorDriver.LPFcutoff  #recommended low pass cutoff frequency
-    RFMax=0.95*LPFcutoff  # Maximum frequency to scan the x-axis back and forth must be below the low pass filter corner frequency 
+    RFMax=LPFcutoff  # Maximum frequency to scan the x-axis back and forth must be below the low pass filter corner frequency 
     fDAQ= mirrorDriver.DAQoutputRate  #DAQ sampling rate       
     VoltageRangeMax=mirrorDriver.voltRange[1]-mirrorDriver.voltRange[0] # maximum voltage for MEMS mirror 
     plotParam.voltsPerMMx=mirrorDriver.voltsPerMillimeter
@@ -187,10 +187,12 @@ def setupWagonWheelScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtri
     yN=u*np.sin(angleRad) #build normalized, from -1 to 1, x-waveform
     xDAQ=uDAQ*np.cos(angleRadDAQ) #build normalized, from -1 to 1, x-waveform
     yDAQ=uDAQ*np.sin(angleRadDAQ) #build normalized, from -1 to 1, x-waveform
-      
-    Vx=diameter*Vpmmx/2
+     
+    xAdjust = 1    
+    yAdjust = scanParams.skewNonResonant
+    Vx=(diameter/2)*Vpmmx*xAdjust
     x=Vx*xDAQ        
-    Vy=diameter*Vpmmy/2
+    Vy=(diameter/2)*Vpmmy*yAdjust
     y=Vy*yDAQ
     scanDetails.mirrOut=np.vstack((x,y))
 
@@ -218,12 +220,12 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     Both the x and y voltages are triangle waveforms below low pass filter corner frequency (and way below the resonant frequency)
     """
     LPFcutoff=mirrorDriver.LPFcutoff  #recommended low pass cutoff frequency
-    RFMax=0.95*LPFcutoff  # Maximum frequency to scan the x-axis back and forth must be below the low pass filter corner frequency 
+    RFMax=LPFcutoff  # Maximum frequency to scan the x-axis back and forth must be below the low pass filter corner frequency 
     VoltageRangeMax=mirrorDriver.voltRange[1]-mirrorDriver.voltRange[0] # maximum voltage for MEMS mirror 
     plotParam.voltsPerMMx=mirrorDriver.voltsPerMillimeter
     plotParam.voltsPerMMy=mirrorDriver.voltsPerMillimeter
     xAdjust = 1    
-    yAdjust = scanParams.skew
+    yAdjust = scanParams.skewNonResonant
     Vpmmx=plotParam.voltsPerMMx #volts per millimeter for x-axis
     Vpmmy=plotParam.voltsPerMMy #volts per millimeter for y-axis
     if Vpmmx*scanParams.length>VoltageRangeMax:
@@ -290,9 +292,9 @@ def setupZigZagScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     xDAQ=np.concatenate((ADAQ,np.tile(xDAQfilcycle,plotParam.yPixel),BDAQ),0) #build normalized, from -1 to 1, x-waveform
     yDAQ=np.concatenate((ADAQ,np.linspace(-1,1,xDAQfilcycle.size*plotParam.yPixel),-BDAQ),0) #build linear ramp for y-waveform
      
-    Vx=(scanParams.length*Vpmmx/2)/xAdjust
+    Vx=(scanParams.length*Vpmmx/2)*xAdjust
     x=Vx*xDAQ        
-    Vy=(scanParams.width*Vpmmy/2)/yAdjust
+    Vy=(scanParams.width*Vpmmy/2)*yAdjust
     y=Vy*yDAQ
     scanDetails.mirrOut=np.vstack((x,y))
     scanDetails.numTrigs=xN.size
@@ -323,7 +325,7 @@ def setupSpiralScan(scanParams, mirrorDriver, scanDetails, plotParam, OCTtrigRat
     Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
     Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
     xAdjust = 1    
-    yAdjust = scanParams.skew
+    yAdjust = scanParams.skewResonant
     phaseShift = scanParams.phaseAdjust
     fr = mirrorDriver.resonantFreq  # angular scan rate (frequency of one rotation - resonant frequency)
     fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
@@ -762,8 +764,14 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
         volDataIn.xPixSize = plotParam.xPixelSize     # x pixel size in um
         volDataIn.yPixSize = plotParam.yPixelSize     # y pixel size in um 
     else:
+        makeBscanTime = 0
+        corrAspectTime = 0
+        assignTime = 0
         if bscansPerFrame > 1:
+            t1 = time.time()
             oct_data_tmp = copy.copy(oct_data_mag)
+            copyTime = time.time() - t1
+            DebugLog.log("VolumeScan processData(): copyTime= %f ms" % (1000*copyTime))
             shp = oct_data_tmp.shape
             framesPerScan = scanParams.widthSteps // bscansPerFrame
             frameInScan = np.mod(frameNum, framesPerScan)
@@ -792,7 +800,7 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
                 if scanP.pattern == ScanPattern.bidirectional and (np.mod(n, 2) != 0):
                     idx1 = np.floor(trigsPerBscan*n) + procOpts.biDirTrigVolFix
                     idx2 = idx1 + scanP.lengthSteps
-                    rawData.oct_data_mag = oct_data_tmp[idx2:idx1:-1, :]
+                    oct_data_mag = oct_data_tmp[idx2:idx1:-1, :]
                 else:
                     idx1 = trigsPerBscan*n
                     idx2 = idx1 + trigsPerBscan - extraTrigs
@@ -802,22 +810,32 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
 #                    DebugLog.log("VolumeScan processData(): n= %d idx1= %d idx2= %d" % (n, idx1, idx2))
                     
                 
+                t1 = time.time()
                 img16b, img8b = BScan.makeBscanImage(oct_data_mag, scanParams, procOpts.zRes, procOpts.normLow, procOpts.normHigh, correctAspectRatio=False)
+                makeBscanTime += time.time() - t1 
+                
                 # correct image along z axis
                 xRes = img16b.shape[1]/scanParams.length     # x pixel size in um
                 zRes = xRes
+                t1 = time.time()
                 img32b = np.require(img16b, 'uint32') 
                 img16b_corr = BScan.correctImageAspectRatio(img32b, xRes, zRes, dataType=np.uint32, dim=1) 
+                corrAspectTime += time.time() - t1 
                 
                 if volDataIn is None:
+                    t1 = time.time()
                     volDataIn = initVolImgData(scanParams, img16b, img16b_corr, procOpts)
-                
+                    DebugLog.log("VolumeScan processData(): volInitTime= %f ms" % (1000*(time.time() - t1)))
+                    
                 # DebugLog.log("VolumeScan processData(): step= %d img16b max= %d min=%d " % (n + bscansPerFrame*frameInScan, np.max(img16b), np.min(img16b)))
+                
+                t1 = time.time()
                 volDataIn.volumeImg[n + bscansPerFrame*frameInScan, :, :] = img16b
                 volDataIn.volumeImg_corr_aspect[n + bscansPerFrame*frameInScan, :, :] = img16b_corr
+                assignTime += time.time() - t1 
                 
             DebugLog.isLogging = isLogging
-
+            DebugLog.log("VolumeScan processData(): makeBscanTime= %f ms corrAspectTime= %f ms assignTime= %f ms" % (1000*makeBscanTime, 1000*corrAspectTime, 1000*assignTime))
         else:
             img16b, img8b = BScan.makeBscanImage(oct_data_mag, scanParams, procOpts.zRes, procOpts.normLow, procOpts.normHigh, correctAspectRatio=False)
             # correct image along z axis
@@ -943,9 +961,7 @@ def VolScanCollectFcn(oct_hw, frameNum, OCTtrigRate, extraArgs):
     
     t4 = time.time()
     if not oct_hw.IsDAQTestingMode():
-        daq.waitDoneOutput()
-        daq.stopAnalogOutput()
-        daq.clearAnalogOutput()
+        daq.waitDoneOutput(stopAndClear=True)
         
     DebugLog.log("VolScanCollectFcn: analog wait, stop and clear time= %0.1f ms" % (1000*(time.time() - t4)))
         
@@ -1345,7 +1361,18 @@ def runVolScan(appObj):
                 if not appObj.oct_hw.IsDAQTestingMode():    # regular volume scan needs to change the mirror output every time
                     # setup the analog output DAQ device
                     daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOut.transpose())
- 
+                pl = appObj.plot_mirrorCmd
+                x_cmd = mirrorOut1[0, :]
+                y_cmd = mirrorOut1[1, :]
+                npts = len(x_cmd)
+                tEnd = npts/outputRate
+                t = np.linspace(0, tEnd, npts)
+                pl.clear()
+                
+                pl.plot(t, x_cmd, pen='b')
+                pl.plot(t, y_cmd, pen='r')
+
+                
             if not appObj.oct_hw.IsDAQTestingMode():                   
                 daq.startAnalogOutput()     #start the galvo analog output, but it will wait for a trigger from the laser to start scanning
             
@@ -1384,10 +1411,12 @@ def runVolScan(appObj):
                     dataCollectionTime = 0
                     
                 # process the data
+                t1 = time.time()
                 oct_data_mag = np.abs(oct_data)
+                DebugLog.log("VolumeScan.runVolScan np.abs() time= %f ms" % (1000*(time.time() - t1)))
                 volData = processData(oct_data_mag, scanParams, mirrorDriver, trigRate, procOpts, volData, frameNum, scanDetails, plotParam)
                 timePoint6 = time.time()
-                processTime = timePoint6 - timePoint4
+                processTime = timePoint6 - t1
         
                 if scanParams.pattern in (ScanPattern.spiral, ScanPattern.zigZag, ScanPattern.wagonWheel):
                     spiralData = volData.spiralScanData

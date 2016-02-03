@@ -151,7 +151,7 @@ class DAQHardware:
         lastTime = time.time()
         while not isDone:
             task.IsTaskDone(byref(isDoneP))
-            DebugLog.log("waitDoneTask(): isDoenP= %s" % repr(isDoneP))
+            # DebugLog.log("waitDoneTask(): isDoneP= %s" % repr(isDoneP))
             isDone = isDoneP.value != 0
             timeNow = time.time()
             tElapsed += timeNow - lastTime

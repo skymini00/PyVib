@@ -135,7 +135,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             
         # these are JSO's variables for testing stuff
         self.useGUI=1   # 1=use gui information for spiral/WW/ZZ scans; 0= use values from the mirrorDriver file
-        self.maxTrigs=20000 # max number of triggers to collect at once
+        self.maxTrigs=40000 # max number of triggers to collect at once
                 
         imgNorms = self.octSetupInfo.imgNorms
         self.normLow_spinBox.setValue(imgNorms[0])
@@ -279,7 +279,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
                 DebugLog.log("reading mirror file '%s'" % filepath)
                 self.mirrorDriver = MirrorDriver.readMirrorDriverConfig(filepath)
                 self.volScanFreq_spinBox.setValue(self.mirrorDriver.volScanFreq)
-                self.skew_dblSpinBox.setValue(self.mirrorDriver.skew)
+                self.skewResonant_dblSpinBox.setValue(self.mirrorDriver.skewResonant)
+                self.skewNonResonant_dblSpinBox.setValue(self.mirrorDriver.skewNonResonant)
                 self.scanPhaseAdjust_spinBox.setValue(self.mirrorDriver.phaseAdjust)
                 DebugLog.log("readHardwareConfig(): mirrorDriver=\n %s" % repr(self.mirrorDriver))
             except Exception as ex:
@@ -876,11 +877,13 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         scanParams.continuousScan = self.continuousVolume_checkBox.isChecked()
 
         if self.useGUI==1:
-            scanParams.skew = self.skew_dblSpinBox.value()
+            scanParams.skewResonant = self.skewResonant_dblSpinBox.value()
+            scanParams.skewNonResonant = self.skewNonResonant_dblSpinBox.value()
             scanParams.phaseAdjust = self.scanPhaseAdjust_spinBox.value()
             scanParams.volScanFreq = self.volScanFreq_spinBox.value()
         else:
-            scanParams.skew = self.mirrorDriver.skew
+            scanParams.skewResonant = self.mirrorDriver.skewResonant
+            scanParams.skewNonResonant = self.mirrorDriver.skewNonResonant
             scanParams.phaseAdjust = self.mirrorDriver.phaseAdjust
             scanParams.volScanFreq = self.mirrorDriver.volScanFreq  
         
@@ -894,7 +897,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.widthSteps_spinBox.blockSignals(blocked)
         self.lengthRes_dblSpinBox.blockSignals(blocked)
         self.widthRes_dblSpinBox.blockSignals(blocked)
-        self.skew_dblSpinBox.blockSignals(blocked)
+        self.skewResonant_dblSpinBox.blockSignals(blocked)
+        self.skewNonResonant_dblSpinBox.blockSignals(blocked)
         
     def loadScanParams(self, scanParams):
         self.blockScanParamsSignals(True)

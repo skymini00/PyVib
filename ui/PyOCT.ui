@@ -5815,10 +5815,10 @@
          <widget class="QLabel" name="label_54">
           <property name="geometry">
            <rect>
-            <x>1380</x>
+            <x>1324</x>
             <y>709</y>
-            <width>41</width>
-            <height>16</height>
+            <width>91</width>
+            <height>20</height>
            </rect>
           </property>
           <property name="font">
@@ -5827,7 +5827,7 @@
            </font>
           </property>
           <property name="text">
-           <string>Skew</string>
+           <string>Skew Resonant</string>
           </property>
          </widget>
          <widget class="QLabel" name="label_104">
@@ -5848,7 +5848,7 @@
            <string>Phase adjust</string>
           </property>
          </widget>
-         <widget class="QDoubleSpinBox" name="skew_dblSpinBox">
+         <widget class="QDoubleSpinBox" name="skewResonant_dblSpinBox">
           <property name="geometry">
            <rect>
             <x>1430</x>
@@ -5893,7 +5893,7 @@
            </font>
           </property>
           <property name="currentIndex">
-           <number>0</number>
+           <number>1</number>
           </property>
           <item>
            <property name="text">
@@ -5982,16 +5982,16 @@
            <number>1</number>
           </property>
           <property name="minimum">
-           <double>0.100000000000000</double>
+           <double>0.500000000000000</double>
           </property>
           <property name="maximum">
            <double>500.000000000000000</double>
           </property>
           <property name="singleStep">
-           <double>0.100000000000000</double>
+           <double>0.500000000000000</double>
           </property>
           <property name="value">
-           <double>1.000000000000000</double>
+           <double>10.000000000000000</double>
           </property>
          </widget>
          <widget class="QLabel" name="label_165">
@@ -6010,6 +6010,54 @@
           </property>
           <property name="text">
            <string>Scan frequency</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_166">
+          <property name="geometry">
+           <rect>
+            <x>1310</x>
+            <y>820</y>
+            <width>111</width>
+            <height>20</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Skew NonResonant</string>
+          </property>
+         </widget>
+         <widget class="QDoubleSpinBox" name="skewNonResonant_dblSpinBox">
+          <property name="geometry">
+           <rect>
+            <x>1430</x>
+            <y>820</y>
+            <width>61</width>
+            <height>21</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="decimals">
+           <number>1</number>
+          </property>
+          <property name="minimum">
+           <double>0.000000000000000</double>
+          </property>
+          <property name="maximum">
+           <double>50.000000000000000</double>
+          </property>
+          <property name="singleStep">
+           <double>0.100000000000000</double>
+          </property>
+          <property name="value">
+           <double>1.000000000000000</double>
           </property>
          </widget>
         </widget>

@@ -478,7 +478,7 @@ def calibrateScanMirror(appObj):
             Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
             Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
             xAdjust = 1    
-            yAdjust = scanParams.skew
+            yAdjust = scanParams.skewResonant
             phaseShift = scanParams.phaseAdjust
             fr = mirrorDriver.resonantFreq  # angular scan rate (frequency of one rotation - resonant frequency)
             fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
@@ -499,33 +499,42 @@ def calibrateScanMirror(appObj):
         elif mode==1:   # create a square scan using slow parameters
             Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
             Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
+            xAdjust = 1    
+            yAdjust = scanParams.skewNonResonant
             diameter = scanParams.length
-            voltsPerMM = mirrorDriver.voltsPerMillimeter
-            if ((diameter/2)*voltsPerMM)>Vmaxx:
-                diameter=2*Vmaxx/voltsPerMM
-            if ((diameter/2)*voltsPerMM)>Vmaxy:
-                diameter=2*Vmaxy/voltsPerMM
+            voltsPerMMX = mirrorDriver.voltsPerMillimeter*xAdjust
+            voltsPerMMY = mirrorDriver.voltsPerMillimeter*yAdjust
+            if ((diameter/2)*voltsPerMMX)>Vmaxx:
+                diameter=2*Vmaxx/voltsPerMMX
+            if ((diameter/2)*voltsPerMMY)>Vmaxy:
+                diameter=2*Vmaxy/voltsPerMMY
             freq = appObj.cal_freq_dblSpinBox.value()
-            if freq>(0.75*mirrorDriver.LPFcutoff):  # can't go faster than the maximum scan rate
-                appObj.cal_freq_dblSpinBox.setValue((0.75*mirrorDriver.LPFcutoff))
+            if freq>mirrorDriver.LPFcutoff:  # can't go faster than the maximum scan rate
+                appObj.cal_freq_dblSpinBox.setValue(mirrorDriver.LPFcutoff)
             fs=mirrorDriver.DAQoutputRate   # galvo output sampling rate
-            t=np.arange(0,np.around(fs/freq))*1/fs  # t is the array of times for the DAQ output to the mirrors
-            n=np.around(t.shape[0]/4)   # number of points in each 4th of the cycle
-            corner=(diameter/2)*voltsPerMM     # voltage at each corner of the square
+            t1=np.arange(0,np.around(fs/freq))*1/fs  
+            n=np.around(t1.shape[0]/4)-1   # number of points in each 4th of the cycle (reduce by 1 to make it easy to shorten t1)
+            t=t1[0:4*n]  # t is the array of times for the DAQ output to the mirrors
+            cornerX=(diameter/2)*voltsPerMMX     # voltage at each corner of the square            
+            cornerY=(diameter/2)*voltsPerMMY     # voltage at each corner of the square            
             
             # x and y are the coordinates of the laser at each point in time
             x=np.zeros(t.shape)            
             y=np.zeros(t.shape)            
-            x[0:n]=np.linspace(-corner,corner,n)
-            y[0:n]=-corner
-            x[n:2*n]=corner
-            y[n:2*n]=np.linspace(-corner,corner,n)
-            x[2*n:3*n]=np.linspace(corner,-corner,n)
-            y[2*n:3*n]=corner
-            x[3*n:]=-corner
-            y[3*n:]=np.linspace(corner,-corner,n)
-            mirrorOut= np.vstack((x,y))
-            
+            x[0:n]=np.linspace(-cornerX,cornerX,n)
+            y[0:n]=-cornerY
+            x[n:2*n]=cornerX
+            y[n:2*n]=np.linspace(-cornerY,cornerY,n)
+            x[2*n:3*n]=np.linspace(cornerX,-cornerX,n)
+            y[2*n:3*n]=cornerY
+            x[3*n:4*n]=-cornerX
+            y[3*n:4*n]=np.linspace(cornerY,-cornerY,n)
+            mirrorOut1= np.vstack((x,y))
+            if mirrorDriver.MEMS==True:
+                mirrorOut=scipy.signal.filtfilt(mirrorDriver.b_filt,mirrorDriver.a_filt,mirrorOut1)           
+            else:
+                mirrorOut=mirrorOut1    
+
         # plot mirror commands to GUI 
         pl = appObj.JSOmisc_plot1
         npts = mirrorOut.shape[1]

@@ -19,6 +19,7 @@ class MirrorDriver:
         self.mirrorType = MirrorType.DISSECTING_MICROSCOPE
         self.MEMS=False     
         self.voltsPerMillimeter = 1      # how many volts to apply to to displace the beam  by one milliemeter
+        self.skewNonResonant = 1
         self.voltRange = (-1, 1)          # range 
         self.settleTime = 1e-3              # time if takes for mirror to settle to small command changes
         self.flybackTime = 10e-3            # time it takes for mirro to flyback across its length
@@ -30,7 +31,7 @@ class MirrorDriver:
         self.DAQdevice = 'Dev1'
         self.fastScanMaxFreq = 80e3
         self.newField = ''
-        self.skew = 1
+        self.skewResonant = 1
         self.phaseAdjust = 0
         self.maxVoltage = 0
         self.resonantFreq = 0
@@ -39,6 +40,10 @@ class MirrorDriver:
         self.voltsPerMillimeterResonant = 0.1
         self.a_filt=0
         self.b_filt=0
+        self.voltsPerMillimeterX = 1
+        self.voltsPerMillimeterY = 1
+        self.voltsPerMillimeterResonantX = 0.1
+        self.voltsPerMillimeterResonantY = 0.1
         
     # return the  move the mirro to a single (x,y) point, where x and y in millimeters
     def makeMirrorCommand(self, x, y):
@@ -73,6 +78,8 @@ class MirrorDriver:
             val = x[1]
             if(fld == "Volts per millimeter"):
                 self.voltsPerMillimeter = float(val)
+            elif(fld == "Skew NonResonant"):
+                self.skewNonResonant = float(val)
             elif(fld == "Volt Range"):  # this is only used for the OIM mirrors, not the MEMS mirrors
                 val2 = re.split(' ', val)
                 self.voltRange = (float(val2[1]), float(val2[2]))
@@ -103,8 +110,8 @@ class MirrorDriver:
                 else:
                     self.MEMS=False
                 print('self.MEMS', self.MEMS)
-            elif(fld == "skew"):
-                self.skew = float(val)
+            elif(fld == "Skew Resonant"):
+                self.skewResonant = float(val)
             elif(fld == "phaseAdjust"):
                 self.phaseAdjust = float(val)
             elif(fld == "maxVoltage"):
@@ -121,9 +128,11 @@ class MirrorDriver:
                 self.LPFcutoff = float(val)
             elif(fld == "voltsPerMillimeterResonant"):
                 self.voltsPerMillimeterResonant = float(val)               
-            
-            # Set up the filtering coefficients to be careful and not damage the device
-            self.b_filt,self.a_filt=scipy.signal.butter(3,self.LPFcutoff/self.DAQoutputRate/2,'low')  #note since using filtfilt a 3 pole is actually a 6 pole
+           
+        # After loading in the file, set up the filtering coefficients to be careful and not damage the device
+        nyq=0.5*self.DAQoutputRate
+        normal_cutoff=self.LPFcutoff/nyq
+        self.b_filt,self.a_filt=scipy.signal.butter(3,normal_cutoff, btype='low', analog=False)  #note since using filtfilt a 3 pole is actually a 6 pole
                 
     def __repr__(self):        
         return self.encodeToString()
