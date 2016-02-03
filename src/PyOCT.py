@@ -308,7 +308,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             # dispCorr = readDispersionFile(dispFilePath)
             dispData = Dispersion.loadDispData(self, dispFilePath)
             
-            samplesPerTrigActual = dispData.requestedSamplesPerTrig - dispData.numShiftPts - dispData.sampleOffset
+            #samplesPerTrigActual = dispData.requestedSamplesPerTrig - dispData.numShiftPts - dispData.sampleOffset
+            samplesPerTrigActual = dispData.requestedSamplesPerTrig
             
             fpgaOpts.SamplesPerTrig = samplesPerTrigActual // 2 
             fpgaOpts.klinRoiBegin = dispData.startSample
