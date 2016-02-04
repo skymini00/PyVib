@@ -867,7 +867,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>4</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="bscan_tab">
          <attribute name="title">
@@ -1367,9 +1367,9 @@
           <property name="geometry">
            <rect>
             <x>10</x>
-            <y>430</y>
+            <y>330</y>
             <width>561</width>
-            <height>381</height>
+            <height>241</height>
            </rect>
           </property>
           <property name="backgroundBrush">
@@ -1385,10 +1385,10 @@
          <widget class="PlotWidget" name="plot_micFFT">
           <property name="geometry">
            <rect>
-            <x>580</x>
-            <y>40</y>
-            <width>611</width>
-            <height>341</height>
+            <x>10</x>
+            <y>610</y>
+            <width>561</width>
+            <height>251</height>
            </rect>
           </property>
           <property name="backgroundBrush">
@@ -1405,7 +1405,7 @@
           <property name="geometry">
            <rect>
             <x>580</x>
-            <y>430</y>
+            <y>40</y>
             <width>611</width>
             <height>381</height>
            </rect>
@@ -1424,7 +1424,7 @@
           <property name="geometry">
            <rect>
             <x>10</x>
-            <y>395</y>
+            <y>290</y>
             <width>161</width>
             <height>31</height>
            </rect>
@@ -1441,8 +1441,8 @@
          <widget class="QLabel" name="label_39">
           <property name="geometry">
            <rect>
-            <x>580</x>
-            <y>0</y>
+            <x>10</x>
+            <y>570</y>
             <width>161</width>
             <height>31</height>
            </rect>
@@ -1459,8 +1459,8 @@
          <widget class="QLabel" name="label_46">
           <property name="geometry">
            <rect>
-            <x>590</x>
-            <y>390</y>
+            <x>580</x>
+            <y>0</y>
             <width>331</width>
             <height>31</height>
            </rect>
@@ -1480,7 +1480,7 @@
             <x>10</x>
             <y>40</y>
             <width>561</width>
-            <height>341</height>
+            <height>241</height>
            </rect>
           </property>
           <property name="backgroundBrush">
@@ -1522,6 +1522,62 @@
           </property>
           <property name="text">
            <string>Load Flat Speaker Calibration</string>
+          </property>
+          <property name="checkable">
+           <bool>false</bool>
+          </property>
+          <property name="checked">
+           <bool>false</bool>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_163">
+          <property name="geometry">
+           <rect>
+            <x>580</x>
+            <y>430</y>
+            <width>331</width>
+            <height>31</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>16</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Speaker Distortion</string>
+          </property>
+         </widget>
+         <widget class="PlotWidget" name="plot_speakerDistortion">
+          <property name="geometry">
+           <rect>
+            <x>580</x>
+            <y>470</y>
+            <width>611</width>
+            <height>391</height>
+           </rect>
+          </property>
+          <property name="backgroundBrush">
+           <brush brushstyle="NoBrush">
+            <color alpha="255">
+             <red>255</red>
+             <green>255</green>
+             <blue>255</blue>
+            </color>
+           </brush>
+          </property>
+         </widget>
+         <widget class="QPushButton" name="audio_loadSpkCal_pushButton">
+          <property name="geometry">
+           <rect>
+            <x>1210</x>
+            <y>110</y>
+            <width>241</width>
+            <height>41</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Load Speaker Calibration</string>
           </property>
           <property name="checkable">
            <bool>false</bool>

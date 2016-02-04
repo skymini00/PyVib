@@ -38,6 +38,7 @@ class MicData:
         self.fft_freq = None
         self.stim_freq_mag = None
         self.stim_freq_phase = None
+        self.thd = None
         
 def makeSpeakerCalibrationOutput(freq, audioHW, audioParams):
     outV = 100e-3
@@ -65,7 +66,8 @@ def processSpkCalData(mic_data, freq, freq_idx, audioParams, inputRate, speakerC
     DebugLog.log("SpeakerCalProtocol: processData: numpts= %d" % (numpts))
 
     t = np.linspace(0, numpts/inputRate, numpts)
-    numfftpts = numpts*2
+    zero_pad_factor = 2
+    numfftpts = numpts*zero_pad_factor
     winfcn = np.hanning(numpts)
     mic_fft = np.fft.fft(winfcn*mic_data, numfftpts)
     endIdx = np.ceil(numfftpts/2)
@@ -74,7 +76,8 @@ def processSpkCalData(mic_data, freq, freq_idx, audioParams, inputRate, speakerC
     
     # convert to dB, correctting for RMS and FFT length
     fftrms_corr = 2/(numpts*np.sqrt(2))
-    mic_fft_mag = 20*np.log10(fftrms_corr*mic_fft_mag/20e-6)   # 20e-6 pa
+    mic_fft_mag = fftrms_corr*mic_fft_mag 
+    mic_fft_mag_log = 20*np.log10(mic_fft_mag/20e-6 )  # 20e-6 pa
     
     mic_fft_phase = np.angle(mic_fft)
     mic_freq = np.linspace(0, inputRate/2, endIdx)
@@ -83,10 +86,14 @@ def processSpkCalData(mic_data, freq, freq_idx, audioParams, inputRate, speakerC
 
     stim_freq_mag = np.NAN
     stim_freq_phase = np.NAN
-
+        
     try:            
-        mag_rgn = mic_fft_mag[fIdx-1:fIdx+1]
-        phase_rgn = mic_fft_phase[fIdx-1:fIdx+1]
+        npts = zero_pad_factor
+        mag_rgn = mic_fft_mag_log[fIdx-npts:fIdx+npts]
+        phase_rgn = mic_fft_phase[fIdx-npts:fIdx+npts]
+        fIdx = int(np.floor(freq*numfftpts/inputRate))
+        DebugLog.log("SpeakerCalibration: processData: freq= %f fIdx= %d" % (freq, fIdx))
+        
         maxIdx = np.argmax(mag_rgn)
         stim_freq_mag = mag_rgn[maxIdx]
         stim_freq_phase = phase_rgn[maxIdx]
@@ -97,12 +104,12 @@ def processSpkCalData(mic_data, freq, freq_idx, audioParams, inputRate, speakerC
     micData = MicData()
     micData.raw = mic_data
     micData.t = t
-    micData.fft_mag = mic_fft_mag
+    micData.fft_mag = mic_fft_mag_log
     micData.fft_phase = mic_fft_phase
     micData.fft_freq = mic_freq
     micData.stim_freq_mag = stim_freq_mag
     micData.stim_freq_phase = stim_freq_phase
-
+    
     speakerCalIn.magResp[spkNum, freq_idx] = stim_freq_mag
     speakerCalIn.phaseResp[spkNum, freq_idx] = stim_freq_phase
         

@@ -39,7 +39,7 @@ def makeSpkCalTestOutput(freq, amp, audioHW, audioParams, spkNum):
     
     return sig, attenLvl
    
-def processSpkCalTestData(mic_data, freq, freq_idx, amp_idx, audioParams, inputRate, magRespIn, phaseRespIn):
+def processSpkCalTestData(mic_data, freq, freq_idx, amp_idx, audioParams, inputRate, magRespIn, phaseRespIn, THDIn):
     # print("SpeakerCalProtocol: processData: mic_data=" + repr(mic_data))
     # ensure data is 1D
     if len(mic_data.shape) > 1:
@@ -49,7 +49,8 @@ def processSpkCalTestData(mic_data, freq, freq_idx, amp_idx, audioParams, inputR
     DebugLog.log("SpeakerCalProtocol: processData: numpts= %d" % (numpts))
 
     t = np.linspace(0, numpts/inputRate, numpts)
-    numfftpts = numpts*2
+    zero_pad_factor = 2
+    numfftpts = numpts*zero_pad_factor
     winfcn = np.hanning(numpts)
     mic_fft = np.fft.fft(winfcn*mic_data, numfftpts)
     endIdx = np.ceil(numfftpts/2)
@@ -58,7 +59,8 @@ def processSpkCalTestData(mic_data, freq, freq_idx, amp_idx, audioParams, inputR
     
     # convert to dB, correctting for RMS and FFT length
     fftrms_corr = 2/(numpts*np.sqrt(2))
-    mic_fft_mag = 20*np.log10(fftrms_corr*mic_fft_mag/20e-6)   # 20e-6 pa
+    mic_fft_mag = fftrms_corr*mic_fft_mag  # 20e-6 pa
+    mic_fft_mag_log = 20*np.log10(mic_fft_mag/20e-6)  
     
     mic_fft_phase = np.angle(mic_fft)
     mic_freq = np.linspace(0, inputRate/2, endIdx)
@@ -69,28 +71,81 @@ def processSpkCalTestData(mic_data, freq, freq_idx, amp_idx, audioParams, inputR
     stim_freq_phase = np.NAN
 
     try:            
-        mag_rgn = mic_fft_mag[fIdx-1:fIdx+1]
-        phase_rgn = mic_fft_phase[fIdx-1:fIdx+1]
+        npts = zero_pad_factor
+        mag_rgn = mic_fft_mag_log[fIdx-npts:fIdx+npts]
+        phase_rgn = mic_fft_phase[fIdx-npts:fIdx+npts]
         maxIdx = np.argmax(mag_rgn)
         stim_freq_mag = mag_rgn[maxIdx]
         stim_freq_phase = phase_rgn[maxIdx]
+        
+        mag_rgn = mic_fft_mag[fIdx-npts:fIdx+npts]
+        stim_freq_mag_pa = mag_rgn[maxIdx]
     except Exception as ex:
-        DebugLog.log(ex)
+        #DebugLog.log(ex)
+        traceback.print_exc(file=sys.stdout)
     
+    thd = 0
+    try:        
+        nmax = int(np.floor((inputRate/2)/freq))
+        npts = zero_pad_factor
+#        for n in range(2, nmax+1):
+#            fIdx = int(np.floor(freq*n*numfftpts/inputRate))
+#            
+#            mag_rgn = mic_fft_mag[fIdx-npts:fIdx+npts]
+#            maxIdx = np.argmax(mag_rgn)
+#            resp = mag_rgn[maxIdx]
+#            
+#            idx1= fIdx+npts+2
+#            idx2 = fIdx+npts+82
+#            noise_rgn = mic_fft_mag[fIdx-npts:fIdx+npts]
+#            noise_mean = np.mean(noise_rgn)
+#            noise_std = np.std(noise_rgn)
+#            noise_lvl = noise_mean + 2*noise_std
+#            print("n= ", n, " resp= ", resp, " noise_lvl= ", noise_lvl)
+#            if resp > noise_lvl:
+#                thd += (resp**2)
+
+        #print("sum distortions= ", thd, " stim_freq_mag_pa= ", stim_freq_mag_pa)            
+        # thd = (thd ** 0.5)/stim_freq_mag
+        fIdx1 = int(np.floor(freq*2*numfftpts/inputRate))
+        fIdx2 = int(np.floor((freq/2)*numfftpts/inputRate))
+        
+        mag_rgn1 = mic_fft_mag_log[fIdx1-npts:fIdx1+npts]
+        mag_rgn2 = mic_fft_mag_log[fIdx2-npts:fIdx2+npts]
+        
+        maxIdx1 = np.argmax(mag_rgn1)
+        maxIdx2 = np.argmax(mag_rgn2)
+        
+        resp1 = mag_rgn1[maxIdx1]
+        resp2 = mag_rgn2[maxIdx2]
+        #thd = max((resp1, resp2))
+        thd = resp2
+        print("thd= ", thd)
+#        if thd > 0:
+#            thd = 20*np.log10(thd)  # convert to dB
+#        else:
+#            thd = np.nan
+#        print("20*log10(thd/20e-6)= ", thd)
+    except Exception as ex:
+        #DebugLog.log(ex)        
+        traceback.print_exc(file=sys.stdout)
+        
     DebugLog.log("SpeakerCalibration: processData: stim_freq_mag= %f stim_freq_phase= %f" % (stim_freq_mag, stim_freq_phase))
     micData = SpeakerCalibration.MicData()
     micData.raw = mic_data
     micData.t = t
-    micData.fft_mag = mic_fft_mag
+    micData.fft_mag = mic_fft_mag_log
     micData.fft_phase = mic_fft_phase
     micData.fft_freq = mic_freq
     micData.stim_freq_mag = stim_freq_mag
     micData.stim_freq_phase = stim_freq_phase
-
+    micData.thd = thd
+    
     magRespIn[freq_idx, amp_idx] = stim_freq_mag
     phaseRespIn[freq_idx, amp_idx] = stim_freq_phase
+    THDIn[freq_idx, amp_idx] = thd
         
-    return micData, magRespIn, phaseRespIn
+    return micData, magRespIn, phaseRespIn, THDIn
     
         
 def GetTestData(frameNum):
@@ -145,6 +200,8 @@ def runSpeakerCalTest(appObj):
         magResp[:, :] = np.nan
         phaseResp = np.zeros((numFreq, numAmp))
         phaseResp[:, :] = np.nan
+        THD = np.zeros((numFreq, numAmp))
+        THD[:, :] = np.nan
         
         for freq_idx in range(0, numFreq):
             for amp_idx in range(0, numAmp):
@@ -208,7 +265,7 @@ def runSpeakerCalTest(appObj):
                 labelStyle = appObj.yLblStyle
                 pl.setLabel('left', 'Response', 'Pa', **labelStyle)
                 
-                micData, magResp, phaseResp = processSpkCalTestData(mic_data, freq*1000, freq_idx, amp_idx, audioParams, inputRate, magResp, phaseResp)
+                micData, magResp, phaseResp, THD = processSpkCalTestData(mic_data, freq*1000, freq_idx, amp_idx, audioParams, inputRate, magResp, phaseResp, THD)
                      
                 pl = appObj.plot_micFFT
                 pl.clear()
@@ -229,6 +286,18 @@ def runSpeakerCalTest(appObj):
                 for a_idx in range(0, numAmp):
                     pen=(a_idx, numAmp)
                     pl.plot(1000*freq_array, magResp[:, a_idx], pen=pen, symbol='o')
+                        
+                labelStyle = appObj.xLblStyle
+                pl.setLabel('bottom', 'Frequency', 'Hz', **labelStyle)
+                labelStyle = appObj.yLblStyle
+                pl.setLabel('left', 'Magnitude', 'db SPL', **labelStyle)
+                
+                pl = appObj.plot_speakerDistortion
+                pl.clear()
+                
+                for a_idx in range(0, numAmp):
+                    pen=(a_idx, numAmp)
+                    pl.plot(1000*freq_array, THD[:, a_idx], pen=pen, symbol='o')
                         
                 labelStyle = appObj.xLblStyle
                 pl.setLabel('bottom', 'Frequency', 'Hz', **labelStyle)
