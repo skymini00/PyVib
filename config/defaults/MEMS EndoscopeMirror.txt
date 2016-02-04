@@ -1,14 +1,15 @@
 Type=2
 Volts per millimeter= 1
-Settle Time= 0.03
-Flyback Time= 0.10000
-Reverse Time= 0.02
+Settle Time= 0.001
+Flyback Time= 0.01
+Reverse Time= 0.003
 X DAQ Chan= PXI1Slot2/ao0
 Y DAQ Chan= PXI1Slot2/ao1
 OCT Trigger DAQ Chan= /PXI1Slot2/PXI_Trig2
 Output rate= 250000.000000
 DAQ Device= PXI1Slot2
-skew= 8.5
+Skew Resonant= 8.5
+Skew NonResonant = 2
 phaseAdjust= 345
 maxVoltage=133
 resonantFreq= 280	
@@ -18,3 +19,6 @@ voltsPerMillimeterResonant = 0.2
 
 # note: these settings are for the endoscope MEMS mirror.
 # Device S1358; A1B1.1 - this is assumed, but we really should open up the endoscope to be sure.
+
+# Type: 0=galvo or voice coil mirror
+	1,2=MEMS mirror

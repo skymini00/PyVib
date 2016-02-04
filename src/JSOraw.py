@@ -472,12 +472,13 @@ def calibrateScanMirror(appObj):
     while appObj.doneFlag == False:        # keep running until the button is turned off 
         scanParams = appObj.getScanParams()
        #    create scan pattern to drive the mirrors
-        mode=appObj.scanShape_comboBox.currentText()
-        if mode=='Spiral':   # create a spiral scan (fast)
+        mode=appObj.scanShape_comboBox.currentIndex()
+        print('mode',mode)
+        if mode==0:   # create a spiral scan using fast (resonant) scanning
             Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
             Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
             xAdjust = 1    
-            yAdjust = scanParams.skew
+            yAdjust = scanParams.skewResonant
             phaseShift = scanParams.phaseAdjust
             fr = mirrorDriver.resonantFreq  # angular scan rate (frequency of one rotation - resonant frequency)
             fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
@@ -495,28 +496,45 @@ def calibrateScanMirror(appObj):
             y=yAdjust*A*r*np.sin(2*np.pi*fr*t+phaseShift*np.pi/180)
             mirrorOut= np.vstack((x,y))
             
-        elif mode=='Circle':   # create a circle scan
+        elif mode==1:   # create a square scan using slow parameters
             Vmaxx=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for x-axis
             Vmaxy=mirrorDriver.voltRange[1] # maximum voltage for MEMS mirror for y-axis
             xAdjust = 1    
-            yAdjust = scanParams.skew
-            phaseShift = scanParams.phaseAdjust
-            fr = mirrorDriver.resonantFreq  # angular scan rate (frequency of one rotation - resonant frequency)
-            fv = scanParams.volScanFreq     # plotParam scan frequency, which scans in and then out, which is actually two volumes
-            DebugLog.log("freq of one rotation (fr)= %d; scan frequency (fv)= %d" % (fr, fv))
+            yAdjust = scanParams.skewNonResonant
             diameter = scanParams.length
-            voltsPerMM = mirrorDriver.voltsPerMillimeterResonant
-            A1=(Vmaxx/2)/xAdjust
-            A2=(Vmaxy/2)/yAdjust
-            A3=voltsPerMM*diameter/2 
-            A=np.min([A1,A2,A3])           
+            voltsPerMMX = mirrorDriver.voltsPerMillimeter*xAdjust
+            voltsPerMMY = mirrorDriver.voltsPerMillimeter*yAdjust
+            if ((diameter/2)*voltsPerMMX)>Vmaxx:
+                diameter=2*Vmaxx/voltsPerMMX
+            if ((diameter/2)*voltsPerMMY)>Vmaxy:
+                diameter=2*Vmaxy/voltsPerMMY
+            freq = appObj.cal_freq_dblSpinBox.value()
+            if freq>mirrorDriver.LPFcutoff:  # can't go faster than the maximum scan rate
+                appObj.cal_freq_dblSpinBox.setValue(mirrorDriver.LPFcutoff)
             fs=mirrorDriver.DAQoutputRate   # galvo output sampling rate
-            t=np.arange(0,np.around(fs/fv))*1/fs  # t is the array of times for the DAQ output to the mirrors
-            r=1         # don't vary the amplitude            
-            x=xAdjust*A*r*np.cos(2*np.pi*fr*t) # x and y are the coordinates of the laser at each point in time
-            y=yAdjust*A*r*np.sin(2*np.pi*fr*t+phaseShift*np.pi/180)
-            mirrorOut= np.vstack((x,y))
+            t1=np.arange(0,np.around(fs/freq))*1/fs  
+            n=np.around(t1.shape[0]/4)-1   # number of points in each 4th of the cycle (reduce by 1 to make it easy to shorten t1)
+            t=t1[0:4*n]  # t is the array of times for the DAQ output to the mirrors
+            cornerX=(diameter/2)*voltsPerMMX     # voltage at each corner of the square            
+            cornerY=(diameter/2)*voltsPerMMY     # voltage at each corner of the square            
             
+            # x and y are the coordinates of the laser at each point in time
+            x=np.zeros(t.shape)            
+            y=np.zeros(t.shape)            
+            x[0:n]=np.linspace(-cornerX,cornerX,n)
+            y[0:n]=-cornerY
+            x[n:2*n]=cornerX
+            y[n:2*n]=np.linspace(-cornerY,cornerY,n)
+            x[2*n:3*n]=np.linspace(cornerX,-cornerX,n)
+            y[2*n:3*n]=cornerY
+            x[3*n:4*n]=-cornerX
+            y[3*n:4*n]=np.linspace(cornerY,-cornerY,n)
+            mirrorOut1= np.vstack((x,y))
+            if mirrorDriver.MEMS==True:
+                mirrorOut=scipy.signal.filtfilt(mirrorDriver.b_filt,mirrorDriver.a_filt,mirrorOut1)           
+            else:
+                mirrorOut=mirrorOut1    
+
         # plot mirror commands to GUI 
         pl = appObj.JSOmisc_plot1
         npts = mirrorOut.shape[1]

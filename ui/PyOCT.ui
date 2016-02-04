@@ -106,7 +106,7 @@
          </rect>
         </property>
         <property name="currentIndex">
-         <number>3</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="tab_2">
          <attribute name="title">
@@ -5831,7 +5831,7 @@
             <x>1320</x>
             <y>620</y>
             <width>171</width>
-            <height>21</height>
+            <height>31</height>
            </rect>
           </property>
           <property name="text">
@@ -5845,9 +5845,9 @@
           <property name="geometry">
            <rect>
             <x>1430</x>
-            <y>672</y>
+            <y>730</y>
             <width>61</width>
-            <height>16</height>
+            <height>21</height>
            </rect>
           </property>
           <property name="font">
@@ -5871,10 +5871,10 @@
          <widget class="QLabel" name="label_54">
           <property name="geometry">
            <rect>
-            <x>1380</x>
-            <y>651</y>
-            <width>41</width>
-            <height>16</height>
+            <x>1324</x>
+            <y>709</y>
+            <width>91</width>
+            <height>20</height>
            </rect>
           </property>
           <property name="font">
@@ -5883,14 +5883,14 @@
            </font>
           </property>
           <property name="text">
-           <string>Skew</string>
+           <string>Skew Resonant</string>
           </property>
          </widget>
          <widget class="QLabel" name="label_104">
           <property name="geometry">
            <rect>
             <x>1340</x>
-            <y>673</y>
+            <y>731</y>
             <width>81</width>
             <height>16</height>
            </rect>
@@ -5904,11 +5904,11 @@
            <string>Phase adjust</string>
           </property>
          </widget>
-         <widget class="QDoubleSpinBox" name="skew_dblSpinBox">
+         <widget class="QDoubleSpinBox" name="skewResonant_dblSpinBox">
           <property name="geometry">
            <rect>
             <x>1430</x>
-            <y>648</y>
+            <y>706</y>
             <width>61</width>
             <height>21</height>
            </rect>
@@ -5937,9 +5937,9 @@
          <widget class="QComboBox" name="scanShape_comboBox">
           <property name="geometry">
            <rect>
-            <x>1430</x>
-            <y>691</y>
-            <width>61</width>
+            <x>1330</x>
+            <y>660</y>
+            <width>161</width>
             <height>22</height>
            </rect>
           </property>
@@ -5949,24 +5949,24 @@
            </font>
           </property>
           <property name="currentIndex">
-           <number>0</number>
+           <number>1</number>
           </property>
           <item>
            <property name="text">
-            <string>Spiral</string>
+            <string>Resonant scan (spiral)</string>
            </property>
           </item>
           <item>
            <property name="text">
-            <string>Circle</string>
+            <string>Regular scan (square)</string>
            </property>
           </item>
          </widget>
          <widget class="QLabel" name="label_158">
           <property name="geometry">
            <rect>
-            <x>1349</x>
-            <y>694</y>
+            <x>1260</x>
+            <y>663</y>
             <width>71</width>
             <height>16</height>
            </rect>
@@ -5977,7 +5977,143 @@
            </font>
           </property>
           <property name="text">
-           <string>Scan shape</string>
+           <string>Scan Type</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_163">
+          <property name="geometry">
+           <rect>
+            <x>1320</x>
+            <y>690</y>
+            <width>161</width>
+            <height>20</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Resonant scan parameters</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_164">
+          <property name="geometry">
+           <rect>
+            <x>1320</x>
+            <y>770</y>
+            <width>161</width>
+            <height>20</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="text">
+           <string>Regular scan parameters</string>
+          </property>
+         </widget>
+         <widget class="QDoubleSpinBox" name="cal_freq_dblSpinBox">
+          <property name="geometry">
+           <rect>
+            <x>1430</x>
+            <y>790</y>
+            <width>61</width>
+            <height>21</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="decimals">
+           <number>1</number>
+          </property>
+          <property name="minimum">
+           <double>0.500000000000000</double>
+          </property>
+          <property name="maximum">
+           <double>500.000000000000000</double>
+          </property>
+          <property name="singleStep">
+           <double>0.500000000000000</double>
+          </property>
+          <property name="value">
+           <double>10.000000000000000</double>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_165">
+          <property name="geometry">
+           <rect>
+            <x>1330</x>
+            <y>790</y>
+            <width>101</width>
+            <height>20</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Scan frequency</string>
+          </property>
+         </widget>
+         <widget class="QLabel" name="label_166">
+          <property name="geometry">
+           <rect>
+            <x>1310</x>
+            <y>820</y>
+            <width>111</width>
+            <height>20</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Skew NonResonant</string>
+          </property>
+         </widget>
+         <widget class="QDoubleSpinBox" name="skewNonResonant_dblSpinBox">
+          <property name="geometry">
+           <rect>
+            <x>1430</x>
+            <y>820</y>
+            <width>61</width>
+            <height>21</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="decimals">
+           <number>1</number>
+          </property>
+          <property name="minimum">
+           <double>0.000000000000000</double>
+          </property>
+          <property name="maximum">
+           <double>50.000000000000000</double>
+          </property>
+          <property name="singleStep">
+           <double>0.100000000000000</double>
+          </property>
+          <property name="value">
+           <double>1.000000000000000</double>
           </property>
          </widget>
         </widget>
@@ -7642,6 +7778,45 @@
           <double>5.000000000000000</double>
          </property>
         </widget>
+        <widget class="QDoubleSpinBox" name="focalPlaneAdj_spinbox">
+         <property name="geometry">
+          <rect>
+           <x>120</x>
+           <y>260</y>
+           <width>71</width>
+           <height>22</height>
+          </rect>
+         </property>
+         <property name="suffix">
+          <string> mm</string>
+         </property>
+         <property name="minimum">
+          <double>-40.000000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>40.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.500000000000000</double>
+         </property>
+         <property name="value">
+          <double>0.000000000000000</double>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_103">
+         <property name="geometry">
+          <rect>
+           <x>25</x>
+           <y>257</y>
+           <width>91</width>
+           <height>31</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>OR microscope
+focal plane adjust</string>
+         </property>
+        </widget>
        </widget>
        <widget class="QPushButton" name="Dispersion_pushButton">
         <property name="geometry">
@@ -7653,7 +7828,7 @@
          </rect>
         </property>
         <property name="text">
-         <string>Dispersion</string>
+         <string>Dispersion (FPGA only) </string>
         </property>
         <property name="checkable">
          <bool>true</bool>
@@ -7665,7 +7840,7 @@
        <widget class="QPushButton" name="SpeakerCal_pushButton">
         <property name="geometry">
          <rect>
-          <x>150</x>
+          <x>140</x>
           <y>50</y>
           <width>101</width>
           <height>41</height>
@@ -7679,20 +7854,6 @@
         </property>
         <property name="checked">
          <bool>false</bool>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_103">
-        <property name="geometry">
-         <rect>
-          <x>155</x>
-          <y>137</y>
-          <width>91</width>
-          <height>31</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>OR microscope
-focal plane adjust</string>
         </property>
        </widget>
        <widget class="QLabel" name="timeElapsed_label">
@@ -7714,16 +7875,19 @@ focal plane adjust</string>
         </property>
        </widget>
        <widget class="QPushButton" name="JSOraw_pushButton">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="geometry">
          <rect>
-          <x>260</x>
+          <x>140</x>
           <y>100</y>
-          <width>81</width>
-          <height>31</height>
+          <width>171</width>
+          <height>41</height>
          </rect>
         </property>
         <property name="text">
-         <string>JSOraw</string>
+         <string>Dispersion (Software and GPU)</string>
         </property>
         <property name="checkable">
          <bool>true</bool>
@@ -7732,35 +7896,10 @@ focal plane adjust</string>
          <bool>false</bool>
         </property>
        </widget>
-       <widget class="QDoubleSpinBox" name="focalPlaneAdj_spinbox">
-        <property name="geometry">
-         <rect>
-          <x>250</x>
-          <y>140</y>
-          <width>71</width>
-          <height>22</height>
-         </rect>
-        </property>
-        <property name="suffix">
-         <string> mm</string>
-        </property>
-        <property name="minimum">
-         <double>-40.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>40.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>0.500000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.000000000000000</double>
-        </property>
-       </widget>
        <widget class="QPushButton" name="Mscan_pushButton">
         <property name="geometry">
          <rect>
-          <x>150</x>
+          <x>140</x>
           <y>0</y>
           <width>91</width>
           <height>41</height>
@@ -7798,14 +7937,16 @@ focal plane adjust</string>
        <widget class="QPushButton" name="rawDataTest_pushButton">
         <property name="geometry">
          <rect>
-          <x>150</x>
-          <y>100</y>
-          <width>91</width>
-          <height>31</height>
+          <x>320</x>
+          <y>90</y>
+          <width>41</width>
+          <height>51</height>
          </rect>
         </property>
         <property name="text">
-         <string>Raw Data Test</string>
+         <string>Raw 
+ Data 
+ Test</string>
         </property>
         <property name="checkable">
          <bool>true</bool>
@@ -7824,10 +7965,8 @@ focal plane adjust</string>
        <zorder>scanControls_groupBox</zorder>
        <zorder>Dispersion_pushButton</zorder>
        <zorder>SpeakerCal_pushButton</zorder>
-       <zorder>label_103</zorder>
        <zorder>timeElapsed_label</zorder>
        <zorder>JSOraw_pushButton</zorder>
-       <zorder>focalPlaneAdj_spinbox</zorder>
        <zorder>Mscan_pushButton</zorder>
        <zorder>Volume_pushButton</zorder>
        <zorder>rawDataTest_pushButton</zorder>
@@ -8025,6 +8164,38 @@ focal plane adjust</string>
     <hint type="destinationlabel">
      <x>1602</x>
      <y>961</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>rotation_spinBox</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>rotZ_dial</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>105</x>
+     <y>331</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>60</x>
+     <y>386</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>rotZ_dial</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>rotation_spinBox</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>60</x>
+     <y>386</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>105</x>
+     <y>331</y>
     </hint>
    </hints>
   </connection>

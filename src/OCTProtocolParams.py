@@ -30,7 +30,8 @@ class ScanParams:
         self.rotationYZ = 0           # the rotation of the plane with respect to the YZ plane
         
         self.volBscansPerFrame = 1    # how many bscans to acquire in one frame for a volume scan
-        self.xskew = 1.0              # multiplier for X mirror command to account for differences in volts per mm during fast scan
+        self.skewResonant = 1.0              # multiplier for X mirror command to account for differences in volts per mm during fast scan
+        self.skewNonResonant = 1.0              # multiplier for X mirror command to account for differences in volts per mm during fast scan
         self.phaseAdjust = 0.0
         self.angularScanFreq = 280
         self.volScanFreq = 5
@@ -42,7 +43,7 @@ class ScanParams:
         s = s + '\n\twidth= %0.3f widthOffset= %0.3f widthSteps= %d ' % (self.width, self.widthOffset, self.widthSteps)
         s = s + '\n\trotation_Z= %0.1f pattern= %s numAverages= %d downsample= %d' % (self.rotation_Z, self.pattern, self.numAverages, self.downsample)
         s = s + '\n\trotationXZ= %0.2f rotationXZ= %0.2f' % (self.rotationXZ, self.rotationYZ)
-        s = s + '\n\tbscansPerFrame= %d xskew= %0.3f phaseAdjust= %0.3f' % (self.volBscansPerFrame, self.xskew, self.phaseAdjust)
+        s = s + '\n\tbscansPerFrame= %d skewResonant= %0.3f skewNonResonant= %0.3f phaseAdjust= %0.3f' % (self.volBscansPerFrame, self.skewResonant, self.skewNonResonant, self.phaseAdjust)
         s = s + '\n\tcontinuousScan= %s angularScanFreq= %0.3f volScanFreq= %0.3f' % (repr(self.continuousScan), self.angularScanFreq, self.volScanFreq)
         ptsListStr = ''
         if self.ptsList is not None:

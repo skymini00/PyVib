@@ -311,9 +311,11 @@ def makeBscanCommand(scanParams, galvoMirror, OCTtriggerRate, volWidthStep=-1):
         s = (np.cos(t)+1)/2
         flyback_x = (x2 - x1)*s + x1           
         flyback_y = (y2 - y1)*s + y1
-        
-        cmd_x = np.concatenate((scan_x, flyback_x))
-        cmd_y = np.concatenate((scan_y, flyback_y))
+
+        xAdjust = 1    
+        yAdjust = scanParams.skewNonResonant
+        cmd_x = np.concatenate((scan_x, flyback_x))*xAdjust
+        cmd_y = np.concatenate((scan_y, flyback_y))*yAdjust
     
     if cmd_x is not None:
         return np.vstack((cmd_x, cmd_y))
@@ -607,7 +609,9 @@ def runBScan(appObj):
                 print('after filtering mirror signals',mirrorOutput.shape)
             else:
                 mirrorOutput=mirrorOut1    
-        
+            
+            print('MirrorOut max,min',np.max(mirrorOutput),np.min(mirrorOutput))
+            print('mirrorDriver.voltRange',mirrorDriver.voltRange)
             # setup the analog output DAQ device
             chanNames = [mirrorDriver.X_daqChan, mirrorDriver.Y_daqChan]
             trigChan = mirrorDriver.trig_daqChan

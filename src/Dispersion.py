@@ -380,7 +380,7 @@ def runDispersion(appObj):
                     err, pd_data = appObj.oct_hw.AcquireOCTDataInterpPD(numTrigs)
                     DebugLog.log("runDispersion(): AcquireOCTDataInterpPD() err = %d" % err)
                     # process the data
-                    dispData = processData(pd_data, dispData, numklinpts, PDfiltCutoffs, magWin_LPfilterCutoff, pd_background, collectBG)
+                dispData = processData(pd_data, dispData, numklinpts, PDfiltCutoffs, magWin_LPfilterCutoff, pd_background, collectBG)
 
             elif processMode == OCTCommon.ProcessMode.SOFTWARE:
                 if appObj.oct_hw.IsOCTTestingMode():
