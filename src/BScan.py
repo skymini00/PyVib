@@ -409,6 +409,29 @@ def processAndDisplayBscanData(appObj, oct_data, scanParams, rset, zROI):
     zRes = appObj.octSetupInfo.zRes
     
     img16b, img8b = makeBscanImage(oct_data, scanParams, zRes, normLow, normHigh, correctAspectRatio=True)
+    bgImg16b = appObj.bscanBGimg16b
+    bgImg8b = appObj.bscanBGimg8b
+    
+    # collect background
+    if appObj.bscan_collectBG_button.isChecked():
+        if bgImg16b is None:
+            bgImg16b = img16b
+            bgImg8b = img8b
+        else:
+            bgImg16b = np.maximum(bgImg16b, img16b)
+            bgImg8b = np.maximum(bgImg8b, img8b)
+            
+        appObj.bscanBGimg16b = bgImg16b
+        appObj.bscanBGimg8b = bgImg8b
+            
+            
+    # remove the background from he image by comparing the image with the background
+    # in places where the background is greater, set image to 0
+    if bgImg16b is not None and appObj.bscan_applyBGsub_button.isChecked():
+        if bgImg16b.shape == img16b.shape:
+            img16b = img16b * (img16b > bgImg16b)
+            img8b = img8b * (img8b > bgImg8b)
+            
     appObj.imgView.setImage(img8b.transpose())    
     lut = appObj.HOT_LUT
     appObj.imgView.getImageItem().setLookupTable(lut) 
@@ -419,7 +442,6 @@ def processAndDisplayBscanData(appObj, oct_data, scanParams, rset, zROI):
             rset = True
         
     appObj.bscan_img_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
-    
     
     appObj.imgDataScanParams = copy.copy(scanParams)
     appObj.imgdata_8b = img8b

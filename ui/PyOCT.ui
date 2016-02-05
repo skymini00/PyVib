@@ -48,7 +48,7 @@
        <property name="geometry">
         <rect>
          <x>0</x>
-         <y>0</y>
+         <y>-73</y>
          <width>1920</width>
          <height>1080</height>
         </rect>
@@ -867,7 +867,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>5</number>
         </property>
         <widget class="QWidget" name="bscan_tab">
          <attribute name="title">
@@ -1356,6 +1356,69 @@
           </property>
           <property name="text">
            <string>TextLabel</string>
+          </property>
+         </widget>
+         <widget class="QPushButton" name="bscan_collectBG_button">
+          <property name="geometry">
+           <rect>
+            <x>660</x>
+            <y>10</y>
+            <width>121</width>
+            <height>31</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Collect Background</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <widget class="QPushButton" name="bscan_applyBGsub_button">
+          <property name="geometry">
+           <rect>
+            <x>790</x>
+            <y>10</y>
+            <width>71</width>
+            <height>31</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Apply BG</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <widget class="QPushButton" name="bscan_resetBGsub_button">
+          <property name="geometry">
+           <rect>
+            <x>870</x>
+            <y>10</y>
+            <width>71</width>
+            <height>31</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Reset BG</string>
+          </property>
+          <property name="checkable">
+           <bool>false</bool>
           </property>
          </widget>
         </widget>

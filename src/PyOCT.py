@@ -236,6 +236,9 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             DebugLog.log("OCTWindowClass: __init__() failed to load speaekr calibration '%s'" % filepath)
             
         self.klin = None
+        self.bscanBGimg16b = None
+        self.bscanBGimg8b = None
+        
         DebugLog.log("OCTWindowClass: __init__() done")
         
         
@@ -447,6 +450,8 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         self.mscan_vol_amp_comboBox.currentIndexChanged.connect(self.mscanVolDataChanged)
         self.mscan_intensityThresh_slider.valueChanged.connect(self.mscanVolDataChanged)
         self.mscan_noise_numSD_dblSpinBox.valueChanged.connect(self.mscanVolDataChanged)
+
+        self.bscan_resetBGsub_button.clicked.connect(self.resetBscanBG)
         
     def _initGraphVars(self):
         layout = QtGui.QHBoxLayout()
@@ -615,7 +620,7 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
             btn.blockSignals(blk)
             
     # this function should be called when the collection is finished (for single process)
-    def finishCollection(self, sendAggDataRequest=True):
+    def finishCollection(self):
         self.isCollecting = False
         nextProtocol = self.nextProtocol
         
@@ -1422,7 +1427,9 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
         img8b = np.require(img8b, dtype=np.uint8)
         self.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, False)
 
-
+    def resetBscanBG(self):
+        self.bscanBGimg16b = None
+        self.bscanBGimg8b = None
 
         
             

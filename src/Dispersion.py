@@ -150,7 +150,7 @@ def processData(interpPD, dispData, numklinpts, PDfilterCutoffs, magWin_LPfilter
     # low pass filter to get rid of ripple
     filterCutoff = magWin_LPfilterCutoff
     (b, a) = scipy.signal.butter(2, filterCutoff, 'lowpass')
-    magWin = scipy.signal.lfilter(b, a, magWin)
+    magWin = scipy.signal.filtfilt(b, a, magWin)
     
     # renomalze to 0...1
     minWin = np.min(magWin)
@@ -159,6 +159,8 @@ def processData(interpPD, dispData, numklinpts, PDfilterCutoffs, magWin_LPfilter
     
     #magWin = magWin[0, :]
     phaseCorr = np.mean(phaseCorr, 0)
+            
+
     dispData.magWin = magWin
     dispData.phaseCorr = phaseCorr
     
@@ -364,6 +366,7 @@ def runDispersion(appObj):
             PD_HP_fc = appObj.disp_pd_hpfilter_cutoff_dblSpinBox.value()
             PDfiltCutoffs = [PD_LP_fc, PD_HP_fc]
             magWin_LPfilterCutoff = appObj.disp_magwin_lpfilter_cutoff_dblSpinBox.value()
+            
             dispData.mziFilter = appObj.mziFilter.value()
             dispData.magWin_LPfilterCutoff = magWin_LPfilterCutoff
             dispData.PDfilterCutoffs = PDfiltCutoffs
