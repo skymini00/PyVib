@@ -688,8 +688,11 @@ def plotScan(plotParam,data3D, procOpts):
 
 def processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam):
     DebugLog.log("VolumeScan.processDataSpiralScan(): oct_data_mag.shape=(%d, %d)" % (oct_data_mag.shape))
-
-    data3D=reformatScan(scanDetails,plotParam,oct_data_mag) # convert 2D array of A-lines in to 3D dataset with the proper orientation
+    if scanParams.pattern in (ScanPattern.spiral, ScanPattern.zigZag, ScanPattern.wagonWheel):
+        data3D=reformatScan(scanDetails,plotParam,oct_data_mag) # convert 2D array of A-lines in to 3D dataset with the proper orientation
+    else:
+        data3D=plotParam.volDataInTemp
+        
     volDataIn = VolumeData()
 #    volDataIn.scanParams = scanParams
     volDataIn.volumeImg = np.uint16(data3D)                
@@ -853,7 +856,14 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
             
         if DebugLog.isLogging:
             DebugLog.log("VolumeScan processData(): volumeImg.shape= " + repr(volDataIn.volumeImg.shape))
-        
+
+        if appObj.useJSOPlots_checkBox.isChecked(): 
+            plotParam.volDataInTemp=volDataIn
+            volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam)
+            volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
+            volDataIn.xPixSize = plotParam.xPixelSize     # x pixel size in um
+            volDataIn.yPixSize = plotParam.yPixelSize     # y pixel size in um 
+    
     return volDataIn
     
 # save the processed data of this protocol
@@ -1281,7 +1291,7 @@ def runVolScan(appObj):
     bscansPerFrame = scanParams.volBscansPerFrame
     numFrames = scanParams.widthSteps // bscansPerFrame            
     framesPerScan = scanParams.widthSteps // bscansPerFrame        
-
+    print('numFrames',numFrames)
     procOpts = ProcOpts()
     procOpts.normLow = appObj.normLow_spinBox.value()
     procOpts.normHigh = appObj.normHigh_spinBox.value()
@@ -1294,20 +1304,28 @@ def runVolScan(appObj):
         plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, trigRate, procOpts)
         numFrames = 1
         framesPerScan = 1
+    else:
+        if appObj.useJSOPlots_checkBox.isChecked():
+            plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, trigRate, procOpts)
+            print('using JSO plots is checked')
 
     if scanParams.continuousScan:
         numFrames = np.inf
+    print('gothere0.2')
       
     saveOpts = appObj.getSaveOpts()
     if(appObj.multiProcess):
         runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, scanDetails, procOpts, saveOpts, numFrames, framesPerScan)
         return
+    print('gothere0.4')
 
     isSaveDirInit = False
     try: 
         frameNum = 0
         scanNum = 0
+        print('variables:',appObj.doneFlag,frameNum,numFrames)
         while not appObj.doneFlag and frameNum < numFrames:
+            print('gothere0.5')
             startFrameTime = time.time()
             
             # reinitialize volume data on first frame
@@ -1318,6 +1336,7 @@ def runVolScan(appObj):
             procOpts.normHigh = appObj.normHigh_spinBox.value()
             procOpts.thresholdEnFace=appObj.thresholdEnFace_verticalSlider.value()
             procOpts.enFace_avgDepth=appObj.enFace_avgDepth_verticalSlider.value()
+            print('gothere0.6')
                 
             if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel or scanParams.pattern == ScanPattern.zigZag:
                 mirrorOut = scanDetails.mirrOut
@@ -1351,7 +1370,9 @@ def runVolScan(appObj):
                         daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOut.transpose())
                         
             else:       # regular volume scan
+                print('gothere1')
                 mirrorOut1 = makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, trigRate)
+                print('gothere2')
                 startTrigOffset = int(np.round(trigRate*mirrorDriver.settleTime))                
                 # if a MEMS mirror is being used, filter the mirrorOut commands to prevent damaging the device
                 if mirrorDriver.MEMS==True:
@@ -1361,6 +1382,8 @@ def runVolScan(appObj):
                 if not appObj.oct_hw.IsDAQTestingMode():    # regular volume scan needs to change the mirror output every time
                     # setup the analog output DAQ device
                     daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOut.transpose())
+                print('gothere3')
+
                 pl = appObj.plot_mirrorCmd
                 x_cmd = mirrorOut1[0, :]
                 y_cmd = mirrorOut1[1, :]
@@ -1475,18 +1498,26 @@ def runVolScan(appObj):
                         saveVolumeData(volData, saveDir, saveOpts, scanNum)
     
                     appObj.volDataLast = volData
-                    if volData.volumeImg_corr_aspect is not None:
-                        appObj.displayVolumeImg3D(volData.volumeImg_corr_aspect)  # update the volume image
+                    if appObj.useJSOPlots_checkBox.isChecked():                           
+                        spiralData = volData.spiralScanData                            
+                        img8b = spiralData.bscanPlot
+                        img8b = np.require(img8b, dtype=np.uint8)
+                        appObj.vol_bscan_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)
+                        img8b = spiralData.surfacePlot
+                        img8b = np.require(img8b, dtype=np.uint8)
+                        appObj.vol_plane_proj_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)                                   
                     else:
-                        appObj.displayVolumeImg3D(volData.volumeImg)  # update the volume image
-                        
-                    appObj.enFaceChanged()  # update the enface image
+                        if volData.volumeImg_corr_aspect is not None:
+                            appObj.displayVolumeImg3D(volData.volumeImg_corr_aspect)  # update the volume image
+                        else:
+                            appObj.displayVolumeImg3D(volData.volumeImg)  # update the volume image
+                            
+                        appObj.enFaceChanged()  # update the enface image
                     
                     scanNum += 1
                     if scanParams.continuousScan:
                         frameNum = 0
-                        
-                
+                                      
                 appObj.volCollectionTime_label.setText("%0.4g ms" % (1000*dataCollectionTime))
                 appObj.volProcessTime_label.setText("%0.4g ms" % (1000*processTime))
                 appObj.volUpdateRate_label.setText("%0.4g fps" % (1/(time.time() - startFrameTime)))

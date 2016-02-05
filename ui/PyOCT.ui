@@ -48,7 +48,7 @@
        <property name="geometry">
         <rect>
          <x>0</x>
-         <y>-73</y>
+         <y>0</y>
          <width>1920</width>
          <height>1080</height>
         </rect>
@@ -867,7 +867,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>5</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="bscan_tab">
          <attribute name="title">
@@ -2625,6 +2625,27 @@
            <string>Vol Mscan Sampling </string>
           </property>
           <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <widget class="QCheckBox" name="useJSOPlots_checkBox">
+          <property name="geometry">
+           <rect>
+            <x>600</x>
+            <y>820</y>
+            <width>121</width>
+            <height>17</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>10</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>Use JSO plots</string>
+          </property>
+          <property name="checked">
            <bool>true</bool>
           </property>
          </widget>
