@@ -751,6 +751,7 @@ def processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam,scanPa
 def initVolImgData(scanParams, img16b, img16b_corr, procOpts)    :
     volDataIn = VolumeData()
     volDataIn.scanParams = scanParams
+    print('volDataInitialize:',scanParams.widthSteps, img16b.shape[0], img16b.shape[1] )
     volDataIn.volumeImg = np.zeros((scanParams.widthSteps, img16b.shape[0], img16b.shape[1]), dtype=np.uint16)                
     volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
     volDataIn.xPixSize = img16b.shape[1]/scanParams.length     # x pixel size in um
@@ -863,6 +864,7 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
                 volDataIn = initVolImgData(scanParams, img16b, img16b_corr, procOpts)
             
             DebugLog.log("VolumeScan processData(): frameNum= %d img16b max= %d min=%d " % (frameNum, np.max(img16b), np.min(img16b)))
+            print(img16b.shape,volDataIn.volumeImg.shape)
             volDataIn.volumeImg[frameNum, :, :] = img16b
             volDataIn.volumeImg_corr_aspect[frameNum, :, :] = img16b_corr
             
