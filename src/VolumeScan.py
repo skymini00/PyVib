@@ -87,13 +87,14 @@ def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
     # define plotting parameters and then setup plotting algorithms
     plotParam=blankRecord() # create an empty record to pass the plotting parameters in
     plotParam.zROI = zROI
-    plotParam.zPixel=plotParam.zROI[1]-plotParam.zROI[0]+1              
+    plotParam.zPixel=plotParam.zROI[1]-plotParam.zROI[0]              
     plotParam.zPixelSize=procOpts.zRes    
     plotParam.xPixel=scanParams.lengthSteps   # number of pixels in x dimension  
     plotParam.yPixel=scanParams.widthSteps   # number of pixels in y dimension        
     plotParam.xCenter=np.int(plotParam.xPixel/2)
     plotParam.yCenter=np.int(plotParam.yPixel/2)            
     plotParam.rangeCenter=((plotParam.xCenter+plotParam.yCenter)//2)//4   
+    plotParam.rangeCenter=1   
     plotParam.xPixelZoom=1   # these zoom factors may change if the scan rate of the mirror doesn't permit the desired pixel resolution (NO, I eliminated this poorly-designed feature)
     plotParam.yPixelZoom=1
     plotParam.zPixelZoom=1    
@@ -591,6 +592,8 @@ def plotScan(plotParam,data3D, procOpts):
     """
     This simply takes the 3D data set and creates two images (surfacePlot,bScanPlot).               
     """
+    print('plotScan; data3D',data3D.shape)    
+    
     # create surface plot
     v21_log=20*np.log10(np.clip(data3D, 1, np.inf))
     threshold=(procOpts.thresholdEnFace/100)*20*np.log10(2**16)
@@ -599,15 +602,21 @@ def plotScan(plotParam,data3D, procOpts):
     v21Diff2=scipy.stats.threshold(v21Diff1,threshmin=0, newval=2**63)
     v3=np.argmin(v21Diff2,axis=2)
     v3_sumAll=np.sum(v21_log,axis=2)           
-    
+    print('v3',v3.shape, v3_sumAll.shape,v21_log.shape)
     # create summed voxel projection
-    centerDepth=np.mean(v3[plotParam.xCenter-plotParam.rangeCenter:plotParam.xCenter+plotParam.rangeCenter,plotParam.yCenter-plotParam.rangeCenter:plotParam.yCenter+plotParam.rangeCenter])
+#    centerDepth=np.mean(v3[plotParam.xCenter-plotParam.rangeCenter:plotParam.xCenter+plotParam.rangeCenter,plotParam.yCenter-plotParam.rangeCenter:plotParam.yCenter+plotParam.rangeCenter])
+    print('plotScan;plotParams:',plotParam.xCenter, plotParam.yCenter, plotParam.rangeCenter)
+    centerDepth=v3[plotParam.xCenter,plotParam.yCenter]
+
     if centerDepth+procOpts.enFace_avgDepth>plotParam.zPixel:
         cutoffDepth=plotParam.zPixel
     else:
         cutoffDepth=centerDepth+procOpts.enFace_avgDepth
+    print('plotScan; plotParam.zPixel',plotParam.zPixel, centerDepth, procOpts.enFace_avgDepth)
+
     v22=scipy.stats.threshold(v21Diff1,threshmin=0, newval=0)
-    
+    print('plotScan; v22',v22.shape, cutoffDepth)    
+   
     v4=np.sum(v22[:,:,0:cutoffDepth],axis=2)
 
     # shape the array to make a proportional image
@@ -686,12 +695,15 @@ def plotScan(plotParam,data3D, procOpts):
     return surfacePlot,bScanPlot,bScanPlot16b
 
 
-def processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam):
+def processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam,scanParams):
     DebugLog.log("VolumeScan.processDataSpiralScan(): oct_data_mag.shape=(%d, %d)" % (oct_data_mag.shape))
     if scanParams.pattern in (ScanPattern.spiral, ScanPattern.zigZag, ScanPattern.wagonWheel):
         data3D=reformatScan(scanDetails,plotParam,oct_data_mag) # convert 2D array of A-lines in to 3D dataset with the proper orientation
     else:
-        data3D=plotParam.volDataInTemp
+#        if volData.volumeImg_corr_aspect is not None:
+#            data3D=plotParam.volDataInTemp.volumeImg_corr_aspect  # update the volume image
+#        else:
+        data3D=np.swapaxes(np.swapaxes(plotParam.volDataInTemp.volumeImg,1,2),0,1)  # update the volume image
         
     volDataIn = VolumeData()
 #    volDataIn.scanParams = scanParams
@@ -755,14 +767,14 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
     scanP = scanParams
     bscansPerFrame = scanP.volBscansPerFrame
     if scanP.pattern == ScanPattern.spiral:
-        volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam)
+        volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam, scanParams)
     elif scanP.pattern == ScanPattern.wagonWheel:
-        volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam)
+        volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam, scanParams)
         volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
         volDataIn.xPixSize = plotParam.xPixelSize     # x pixel size in um
         volDataIn.yPixSize = plotParam.yPixelSize     # y pixel size in um 
     elif scanP.pattern == ScanPattern.zigZag:
-        volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam)
+        volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam, scanParams)
         volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
         volDataIn.xPixSize = plotParam.xPixelSize     # x pixel size in um
         volDataIn.yPixSize = plotParam.yPixelSize     # y pixel size in um 
@@ -857,12 +869,11 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
         if DebugLog.isLogging:
             DebugLog.log("VolumeScan processData(): volumeImg.shape= " + repr(volDataIn.volumeImg.shape))
 
-        if appObj.useJSOPlots_checkBox.isChecked(): 
+        if plotParam.useJSOPlots: 
             plotParam.volDataInTemp=volDataIn
-            volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam)
-            volDataIn.zPixSize = procOpts.zRes     # z pixel size in um
-            volDataIn.xPixSize = plotParam.xPixelSize     # x pixel size in um
-            volDataIn.yPixSize = plotParam.yPixelSize     # y pixel size in um 
+            plotParam.xPixelSize=(scanParams.length/plotParam.xPixel)*1000  # size of one pixel in the x dimension in microns
+            plotParam.yPixelSize=(scanParams.width/plotParam.yPixel)*1000  # size of one pixel in the y dimension in microns 
+            volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam, scanParams)
     
     return volDataIn
     
@@ -1291,7 +1302,6 @@ def runVolScan(appObj):
     bscansPerFrame = scanParams.volBscansPerFrame
     numFrames = scanParams.widthSteps // bscansPerFrame            
     framesPerScan = scanParams.widthSteps // bscansPerFrame        
-    print('numFrames',numFrames)
     procOpts = ProcOpts()
     procOpts.normLow = appObj.normLow_spinBox.value()
     procOpts.normHigh = appObj.normHigh_spinBox.value()
@@ -1307,17 +1317,15 @@ def runVolScan(appObj):
     else:
         if appObj.useJSOPlots_checkBox.isChecked():
             plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, trigRate, procOpts)
-            print('using JSO plots is checked')
+            plotParam.useJSOPlots=appObj.useJSOPlots_checkBox.isChecked()
 
     if scanParams.continuousScan:
         numFrames = np.inf
-    print('gothere0.2')
       
     saveOpts = appObj.getSaveOpts()
     if(appObj.multiProcess):
         runVolScanMultiProcess(appObj, testDataDir, scanParams, zROI, plotParam, scanDetails, procOpts, saveOpts, numFrames, framesPerScan)
         return
-    print('gothere0.4')
 
     isSaveDirInit = False
     try: 
@@ -1325,7 +1333,6 @@ def runVolScan(appObj):
         scanNum = 0
         print('variables:',appObj.doneFlag,frameNum,numFrames)
         while not appObj.doneFlag and frameNum < numFrames:
-            print('gothere0.5')
             startFrameTime = time.time()
             
             # reinitialize volume data on first frame
@@ -1336,7 +1343,6 @@ def runVolScan(appObj):
             procOpts.normHigh = appObj.normHigh_spinBox.value()
             procOpts.thresholdEnFace=appObj.thresholdEnFace_verticalSlider.value()
             procOpts.enFace_avgDepth=appObj.enFace_avgDepth_verticalSlider.value()
-            print('gothere0.6')
                 
             if scanParams.pattern == ScanPattern.spiral or scanParams.pattern == ScanPattern.wagonWheel or scanParams.pattern == ScanPattern.zigZag:
                 mirrorOut = scanDetails.mirrOut
@@ -1370,9 +1376,7 @@ def runVolScan(appObj):
                         daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOut.transpose())
                         
             else:       # regular volume scan
-                print('gothere1')
                 mirrorOut1 = makeVolumeScanCommand(scanParams, frameNum, mirrorDriver, trigRate)
-                print('gothere2')
                 startTrigOffset = int(np.round(trigRate*mirrorDriver.settleTime))                
                 # if a MEMS mirror is being used, filter the mirrorOut commands to prevent damaging the device
                 if mirrorDriver.MEMS==True:
@@ -1382,7 +1386,6 @@ def runVolScan(appObj):
                 if not appObj.oct_hw.IsDAQTestingMode():    # regular volume scan needs to change the mirror output every time
                     # setup the analog output DAQ device
                     daq.setupAnalogOutput(chanNames, trigChan, outputRate, mirrorOut.transpose())
-                print('gothere3')
 
                 pl = appObj.plot_mirrorCmd
                 x_cmd = mirrorOut1[0, :]
@@ -1429,6 +1432,7 @@ def runVolScan(appObj):
                     dataCollectionTime = time.time() - t1
                     timePoint4 = time.time()                    
                     oct_data, klin = JSOraw.softwareProcessing(ch0_data,ch1_data,zROI,appObj)
+                    print('oct_data',oct_data.shape)
                 else:
                     QtGui.QMessageBox.critical (appObj, "Error", "Unsuppoted processing mode for current hardware")
                     dataCollectionTime = 0
