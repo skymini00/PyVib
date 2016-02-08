@@ -12,6 +12,7 @@ import os
 import copy
 import platform  # for differentiating platforms
 import shutil # for copytree
+import Alazar_DLLInterface as alazar
 
 from PyQt4 import QtCore, QtGui, uic
 import pyqtgraph as pg
@@ -337,27 +338,34 @@ class OCTWindowClass(QtGui.QMainWindow, form_class):
     def _initOCTHardware(self, fpgaOpts):
         setup = self.octSetupInfo.setupNum
         
-        if self.multiProcess:
-            # returns LV_DLLInterface_BGProcess_Adaptor
-            oct_hw = octfpga.StartOCTInterfaceBGProcess(self.basePath, self.octSetupInfo.getTriggerRate())  
-        else:
-            oct_hw = octfpga.LV_DLLInterface()
+        if setup <= 4:  # NI hardwware for 50 kHz and 200 kHz systems, or test mode
+            if self.multiProcess:
+                # returns LV_DLLInterface_BGProcess_Adaptor
+                oct_hw = octfpga.StartOCTInterfaceBGProcess(self.basePath, self.octSetupInfo.getTriggerRate())  
+            else:
+                oct_hw = octfpga.LV_DLLInterface()
                 
-        samplesPerTrig = fpgaOpts.SamplesPerTrig
-        sampleOffset = fpgaOpts.SampleOffset
-        Ch0Shift = fpgaOpts.Ch0Shift
-        klinNumPts =  fpgaOpts.numKlinPts
-        klinROI = [fpgaOpts.klinRoiBegin, fpgaOpts.klinRoiEnd]
-        DebugLog.log("_initOCTHardware: initializing FPGA interface")
+            samplesPerTrig = fpgaOpts.SamplesPerTrig
+            sampleOffset = fpgaOpts.SampleOffset
+            Ch0Shift = fpgaOpts.Ch0Shift
+            klinNumPts =  fpgaOpts.numKlinPts
+            klinROI = [fpgaOpts.klinRoiBegin, fpgaOpts.klinRoiEnd]
+            DebugLog.log("_initOCTHardware: initializing FPGA interface")
+            
+            oct_hw.fpgaOpts = fpgaOpts
+            err, klin = oct_hw.InitFPGA(setup, sampleOffset, samplesPerTrig, Ch0Shift, klinNumPts, klinROI)
+            DebugLog.log("_initOCTHardware: InitFPGA err= %d" % err)
+            dispFilePath = os.path.join(self.settingsPath, "Dispersion")
+            dispFilePath = os.path.join(dispFilePath, self.octSetupInfo.dispFilenameFPGA)
+            self.oct_hw = oct_hw
+            
+            self.loadDispersionIntoFPGA(dispFilePath, fpgaOpts)
+
+        else: # Alazar card for 3D syste
+            oct_hw = Alazar_DLLInterface()
+            oct_hw.InitInterface()
+            self.oct_hw = oct_hw
         
-        oct_hw.fpgaOpts = fpgaOpts
-        err, klin = oct_hw.InitFPGA(setup, sampleOffset, samplesPerTrig, Ch0Shift, klinNumPts, klinROI)
-        DebugLog.log("_initOCTHardware: InitFPGA err= %d" % err)
-        dispFilePath = os.path.join(self.settingsPath, "Dispersion")
-        dispFilePath = os.path.join(dispFilePath, self.octSetupInfo.dispFilenameFPGA)
-        self.oct_hw = oct_hw
-        
-        self.loadDispersionIntoFPGA(dispFilePath, fpgaOpts)
               
         
     def _bindEventHandlers(self):
