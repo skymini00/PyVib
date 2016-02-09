@@ -98,7 +98,7 @@ def setupScan(scanParams, mirrorDriver, zROI, OCTtrigRate, procOpts):
     plotParam.xPixelZoom=1   # these zoom factors may change if the scan rate of the mirror doesn't permit the desired pixel resolution (NO, I eliminated this poorly-designed feature)
     plotParam.yPixelZoom=1
     plotParam.zPixelZoom=1    
-     
+    
     DebugLog.log("VolumeScan.setupScan() plotParam xPixel= %d yPixel= %d zPixel= %d xCenter= %d yCenter= %d rangeCenter= %d" % (plotParam.xPixel, plotParam.yPixel, plotParam.zPixel, plotParam.xCenter, plotParam.yCenter, plotParam.rangeCenter))
     #  setup galvo voltages and calculate which samples fit into which pixels                 
     scanDetails=blankRecord()  #create an empty record to get the spiral scan parameter
@@ -700,11 +700,8 @@ def processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam,scanPa
     if scanParams.pattern in (ScanPattern.spiral, ScanPattern.zigZag, ScanPattern.wagonWheel):
         data3D=reformatScan(scanDetails,plotParam,oct_data_mag) # convert 2D array of A-lines in to 3D dataset with the proper orientation
     else:
-#        if volData.volumeImg_corr_aspect is not None:
-#            data3D=plotParam.volDataInTemp.volumeImg_corr_aspect  # update the volume image
-#        else:
-        data3D=np.swapaxes(np.swapaxes(plotParam.volDataInTemp.volumeImg,1,2),0,1)  # update the volume image
-        
+        data3D=np.swapaxes(np.swapaxes(plotParam.volDataInTemp,1,2),0,1)  # update the volume image
+    
     volDataIn = VolumeData()
 #    volDataIn.scanParams = scanParams
     volDataIn.volumeImg = np.uint16(data3D)                
@@ -842,8 +839,6 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
                     t1 = time.time()
                     volDataIn = initVolImgData(scanParams, img16b, img16b_corr, procOpts)
                     DebugLog.log("VolumeScan processData(): volInitTime= %f ms" % (1000*(time.time() - t1)))
-                    
-                # DebugLog.log("VolumeScan processData(): step= %d img16b max= %d min=%d " % (n + bscansPerFrame*frameInScan, np.max(img16b), np.min(img16b)))
                 
                 t1 = time.time()
                 volDataIn.volumeImg[n + bscansPerFrame*frameInScan, :, :] = img16b
@@ -870,12 +865,6 @@ def processData(oct_data_mag, scanParams, mirrorDriver, OCTtrigRate, procOpts, v
             
         if DebugLog.isLogging:
             DebugLog.log("VolumeScan processData(): volumeImg.shape= " + repr(volDataIn.volumeImg.shape))
-
-        if plotParam.useJSOPlots: 
-            plotParam.volDataInTemp=volDataIn
-            plotParam.xPixelSize=(scanParams.length/plotParam.xPixel)*1000  # size of one pixel in the x dimension in microns
-            plotParam.yPixelSize=(scanParams.width/plotParam.yPixel)*1000  # size of one pixel in the y dimension in microns 
-            volDataIn = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam, scanParams)
     
     return volDataIn
     
@@ -1317,9 +1306,12 @@ def runVolScan(appObj):
         numFrames = 1
         framesPerScan = 1
     else:
+        plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, trigRate, procOpts)
         if appObj.useJSOPlots_checkBox.isChecked():
-            plotParam, scanDetails = setupScan(scanParams, mirrorDriver, zROI, trigRate, procOpts)
-            plotParam.useJSOPlots=appObj.useJSOPlots_checkBox.isChecked()
+            plotParam.useJSOPlots=True
+        else:
+            plotParam.useJSOPlots=False
+                
 
     if scanParams.continuousScan:
         numFrames = np.inf
@@ -1505,6 +1497,15 @@ def runVolScan(appObj):
     
                     appObj.volDataLast = volData
                     if appObj.useJSOPlots_checkBox.isChecked():                           
+                        if volData.volumeImg_corr_aspect is not None:
+                            volDataInTemp=volData.volumeImg_corr_aspect  
+                        else:
+                            volDataInTemp=volData.volumeImg   
+                        plotParam.volDataInTemp= volDataInTemp
+                        plotParam.xPixelSize=(scanParams.length/plotParam.xPixel)*1000  # size of one pixel in the x dimension in microns
+                        plotParam.yPixelSize=(scanParams.width/plotParam.yPixel)*1000  # size of one pixel in the y dimension in microns 
+                        volData = processDataSpecialScan(oct_data_mag, procOpts, scanDetails, plotParam, scanParams)
+
                         spiralData = volData.spiralScanData                            
                         img8b = spiralData.bscanPlot
                         img8b = np.require(img8b, dtype=np.uint8)
@@ -1513,13 +1514,13 @@ def runVolScan(appObj):
                         img8b = np.require(img8b, dtype=np.uint8)
                         appObj.vol_plane_proj_gv.setImage(img8b, ROIImageGraphicsView.COLORMAP_HOT, rset)                                   
                     else:
-                        if volData.volumeImg_corr_aspect is not None:
-                            appObj.displayVolumeImg3D(volData.volumeImg_corr_aspect)  # update the volume image
-                        else:
-                            appObj.displayVolumeImg3D(volData.volumeImg)  # update the volume image
-                            
                         appObj.enFaceChanged()  # update the enface image
-                    
+
+                    if volData.volumeImg_corr_aspect is not None:
+                        appObj.displayVolumeImg3D(volData.volumeImg_corr_aspect)  # update the volume image
+                    else:
+                        appObj.displayVolumeImg3D(volData.volumeImg)  # update the volume image
+                                        
                     scanNum += 1
                     if scanParams.continuousScan:
                         frameNum = 0
